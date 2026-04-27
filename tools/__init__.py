@@ -5,11 +5,12 @@ from .pg_tools import (
     update_transaction, 
     query_transactions
 )
-# from .mongo_tools import MONGO_TOOLS
+
+from .faq_tools import (
+    faq_retriever
+)
 
 PG_TOOLS = [add_transaction, daily_balance, total_balance, query_transactions, update_transaction]
-MONGO_TOOLS = []
-REDIS_TOOLS = []
+FAQ_TOOLS = [faq_retriever]
 
-TOOLS = PG_TOOLS + MONGO_TOOLS + REDIS_TOOLS
-__all__ = TOOLS
+__all__ = [PG_TOOLS, FAQ_TOOLS]

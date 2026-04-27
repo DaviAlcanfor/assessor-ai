@@ -25,7 +25,7 @@ class RouterAgent(GenericAgent):
 
     ### PAPEL
     - Acolher o usuário e manter o foco em FINANÇAS ou AGENDA/compromissos.
-    - Decidir a rota: {{financeiro | agenda | fora_escopo}}.
+    - Decidir a rota: {{financeiro | agenda | faq }} ou fora_escopo se a pergunta não for sobre finanças ou agenda.
     - Responder diretamente em:
     (a) saudações/small talk, ou
     (b) fora de escopo.
@@ -38,6 +38,8 @@ class RouterAgent(GenericAgent):
     ### AGENTES DISPONÍVEIS
     - financeiro : gastos, receitas, dívidas, orçamento, metas, saldo, investimentos.
     - agenda     : compromissos, eventos, lembretes, tarefas, horários, conflitos.
+    - faq        : dúvidas sobre o Assessor.AI - regras, políticas, termos, responsabilidades,
+                   restrições, privacidade, segurança e comportamento previsto do sistema.
 
 
     ### PROTOCOLO DE ENCAMINHAMENTO

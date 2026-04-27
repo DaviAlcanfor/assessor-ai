@@ -7,11 +7,17 @@ from langchain_groq import ChatGroq
 from enum import StrEnum
 from typing import Optional
 
-from tools import TOOLS
+from tools import (
+    PG_TOOLS,
+    FAQ_TOOLS   
+)
+
 from agents.router import RouterAgent
 from agents.financeiro import FinanceiroAgent
 from agents.agenda import AgendaAgent
 from agents.orquestrador import OrquestradorAgent
+from agents.faq import FaqAgent
+
 from config import (
     GROQ_API_KEY,
     GEMINI_API_KEY,
@@ -102,14 +108,13 @@ llm_especialista = llm_gemini.with_fallbacks([llm_groq])
 
 router_app = create_agent(
     model=llm_rapido,
-    tools=TOOLS,
     system_prompt=RouterAgent.PROMPT,
     checkpointer=MemorySaver()
 )
 
 financeiro_app = create_agent(
     model=llm_especialista,
-    tools=TOOLS,
+    tools=PG_TOOLS,
     system_prompt=FinanceiroAgent.PROMPT
 )
 
@@ -123,12 +128,19 @@ orquestrador_app = create_agent(
     system_prompt=OrquestradorAgent.PROMPT,
 )
 
+faq_app = create_agent(
+    model=llm_rapido,
+    tools=FAQ_TOOLS,
+    system_prompt=FaqAgent.PROMPT
+)
+
 
 # lógica principal dos agentes
 
 EXECUTORES = {
     "financeiro": financeiro_app,
     "agenda": agenda_app,
+    "faq": faq_app
 }
 
 
@@ -177,7 +189,11 @@ def executar_fluxo_agente(user_input: str, session_id: str = None) -> str:
         return resposta_router
 
     route = get_route_from_response(resposta_router)
+    
     agente_app = EXECUTORES.get(route)
+    
+    if agente_app == faq_app:
+        return invoke(faq_app, resposta_router)
 
     if agente_app is None:
         return f"Especialista para '{route}' não disponível."

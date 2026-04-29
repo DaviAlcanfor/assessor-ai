@@ -6,8 +6,7 @@ encaminhamento em texto puro. NÃO responde ao usuário.
 
 
 from agents.base import GenericAgent
-from config import GROQ_API_KEY
-from tools import TOOLS
+
 
 
 class RouterAgent(GenericAgent):

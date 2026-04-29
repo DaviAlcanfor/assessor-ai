@@ -1,16 +1,11 @@
 from functools import partial
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import MemorySaver
-from langchain_groq import ChatGroq
-from enum import StrEnum
 from typing import Optional
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 
-from tools import (
-    PG_TOOLS,
-    FAQ_TOOLS   
-)
 
 from agents.router import RouterAgent
 from agents.financeiro import FinanceiroAgent
@@ -18,10 +13,17 @@ from agents.agenda import AgendaAgent
 from agents.orquestrador import OrquestradorAgent
 from agents.faq import FaqAgent
 
-from config import (
-    GROQ_API_KEY,
-    GEMINI_API_KEY,
-    ANTHROPIC_API_KEY
+
+from tools import (
+    PG_TOOLS,
+    FAQ_TOOLS   
+)
+
+from config.models import (
+    Model,
+    PROVIDER_MAP,
+    BUILDERS,
+    API_KEYS
 )
 
 
@@ -41,33 +43,7 @@ from config import (
 # (algumas informações como top_p não são customizáveis em certos modelos, como no ChatGroq)
 
 
-class Model(StrEnum):
-    GEMINI_2_5_FLASH    = "gemini-2.5-flash"
-    LLAMA_3_3_VERSATILE = "llama-3.3-70b-versatile"
-    QWEN_2_5_PRO        = "qwen-2.5-pro"
-    CLAUDE_HAIKU        = "claude-haiku-4-5-20251001"
-    CLAUDE_SONNET       = "claude-sonnet-4-6"
 
-
-PROVIDER_MAP = {
-    Model.GEMINI_2_5_FLASH:    "gemini",
-    Model.LLAMA_3_3_VERSATILE: "groq",
-    Model.QWEN_2_5_PRO:        "groq",
-    Model.CLAUDE_HAIKU:        "claude",
-    Model.CLAUDE_SONNET:       "claude",
-}
-
-API_KEYS = {
-    "gemini": GEMINI_API_KEY,
-    "groq":   GROQ_API_KEY,
-    "claude": ANTHROPIC_API_KEY,
-}
-
-BUILDERS = {
-    "gemini": ChatGoogleGenerativeAI,
-    "groq":   ChatGroq,
-    "claude": ChatAnthropic,
-}
 
 
 def build_llm(
@@ -212,10 +188,6 @@ def main():
             resposta = executar_fluxo_agente(user_input, 
                                              session_id="id")    
             print("🤖 > ", resposta)
-        
-        except KeyboardInterrupt:
-            print("\nAté logo!")
-            break
         
         except Exception as e:
             print("Erro ao consumir API:", e)

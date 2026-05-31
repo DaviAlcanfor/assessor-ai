@@ -18,6 +18,15 @@ from ui.terminal import (
 )
 
 
+# --------------------- FIX WARNING ---------------------
+import logging
+import warnings
+
+warnings.filterwarnings("ignore", message="Deserializing unregistered type")
+logging.getLogger("langgraph").setLevel(logging.ERROR)
+# --------------------- FIX WARNING ---------------------
+
+
 def montar_mensagem_humana(conteudo: str) -> dict:
     return {"role": "human", "content": conteudo}
 

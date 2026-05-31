@@ -1,8 +1,15 @@
 from langchain_core.messages import AIMessage
+from langchain_core.messages import messages_to_dict, messages_from_dict
 from uuid import uuid4
+import os
 
 from graph.builder import fluxo_agentes
 from config.docker import garantir_banco
+from tools.mongo.core import (
+    inserir,
+    buscar,
+    atualizar
+)
 from ui.terminal import (
     exibir_titulo,
     exibir_usuario,
@@ -11,13 +18,21 @@ from ui.terminal import (
 )
 
 
+def montar_mensagem_humana(conteudo: str) -> dict:
+    return {"role": "human", "content": conteudo}
+
+
 def executar_fluxo_assessor(
     pergunta_usuario: str, 
     session_id: str
 ) -> str:
-
+    
+    historico = buscar(session_id)
+    nova_msg = montar_mensagem_humana(pergunta_usuario)
+    historico_msg = messages_from_dict(historico["messages"]) if historico else []
+    
     estado_inicial = {
-        "messages":         [{"role": "human", "content": pergunta_usuario}],
+        "messages": historico_msg + [nova_msg],
         "agentes_chamados": [],
     }
 
@@ -26,7 +41,15 @@ def executar_fluxo_assessor(
         config={"configurable": {"thread_id": session_id}},
     )
 
-    for msg in reversed(estado_final.get("messages", [])):
+    messages = messages_to_dict(estado_final["messages"])
+    
+    if not historico:
+        inserir(session_id, messages=messages)
+    else:
+        atualizar(session_id, messages=messages)
+    
+
+    for msg in estado_final["messages"][::-1]:
         if isinstance(msg, AIMessage):
             return msg.content
 
@@ -34,11 +57,11 @@ def executar_fluxo_assessor(
 
 
 def main() -> None:
+    os.system("cls")
     
     garantir_banco()
-
     exibir_titulo()
-    session_id = str(uuid4())
+    session_id = "session_1"    
     
     while True:
         try:

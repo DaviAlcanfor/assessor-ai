@@ -1,6 +1,6 @@
 import os
-os.environ["LANGGRAPH_MSGPACK_ALLOWED_MODULES"] = (
-    "agents.nodes.names:NodeName,graph.state:Route"
+os.environ["LANGGRAPH_ALLOWED_MSGPACK_MODULES"] = (
+    "agents.nodes.names,graph.state"
 )
 
 from langgraph.graph import StateGraph, END

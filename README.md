@@ -28,67 +28,101 @@ O Assessor.AI atua como um parceiro pessoal que responde perguntas e executa aç
 - Gera diagnósticos e recomendações financeiras com base nos dados reais do banco
 
 **Agenda e compromissos**
-- Cria, consulta, atualiza e cancela eventos
-- Identifica conflitos de horário e sugere alternativas
-- Gerencia disponibilidade e lembretes
+- Cria, consulta e atualiza eventos
+- Consulta eventos do dia
+- Gerencia localização, horários e observações de cada evento
 
 Para tudo fora desses dois escopos (small talk, saudações, perguntas fora de área), o próprio roteador responde diretamente ao usuário.
 
 ---
 
+## Diagrama de agentes
+
+```mermaid
+flowchart LR
+    U(["Usuário"])
+    R["Router"]
+    F["Financeiro"]
+    A["Agenda"]
+    FAQ["FAQ"]
+    O["Orquestrador"]
+    E(["Fim"])
+
+    U --> R
+    R -->|"ROUTE=financeiro"| F
+    R -->|"ROUTE=agenda"| A
+    R -->|"ROUTE=faq"| FAQ
+    R -->|"fora de escopo"| E
+    F --> O
+    A --> O
+    O --> E
+    FAQ --> E
+```
+
+---
+
 ## Estrutura do projeto
-    assessor-ai/
-    ├── main.py                      # Ponto de entrada — loop de conversa no terminal
-    ├── requirements.txt             # Dependências do projeto
-    │
-    ├── agents/
-    │   ├── prompts/                 # Prompts de cada agente
-    │   │   ├── base.py              # GenericAgent: persona e contexto temporal compartilhados
-    │   │   ├── router.py            # RouterAgent
-    │   │   ├── financeiro.py        # FinanceiroAgent
-    │   │   ├── agenda.py            # AgendaAgent
-    │   │   ├── orquestrador.py      # OrquestradorAgent
-    │   │   └── faq.py               # FaqAgent
-    │   └── nodes/                   # Funções de nó do grafo LangGraph
-    │       ├── names.py             # NodeName StrEnum
-    │       ├── router.py            # no_roteador
-    │       ├── financeiro.py        # no_financeiro
-    │       ├── agenda.py            # no_agenda
-    │       └── orquestrador.py      # no_orquestrador
-    │
-    ├── graph/
-    │   ├── state.py                 # Estado e Route StrEnum
-    │   ├── llms.py                  # build_llm e instâncias de LLM
-    │   ├── agents.py                # Agentes compilados (router_app, financeiro_app, etc.)
-    │   └── builder.py               # Construção e compilação do grafo LangGraph
-    │
-    ├── tools/
-    │   ├── postgres/
-    │   │   ├── connection.py        # Pool de conexões PostgreSQL
-    │   │   ├── helpers.py           # resolve_type_id, get_category_id, local_date_filter_sql
-    │   │   ├── schemas.py           # Schemas Pydantic das tools
-    │   │   └── core.py              # Tools LangChain (add, query, update, balance)
-    │   ├── faq_tools.py             # Tool de RAG sobre o PDF de FAQ
-    │   └── response.py              # Classe Response para padronizar retornos
-    │
-    ├── config/
-    │   ├── settings.py              # Carrega e valida variáveis de ambiente
-    │   ├── models.py                # PROVIDER_MAP, BUILDERS, Model Enum
-    │   ├── logging.py               # ColorFormatter e get_logger
-    │   └── decorators.py            # log_tool decorator
-    │
-    ├── ui/
-    │   └── terminal.py              # Interface Rich + pyfiglet no terminal
-    │
-    └── data/
-    └── documents/               # PDFs para RAG
-    └── FAQ_assessor_v1.1.pdf
+
+```
+assessor-ai/
+├── main.py                          # Ponto de entrada — loop de conversa no terminal
+├── requirements.txt                 # Dependências do projeto
+│
+├── agents/
+│   ├── prompts/                     # Prompts de cada agente
+│   │   ├── base.py                  # GenericAgent: persona e contexto temporal compartilhados
+│   │   ├── router.py                # RouterAgent
+│   │   ├── financeiro.py            # FinanceiroAgent
+│   │   ├── agenda.py                # AgendaAgent
+│   │   ├── orquestrador.py          # OrquestradorAgent
+│   │   └── faq.py                   # FaqAgent
+│   └── nodes/                       # Funções de nó do grafo LangGraph
+│       ├── names.py                 # NodeName StrEnum
+│       ├── router.py                # no_roteador
+│       ├── financeiro.py            # no_financeiro
+│       ├── agenda.py                # no_agenda
+│       ├── faq.py                   # no_faq
+│       └── orquestrador.py          # no_orquestrador
+│
+├── graph/
+│   ├── state.py                     # Estado e Route StrEnum
+│   ├── llms.py                      # build_llm e instâncias de LLM
+│   ├── agents.py                    # Agentes compilados (router_app, financeiro_app, etc.)
+│   └── builder.py                   # Construção e compilação do grafo LangGraph
+│
+├── tools/
+│   ├── postgres/
+│   │   ├── financeiro/
+│   │   │   ├── schemas.py           # Schemas Pydantic das tools financeiras
+│   │   │   └── core.py              # Tools: add_transaction, query_transactions, update_transaction, total_balance, daily_balance
+│   │   ├── agenda/
+│   │   │   ├── schemas.py           # Schemas Pydantic das tools de agenda
+│   │   │   └── core.py              # Tools: add_event, query_events, query_daily_events, update_event
+│   │   ├── connection.py            # Pool de conexões PostgreSQL (lazy init)
+│   │   └── helpers.py               # resolve_type_id, get_category_id, local_date_filter_sql
+│   ├── faq_tools.py                 # Tool de RAG sobre o PDF de FAQ
+│   └── response.py                  # Classe Response para padronizar retornos
+│
+├── config/
+│   ├── settings.py                  # Carrega e valida variáveis de ambiente
+│   ├── models.py                    # PROVIDER_MAP, BUILDERS, Model Enum
+│   ├── logging.py                   # ColorFormatter e get_logger
+│   ├── decorators.py                # log_tool decorator
+│   └── docker.py                    # Auto start/stop do container PostgreSQL
+│
+├── ui/
+│   └── terminal.py                  # Interface Rich + pyfiglet no terminal
+│
+└── data/
+    └── documents/                   # PDFs para RAG
+        └── FAQ_assessor_v1.1.pdf
+```
 
 ---
 
 ## Fluxo dos agentes
 
-O fluxo completo de uma mensagem segue quatro etapas:
+```
 Usuário
 │
 ▼
@@ -104,6 +138,7 @@ Usuário
 │  formata a resposta em linguagem natural
 ▼
 Usuário
+```
 
 ### Agentes em detalhe
 
@@ -111,13 +146,15 @@ Usuário
 |---|---|---|
 | **Router** | `llama-3.3-70b-versatile` (temp 0.0) | Classifica a intenção e emite `ROUTE=financeiro\|agenda\|faq`, ou responde diretamente |
 | **Financeiro** | `gemini-2.5-flash` + fallback `llama-3.3-70b` | Interpreta a pergunta financeira e chama as tools do banco |
-| **Agenda** | `llama-3.3-70b-versatile` (temp 0.0) | Interpreta perguntas de agenda |
+| **Agenda** | `gemini-2.5-flash` | Interpreta perguntas de agenda e chama as tools de eventos |
 | **FAQ** | `llama-3.3-70b-versatile` (temp 0.0) | Consulta o PDF via RAG e responde dúvidas sobre o sistema |
 | **Orquestrador** | `llama-3.3-70b-versatile` (temp 0.0) | Formata a resposta do especialista em linguagem natural |
 
 ---
 
-## Tools (PostgreSQL)
+## Tools
+
+### Financeiro (PostgreSQL)
 
 | Tool | Descrição |
 |---|---|
@@ -129,6 +166,15 @@ Usuário
 
 Tipos de transação: `INCOME` (1), `EXPENSES` (2), `TRANSFER` (3).  
 Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, `saúde`, `lazer`, `contas`, `investimento`, `presente`, `outros`.
+
+### Agenda (PostgreSQL)
+
+| Tool | Descrição |
+|---|---|
+| `add_event` | Insere um evento (título, horário, local, observações) |
+| `query_events` | Consulta eventos com filtros por período e título |
+| `query_daily_events` | Retorna todos os eventos de um dia específico |
+| `update_event` | Atualiza evento por ID ou por busca de texto + data |
 
 ---
 
@@ -154,6 +200,8 @@ uv pip install -r requirements.txt
 ```bash
 python main.py
 ```
+
+O sistema sobe automaticamente o container Docker do PostgreSQL ao iniciar e o encerra ao fechar.
 
 Digite `/exit` para encerrar.
 

@@ -37,52 +37,52 @@ Para tudo fora desses dois escopos (small talk, saudações, perguntas fora de �
 ---
 
 ## Estrutura do projeto
-assessor-ai/
-├── main.py                      # Ponto de entrada — loop de conversa no terminal
-├── requirements.txt             # Dependências do projeto
-│
-├── agents/
-│   ├── prompts/                 # Prompts de cada agente
-│   │   ├── base.py              # GenericAgent: persona e contexto temporal compartilhados
-│   │   ├── router.py            # RouterAgent
-│   │   ├── financeiro.py        # FinanceiroAgent
-│   │   ├── agenda.py            # AgendaAgent
-│   │   ├── orquestrador.py      # OrquestradorAgent
-│   │   └── faq.py               # FaqAgent
-│   └── nodes/                   # Funções de nó do grafo LangGraph
-│       ├── names.py             # NodeName StrEnum
-│       ├── router.py            # no_roteador
-│       ├── financeiro.py        # no_financeiro
-│       ├── agenda.py            # no_agenda
-│       └── orquestrador.py      # no_orquestrador
-│
-├── graph/
-│   ├── state.py                 # Estado e Route StrEnum
-│   ├── llms.py                  # build_llm e instâncias de LLM
-│   ├── agents.py                # Agentes compilados (router_app, financeiro_app, etc.)
-│   └── builder.py               # Construção e compilação do grafo LangGraph
-│
-├── tools/
-│   ├── postgres/
-│   │   ├── connection.py        # Pool de conexões PostgreSQL
-│   │   ├── helpers.py           # resolve_type_id, get_category_id, local_date_filter_sql
-│   │   ├── schemas.py           # Schemas Pydantic das tools
-│   │   └── core.py              # Tools LangChain (add, query, update, balance)
-│   ├── faq_tools.py             # Tool de RAG sobre o PDF de FAQ
-│   └── response.py              # Classe Response para padronizar retornos
-│
-├── config/
-│   ├── settings.py              # Carrega e valida variáveis de ambiente
-│   ├── models.py                # PROVIDER_MAP, BUILDERS, Model Enum
-│   ├── logging.py               # ColorFormatter e get_logger
-│   └── decorators.py            # log_tool decorator
-│
-├── ui/
-│   └── terminal.py              # Interface Rich + pyfiglet no terminal
-│
-└── data/
-└── documents/               # PDFs para RAG
-└── FAQ_assessor_v1.1.pdf
+    assessor-ai/
+    ├── main.py                      # Ponto de entrada — loop de conversa no terminal
+    ├── requirements.txt             # Dependências do projeto
+    │
+    ├── agents/
+    │   ├── prompts/                 # Prompts de cada agente
+    │   │   ├── base.py              # GenericAgent: persona e contexto temporal compartilhados
+    │   │   ├── router.py            # RouterAgent
+    │   │   ├── financeiro.py        # FinanceiroAgent
+    │   │   ├── agenda.py            # AgendaAgent
+    │   │   ├── orquestrador.py      # OrquestradorAgent
+    │   │   └── faq.py               # FaqAgent
+    │   └── nodes/                   # Funções de nó do grafo LangGraph
+    │       ├── names.py             # NodeName StrEnum
+    │       ├── router.py            # no_roteador
+    │       ├── financeiro.py        # no_financeiro
+    │       ├── agenda.py            # no_agenda
+    │       └── orquestrador.py      # no_orquestrador
+    │
+    ├── graph/
+    │   ├── state.py                 # Estado e Route StrEnum
+    │   ├── llms.py                  # build_llm e instâncias de LLM
+    │   ├── agents.py                # Agentes compilados (router_app, financeiro_app, etc.)
+    │   └── builder.py               # Construção e compilação do grafo LangGraph
+    │
+    ├── tools/
+    │   ├── postgres/
+    │   │   ├── connection.py        # Pool de conexões PostgreSQL
+    │   │   ├── helpers.py           # resolve_type_id, get_category_id, local_date_filter_sql
+    │   │   ├── schemas.py           # Schemas Pydantic das tools
+    │   │   └── core.py              # Tools LangChain (add, query, update, balance)
+    │   ├── faq_tools.py             # Tool de RAG sobre o PDF de FAQ
+    │   └── response.py              # Classe Response para padronizar retornos
+    │
+    ├── config/
+    │   ├── settings.py              # Carrega e valida variáveis de ambiente
+    │   ├── models.py                # PROVIDER_MAP, BUILDERS, Model Enum
+    │   ├── logging.py               # ColorFormatter e get_logger
+    │   └── decorators.py            # log_tool decorator
+    │
+    ├── ui/
+    │   └── terminal.py              # Interface Rich + pyfiglet no terminal
+    │
+    └── data/
+    └── documents/               # PDFs para RAG
+    └── FAQ_assessor_v1.1.pdf
 
 ---
 

@@ -5,19 +5,11 @@ encaminhamento em texto puro. NÃO responde ao usuário.
 """
 
 
-from agents.base import GenericAgent
+from agents.prompts.base import GenericAgent
 
 
 
 class RouterAgent(GenericAgent):
-    
-    # model = "llama-3.3-70b-versatile"
-    # api_key = GROQ_API_KEY
-    # temperature = 0.0
-    # tools = TOOLS
-    # use_memory = True
-    
-    
     _SYSTEM_PROMPT = f"""
     {GenericAgent.PERSONA_SISTEMA}
     {GenericAgent.CONTEXTO_TEMPORAL}

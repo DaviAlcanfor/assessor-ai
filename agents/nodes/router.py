@@ -1,0 +1,36 @@
+import re
+
+from graph.state import Route, Estado
+from graph.agents import router_app
+from agents.nodes.names import NodeName
+
+
+def _extrair_rota(texto: str) -> Route:
+
+    match = re.search(r"ROUTE=(\w+)", texto)
+    if not match:
+        return Route.FIM
+    
+    try:
+        return Route(match.group(1))
+    except ValueError:
+        return Route.FIM
+
+
+def no_roteador(estado: Estado) -> dict:
+
+    saida = router_app.invoke({"messages": list(estado["messages"])})
+    texto = saida["messages"][-1].content
+    rota  = _extrair_rota(texto)
+
+    if rota is Route.FIM:
+        return {
+            "agentes_chamados": [NodeName.ROTEADOR],
+            "rota":             Route.FIM,
+            "messages":         [{"role": "assistant", "content": texto}],
+        }
+
+    return {
+        "agentes_chamados": [NodeName.ROTEADOR],
+        "rota":             rota,
+    }

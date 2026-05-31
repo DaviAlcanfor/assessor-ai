@@ -1,12 +1,10 @@
 from enum import StrEnum
-from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 
-from settings import (
+from .settings import (
     GROQ_API_KEY,
     GEMINI_API_KEY,
-    ANTHROPIC_API_KEY
 )
 
 class Model(StrEnum):
@@ -30,11 +28,9 @@ PROVIDER_MAP = {
 API_KEYS = {
     "gemini": GEMINI_API_KEY,
     "groq":   GROQ_API_KEY,
-    "claude": ANTHROPIC_API_KEY,
 }
 
 BUILDERS = {
     "gemini": ChatGoogleGenerativeAI,
     "groq":   ChatGroq,
-    "claude": ChatAnthropic,
 }

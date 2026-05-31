@@ -1,6 +1,7 @@
 # Essa classe garante que o objeto de Python passe todos esses campos
-from typing import List, Optional, Any
+from typing import Optional
 from pydantic import BaseModel, Field
+
 
 class AddTransactionArgs(BaseModel):
     amount: float = Field(..., description="Valor da transação (use positivo).")

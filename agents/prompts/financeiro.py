@@ -6,7 +6,7 @@ Saída   : JSON estruturado para o Orquestrador
 
 """
 
-from agents.base import GenericAgent
+from agents.prompts.base import GenericAgent
 
 
 class FinanceiroAgent(GenericAgent):

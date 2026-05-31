@@ -6,7 +6,7 @@ Saída   : resposta final formatada para o usuário
 
 """
 
-from agents.base import GenericAgent
+from agents.prompts.base import GenericAgent
 
 
 class OrquestradorAgent(GenericAgent):

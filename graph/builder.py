@@ -1,14 +1,21 @@
+import os
+os.environ["LANGGRAPH_MSGPACK_ALLOWED_MODULES"] = (
+    "agents.nodes.names:NodeName,graph.state:Route"
+)
+
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from graph.state import Estado, Route
-from graph.agents import agenda_app, faq_app
+from graph.agents import faq_app
 
 from agents.nodes.names import NodeName
 from agents.nodes import (
     no_roteador,
     no_orquestrador,
     no_financeiro,
+    no_agenda,
+    no_faq,
 )
 
 
@@ -29,8 +36,8 @@ grafo = StateGraph(Estado)
 
 grafo.add_node(NodeName.ROTEADOR,     no_roteador)
 grafo.add_node(NodeName.FINANCEIRO,   no_financeiro)
-grafo.add_node(NodeName.AGENDA,       agenda_app)
-grafo.add_node(NodeName.FAQ,          faq_app)
+grafo.add_node(NodeName.AGENDA,       no_agenda)
+grafo.add_node(NodeName.FAQ,          no_faq)
 grafo.add_node(NodeName.ORQUESTRADOR, no_orquestrador)
 
 grafo.set_entry_point(NodeName.ROTEADOR)

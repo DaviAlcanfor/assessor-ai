@@ -12,7 +12,7 @@ from tools.postgres.helpers import (
     get_category_id,
     local_date_filter_sql
 )
-from tools.postgres.schemas import (
+from tools.postgres.financeiro.schemas import (
     AddTransactionArgs,
     QueryTransactionArgs,
     UpdateTransactionArgs

@@ -14,4 +14,5 @@ class Route(StrEnum):
 class Estado(MessagesState):
     resposta_especialista: str
     agentes_chamados:      Annotated[list[str], operator.add]
-    rota:                  Route                             
+    rota:                  Route
+    pergunta_original:     str                             

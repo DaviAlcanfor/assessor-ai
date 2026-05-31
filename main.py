@@ -1,6 +1,8 @@
 from langchain_core.messages import AIMessage
 from uuid import uuid4
+
 from graph.builder import fluxo_agentes
+from config.docker import garantir_banco
 from ui.terminal import (
     exibir_titulo,
     exibir_usuario,
@@ -32,6 +34,8 @@ def executar_fluxo_assessor(
 
 
 def main() -> None:
+    
+    garantir_banco()
 
     exibir_titulo()
     session_id = str(uuid4())

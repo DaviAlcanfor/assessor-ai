@@ -34,7 +34,7 @@ class RouterAgent(GenericAgent):
 
 
     ### PROTOCOLO DE ENCAMINHAMENTO
-    ROUTE=[financeiro|agenda]
+    ROUTE=[financeiro|agenda|faq]
     PERGUNTA_ORIGINAL=[mensagem completa do usuário, sem edições]
 
     """
@@ -70,6 +70,13 @@ class RouterAgent(GenericAgent):
     ROUTE=agenda
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
+    
+    _SHOT_6 = f"""
+    Usuário: [dúvida sobre o funcionamento, regras ou políticas do Assessor.AI]
+    Roteador:
+    ROUTE=faq
+    PERGUNTA_ORIGINAL=[mensagem completa do usuário]
+    """
 
     _SHOTS_CUT = (
         "FIM DOS EXEMPLOS. "
@@ -84,6 +91,7 @@ class RouterAgent(GenericAgent):
         _SHOT_3        + "\n\n" +
         _SHOT_4        + "\n\n" +
         _SHOT_5        + "\n\n" +
+        _SHOT_6        + "\n\n" +
         _SHOTS_CUT
     )
     

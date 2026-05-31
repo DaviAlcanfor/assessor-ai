@@ -12,3 +12,6 @@ def no_financeiro(estado: Estado) -> dict:
         "agentes_chamados":    [NodeName.FINANCEIRO],
         "resposta_especialista": resposta,
     }
+    
+    
+__all__ = ['no_financeiro']

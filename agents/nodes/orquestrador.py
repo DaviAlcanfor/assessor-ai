@@ -14,3 +14,6 @@ def no_orquestrador(estado: Estado) -> dict:
         "agentes_chamados": [estado["rota"], "orquestrador"],
         "messages":         [{"role": "assistant", "content": saida["messages"][-1].content}],
     }
+    
+    
+__all__ = ['no_orquestrador']

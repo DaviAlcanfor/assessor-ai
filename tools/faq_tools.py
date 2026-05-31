@@ -7,7 +7,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from config.settings import GEMINI_API_KEY
-from config.models import EMBEDDING_MODEL
+from config.models import Model
 
 
 _PDF_PATH     = Path("data/documents/FAQ_assessor_v1.1.pdf")
@@ -24,8 +24,9 @@ def _build_index() -> FAISS:
     ).split_documents(loader.load())
 
     embeddings = GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        google_api_key=GEMINI_API_KEY
+        model=Model.EMBEDDING_MODEL,
+        google_api_key=GEMINI_API_KEY,
+        task_type="retrieval_document"
     )
 
     return FAISS.from_documents(chunks, embeddings)

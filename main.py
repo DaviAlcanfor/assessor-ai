@@ -1,3 +1,4 @@
+from langchain_core.messages import AIMessage
 from uuid import uuid4
 from graph.builder import fluxo_agentes
 from ui.terminal import (
@@ -24,7 +25,7 @@ def executar_fluxo_assessor(
     )
 
     for msg in reversed(estado_final.get("messages", [])):
-        if getattr(msg, "type", None) == "ai":
+        if isinstance(msg, AIMessage):
             return msg.content
 
     return "Sem resposta."

@@ -22,8 +22,9 @@ from tools.postgres.schemas import (
 logger = get_logger("pg_tools")
 
 
-@log_tool
+
 @tool("add_transaction", args_schema=AddTransactionArgs)
+@log_tool
 def add_transaction(
     amount: float,
     source_text: str,
@@ -78,8 +79,8 @@ def add_transaction(
                 return Response.error(e)
 
 
-@log_tool
 @tool("total_balance")
+@log_tool
 def total_balance() -> dict:
     """Retorna o saldo total do usuário (INCOME - EXPENSES)."""
 
@@ -104,8 +105,8 @@ def total_balance() -> dict:
                 return Response.error(e)
 
 
-@log_tool
 @tool("daily_balance")
+@log_tool
 def daily_balance(date_local: str) -> dict:
     """
     Retorna o saldo líquido do usuário em um dia específico (INCOME - EXPENSES).
@@ -136,8 +137,8 @@ def daily_balance(date_local: str) -> dict:
                 return Response.error(e)
 
 
-@log_tool
 @tool("query_transactions", args_schema=QueryTransactionArgs)
+@log_tool
 def query_transactions(
     date_from_local: Optional[str] = None,
     date_to_local: Optional[str] = None,
@@ -203,8 +204,8 @@ def query_transactions(
                 return Response.error(e)
 
 
-@log_tool
 @tool("update_transaction", args_schema=UpdateTransactionArgs)
+@log_tool
 def update_transaction(
     id: Optional[int] = None,
     match_text: Optional[str] = None,

@@ -18,6 +18,7 @@ dependencies = [
     "dataclasses-json==0.6.7",
     "distro==1.9.0",
     "docstring-parser==0.18.0",
+    "faiss-cpu>=1.14.2",
     "filetype==1.2.0",
     "frozenlist==1.8.0",
     "google-auth==2.49.2",

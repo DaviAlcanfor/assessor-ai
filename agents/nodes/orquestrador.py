@@ -6,7 +6,7 @@ def no_orquestrador(estado: Estado) -> dict:
 
     saida = orquestrador_app.invoke({
         "messages": [
-            {"role": "assistant", "content": estado["resposta_especialista"]}
+            {"role": "human", "content": estado["resposta_especialista"]}
         ]
     })
 

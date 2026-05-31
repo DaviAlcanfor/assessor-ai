@@ -13,7 +13,7 @@ class Model(StrEnum):
     QWEN_2_5_PRO        = "qwen-2.5-pro"
     CLAUDE_HAIKU        = "claude-haiku-4-5"
     CLAUDE_SONNET       = "claude-sonnet-4-6"
-    EMBEDDING_MODEL     = "gemini-embeddings-2-preview"
+    EMBEDDING_MODEL     = "gemini-embedding-001"
     
 
 

@@ -37,83 +37,87 @@ Para tudo fora desses dois escopos (small talk, saudações, perguntas fora de �
 ---
 
 ## Estrutura do projeto
-
-```
 assessor-ai/
-├── main.py               # Ponto de entrada — instancia LLMs, agentes e executa o loop de conversa
-├── config.py             # Carrega variáveis de ambiente (.env)
-├── requirements.txt      # Dependências do projeto
+├── main.py                      # Ponto de entrada — loop de conversa no terminal
+├── requirements.txt             # Dependências do projeto
 │
 ├── agents/
-│   ├── base.py           # GenericAgent: persona e contexto temporal compartilhados
-│   ├── router.py         # RouterAgent: classifica a intenção e emite o protocolo de rota
-│   ├── financeiro.py     # FinanceiroAgent: processa perguntas financeiras via tools
-│   ├── agenda.py         # AgendaAgent: processa perguntas de agenda/compromissos
-│   └── orquestrador.py   # OrquestradorAgent: formata o JSON do especialista em resposta final
+│   ├── prompts/                 # Prompts de cada agente
+│   │   ├── base.py              # GenericAgent: persona e contexto temporal compartilhados
+│   │   ├── router.py            # RouterAgent
+│   │   ├── financeiro.py        # FinanceiroAgent
+│   │   ├── agenda.py            # AgendaAgent
+│   │   ├── orquestrador.py      # OrquestradorAgent
+│   │   └── faq.py               # FaqAgent
+│   └── nodes/                   # Funções de nó do grafo LangGraph
+│       ├── names.py             # NodeName StrEnum
+│       ├── router.py            # no_roteador
+│       ├── financeiro.py        # no_financeiro
+│       ├── agenda.py            # no_agenda
+│       └── orquestrador.py      # no_orquestrador
+│
+├── graph/
+│   ├── state.py                 # Estado e Route StrEnum
+│   ├── llms.py                  # build_llm e instâncias de LLM
+│   ├── agents.py                # Agentes compilados (router_app, financeiro_app, etc.)
+│   └── builder.py               # Construção e compilação do grafo LangGraph
 │
 ├── tools/
-│   ├── pg_tools.py       # Tools LangChain para PostgreSQL (transações financeiras)
-│   ├── schemas.py        # Schemas Pydantic dos argumentos das tools
-│   └── response.py       # Helper para padronizar respostas das tools
+│   ├── postgres/
+│   │   ├── connection.py        # Pool de conexões PostgreSQL
+│   │   ├── helpers.py           # resolve_type_id, get_category_id, local_date_filter_sql
+│   │   ├── schemas.py           # Schemas Pydantic das tools
+│   │   └── core.py              # Tools LangChain (add, query, update, balance)
+│   ├── faq_tools.py             # Tool de RAG sobre o PDF de FAQ
+│   └── response.py              # Classe Response para padronizar retornos
 │
-└── docs/
-    └── fluxo_agentes.png # Diagrama do fluxo entre agentes
-```
+├── config/
+│   ├── settings.py              # Carrega e valida variáveis de ambiente
+│   ├── models.py                # PROVIDER_MAP, BUILDERS, Model Enum
+│   ├── logging.py               # ColorFormatter e get_logger
+│   └── decorators.py            # log_tool decorator
+│
+├── ui/
+│   └── terminal.py              # Interface Rich + pyfiglet no terminal
+│
+└── data/
+└── documents/               # PDFs para RAG
+└── FAQ_assessor_v1.1.pdf
 
 ---
 
 ## Fluxo dos agentes
 
-![Fluxo dos agentes](docs/fluxo_agentes.png)
-
 O fluxo completo de uma mensagem segue quatro etapas:
-
-```
 Usuário
-  │
-  ▼
+│
+▼
 [Router]  ──── small talk / fora de escopo ───► responde diretamente ao usuário
-  │
-  │ ROUTE=financeiro|agenda
-  ▼
-[Especialista]  (Financeiro ou Agenda)
-  │  consulta/escreve no banco via tools
-  │  retorna JSON estruturado
-  ▼
-[Orquestrador]
-  │  formata o JSON em linguagem natural
-  ▼
+│
+│ ROUTE=financeiro|agenda|faq
+▼
+[Especialista]  (Financeiro, Agenda ou FAQ)
+│  consulta/escreve no banco via tools
+│  popula resposta_especialista no estado
+▼
+[Orquestrador]  (apenas Financeiro e Agenda)
+│  formata a resposta em linguagem natural
+▼
 Usuário
-```
 
 ### Agentes em detalhe
 
 | Agente | Modelo | Responsabilidade |
 |---|---|---|
-| **Router** | `llama-3.3-70b-versatile` (temp 0.0) | Classifica a intenção e emite `ROUTE=financeiro\|agenda`, ou responde diretamente em casos de saudação/fora de escopo |
-| **Financeiro** | `gemini-2.5-flash` + fallback `llama-3.3-70b` | Interpreta a pergunta financeira, chama as tools do banco e retorna JSON estruturado |
-| **Agenda** | `llama-3.3-70b-versatile` (temp 0.0) | Interpreta a pergunta de agenda e retorna JSON estruturado com evento, janela de tempo e intenção |
-| **Orquestrador** | `llama-3.3-70b-versatile` (temp 0.0) | Recebe o JSON do especialista e entrega a resposta final formatada ao usuário em português |
-
-O Router usa `MemorySaver` do LangGraph para manter histórico de conversa por sessão. Os especialistas são stateless — recebem o protocolo de rota como entrada e respondem com JSON puro.
-
----
-
-## Modelos e providers suportados
-
-| Provider | Modelos |
-|---|---|
-| Google (Gemini) | `gemini-2.5-flash` |
-| Groq | `llama-3.3-70b-versatile`, `qwen-2.5-pro` |
-| Anthropic (Claude) | `claude-haiku-4-5`, `claude-sonnet-4-6` |
-
-A função `build_llm` em [main.py](main.py) seleciona automaticamente o provider e a API key com base no modelo informado.
+| **Router** | `llama-3.3-70b-versatile` (temp 0.0) | Classifica a intenção e emite `ROUTE=financeiro\|agenda\|faq`, ou responde diretamente |
+| **Financeiro** | `gemini-2.5-flash` + fallback `llama-3.3-70b` | Interpreta a pergunta financeira e chama as tools do banco |
+| **Agenda** | `llama-3.3-70b-versatile` (temp 0.0) | Interpreta perguntas de agenda |
+| **FAQ** | `llama-3.3-70b-versatile` (temp 0.0) | Consulta o PDF via RAG e responde dúvidas sobre o sistema |
+| **Orquestrador** | `llama-3.3-70b-versatile` (temp 0.0) | Formata a resposta do especialista em linguagem natural |
 
 ---
 
 ## Tools (PostgreSQL)
-
-As tools são funções LangChain decoradas com `@tool` que permitem ao agente Financeiro ler e escrever no banco:
 
 | Tool | Descrição |
 |---|---|
@@ -132,19 +136,17 @@ Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, 
 
 ### Variáveis de ambiente
 
-Crie um arquivo `.env` na raiz do projeto:
-
 ```env
 GEMINI_API_KEY=...
 GROQ_API_KEY=...
-ANTHROPIC_API_KEY=...
 DATABASE_URI=postgresql://usuario:senha@host:5432/banco
 ```
 
 ### Instalação
 
 ```bash
-pip install -r requirements.txt
+uv venv
+uv pip install -r requirements.txt
 ```
 
 ### Execução
@@ -153,7 +155,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-O sistema inicia um loop de conversa no terminal. Use `Ctrl+C` para encerrar.
+Digite `/exit` para encerrar.
 
 ---
 
@@ -161,6 +163,7 @@ O sistema inicia um loop de conversa no terminal. Use `Ctrl+C` para encerrar.
 
 - [LangChain](https://github.com/langchain-ai/langchain) — framework de agentes e tools
 - [LangGraph](https://github.com/langchain-ai/langgraph) — orquestração stateful e checkpointing
-- [psycopg2](https://pypi.org/project/psycopg2/) — driver PostgreSQL
+- [psycopg2](https://pypi.org/project/psycopg2/) — driver PostgreSQL com connection pool
+- [Rich](https://github.com/Textualize/rich) + [pyfiglet](https://github.com/pwaller/pyfiglet) — interface de terminal
 - [Pydantic](https://docs.pydantic.dev/) — validação de schemas das tools
-- `langchain-anthropic`, `langchain-google-genai`, `langchain-groq` — integrações com os providers
+- `langchain-anthropic`, `langchain-google-genai`, `langchain-groq` — integrações com providers

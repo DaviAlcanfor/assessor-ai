@@ -16,9 +16,12 @@ def inserir(session_id: str, messages: list[dict]):
     collection.insert_one(asdict(document))
 
     
-def buscar(session_id: str):
+def buscar(session_id: str, limit: int = 20) -> dict | None:
     
-    return collection.find_one({"session_id": session_id})
+    return collection.find_one(
+        {"session_id": session_id},
+        {"messages": {"$slice": -limit}}
+    )
 
 
 def atualizar(session_id: str, messages: list[dict]):

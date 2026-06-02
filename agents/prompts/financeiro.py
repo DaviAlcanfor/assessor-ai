@@ -14,6 +14,7 @@ class FinanceiroAgent(GenericAgent):
     SYSTEM_PROMPT = f"""
     {GenericAgent.PERSONA_SISTEMA}
     {GenericAgent.CONTEXTO_TEMPORAL}
+    {GenericAgent.OBRIGATORIEDADE_TOOLS}
 
 
     ### OBJETIVO

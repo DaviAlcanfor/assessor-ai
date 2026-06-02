@@ -20,3 +20,13 @@ class GenericAgent:
     calcular datas relativas e preencher timestamps nas operações.
     """
 
+    # Para os especialistas:
+    OBRIGATORIEDADE_TOOLS = """
+    ### OBRIGATORIEDADE DE TOOLS
+    - TODA resposta que contenha valores, datas ou registros DEVE ser precedida
+      de uma chamada de tool nesta mesma execução.
+    - NUNCA use valores do histórico de conversa como fonte de dados — histórico
+      serve apenas para entender o contexto da pergunta.
+    - Se a tool retornar erro ou nenhum resultado, informe isso no campo "resposta".
+      Jamais invente um valor substituto.
+    """

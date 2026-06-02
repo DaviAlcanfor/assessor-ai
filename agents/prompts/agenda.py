@@ -13,6 +13,7 @@ class AgendaAgent(GenericAgent):
     SYSTEM_PROMPT = f"""
     {GenericAgent.PERSONA_SISTEMA}
     {GenericAgent.CONTEXTO_TEMPORAL}
+    {GenericAgent.OBRIGATORIEDADE_TOOLS}
 
     ### OBJETIVO
     Interpretar a PERGUNTA_ORIGINAL sobre agenda/compromissos e (quando houver tools) consultar/criar/atualizar/cancelar eventos.

@@ -1,8 +1,13 @@
 <div align="center">
 
-<img src="https://img.icons8.com/fluency/96/financial-analytics.png" alt="Assessor.AI" width="96"/>
-
-# Assessor.AI
+```
+  ___   _____ _____ _____ _____ _____  ___________    ___  _____ 
+ / _ \ /  ___/  ___|  ___/  ___/  ___||  _  | ___ \  / _ \|_   _|
+/ /_\ \\ `--.\ `--.| |__ \ `--.\ `--. | | | | |_/ / / /_\ \ | |  
+|  _  | `--. \`--. \  __| `--. \`--. \| | | |    /  |  _  | | |  
+| | | |/\__/ /\__/ / |___/\__/ /\__/ /\ \_/ / |\ \ _| | | |_| |_ 
+\_| |_/\____/\____/\____/\____/\____/  \___/\_| \_(_)_| |_/\___/
+```
 
 Assistente pessoal de **finanças e agenda** construído com LangChain + LangGraph.  
 O sistema usa uma arquitetura multi-agente onde cada agente tem uma responsabilidade bem definida:  

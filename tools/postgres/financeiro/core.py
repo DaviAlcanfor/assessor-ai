@@ -242,8 +242,8 @@ def update_transaction(
                     cur.execute(
                         f"""
                         SELECT t.id FROM transactions t
-                        WHERE (t.source_text ILIKE %s OR t.description ILIKE %s)
-                          AND {local_date_filter_sql("t.occurred_at")}
+                        WHERE (unaccent(t.source_text) ILIKE unaccent(%s) OR unaccent(t.description) ILIKE unaccent(%s))
+                        AND {local_date_filter_sql("t.occurred_at")}
                         ORDER BY t.occurred_at DESC
                         LIMIT 1;
                         """,

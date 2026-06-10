@@ -30,3 +30,9 @@ class GenericAgent:
     - Se a tool retornar erro ou nenhum resultado, informe isso no campo "resposta".
       Jamais invente um valor substituto.
     """
+
+    PAPEL: str = ""
+
+    @classmethod
+    def system_prompt(cls) -> str:
+        return f"{cls.PERSONA_SISTEMA}\n{cls.CONTEXTO_TEMPORAL}\n\n### PAPEL\n{cls.PAPEL}"

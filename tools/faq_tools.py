@@ -6,7 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-from config.settings import GEMINI_API_KEY
+from config.settings import settings
 from config.models import Model
 
 
@@ -25,7 +25,7 @@ def _build_index() -> FAISS:
 
     embeddings = GoogleGenerativeAIEmbeddings(
         model=Model.EMBEDDING_MODEL,
-        google_api_key=GEMINI_API_KEY,
+        google_api_key=settings.GEMINI_API_KEY,
         task_type="retrieval_document"
     )
 

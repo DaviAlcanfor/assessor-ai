@@ -2,10 +2,7 @@ from enum import StrEnum
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 
-from .settings import (
-    GROQ_API_KEY,
-    GEMINI_API_KEY,
-)
+from .settings import settings
 
 class Model(StrEnum):
     GEMINI_2_5_FLASH    = "gemini-2.5-flash"
@@ -26,8 +23,8 @@ PROVIDER_MAP = {
 }
 
 API_KEYS = {
-    "gemini": GEMINI_API_KEY,
-    "groq":   GROQ_API_KEY,
+    "gemini": settings.GEMINI_API_KEY,
+    "groq":   settings.GROQ_API_KEY,
 }
 
 BUILDERS = {

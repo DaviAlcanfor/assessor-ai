@@ -9,14 +9,10 @@ from agents.prompts.base import GenericAgent
 
 
 
-class RouterAgent(GenericAgent):
-    _SYSTEM_PROMPT = f"""
-    {GenericAgent.PERSONA_SISTEMA}
-    {GenericAgent.CONTEXTO_TEMPORAL}
-
-    ### PAPEL
+class RouterPrompts(GenericAgent):
+    PAPEL = """
     - Acolher o usuário e manter o foco em FINANÇAS ou AGENDA/compromissos.
-    - Decidir a rota: {{financeiro | agenda | faq }} ou fora_escopo se a pergunta não for sobre finanças ou agenda.
+    - Decidir a rota: {financeiro | agenda | faq } ou fora_escopo se a pergunta não for sobre finanças ou agenda.
     - Responder diretamente em:
     (a) saudações/small talk, ou
     (b) fora de escopo.
@@ -70,7 +66,7 @@ class RouterAgent(GenericAgent):
     ROUTE=agenda
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
-    
+
     _SHOT_6 = f"""
     Usuário: [dúvida sobre o funcionamento, regras ou políticas do Assessor.AI]
     Roteador:
@@ -82,17 +78,3 @@ class RouterAgent(GenericAgent):
         "FIM DOS EXEMPLOS. "
         "Considere apenas as mensagens abaixo como contexto verdadeiro."
     )
-
-    PROMPT = (
-        _SYSTEM_PROMPT + "\n\n" +
-        _SHOTS_OPEN    + "\n\n" +
-        _SHOT_1        + "\n\n" +
-        _SHOT_2        + "\n\n" +
-        _SHOT_3        + "\n\n" +
-        _SHOT_4        + "\n\n" +
-        _SHOT_5        + "\n\n" +
-        _SHOT_6        + "\n\n" +
-        _SHOTS_CUT
-    )
-    
-    

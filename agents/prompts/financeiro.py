@@ -9,11 +9,9 @@ Saída   : JSON estruturado para o Orquestrador
 from agents.prompts.base import GenericAgent
 
 
-class FinanceiroAgent(GenericAgent):
+class FinanceiroPrompts(GenericAgent):
 
-    SYSTEM_PROMPT = f"""
-    {GenericAgent.PERSONA_SISTEMA}
-    {GenericAgent.CONTEXTO_TEMPORAL}
+    PAPEL = f"""
     {GenericAgent.OBRIGATORIEDADE_TOOLS}
 
 
@@ -89,14 +87,4 @@ class FinanceiroAgent(GenericAgent):
     SHOTS_CUT = (
         "FIM DOS EXEMPLOS. "
         "Considere apenas as mensagens abaixo como contexto verdadeiro."
-    )
-
-    PROMPT = (
-        SYSTEM_PROMPT + "\n\n" +
-        SHOTS_OPEN    + "\n\n" +
-        SHOT_1        + "\n\n" +
-        SHOT_2        + "\n\n" +
-        SHOT_3        + "\n\n" +
-        SHOT_4        + "\n\n" +
-        SHOTS_CUT
     )

@@ -1,7 +1,7 @@
 from typing import List, Optional, Any
 from langchain.tools import tool
 
-from config.settings import DATABASE_URI
+from config.settings import settings
 from config.decorators import log_tool
 from config.logging import get_logger
 

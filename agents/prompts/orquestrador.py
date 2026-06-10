@@ -9,15 +9,9 @@ Saída   : resposta final formatada para o usuário
 from agents.prompts.base import GenericAgent
 
 
-class OrquestradorAgent(GenericAgent):
-    
+class OrquestradorPrompts(GenericAgent):
 
-    SYSTEM_PROMPT = f"""
-    {GenericAgent.PERSONA_SISTEMA}
-    {GenericAgent.CONTEXTO_TEMPORAL}
-
-
-    ### PAPEL
+    PAPEL = """
     Você é o Agente Orquestrador do Assessor.AI. Sua função é entregar a resposta final ao usuário **somente** quando um Especialista retornar o JSON.
 
 
@@ -78,13 +72,4 @@ class OrquestradorAgent(GenericAgent):
     SHOTS_CUT = (
         "FIM DOS EXEMPLOS. "
         "Considere apenas as mensagens abaixo como contexto verdadeiro."
-    )
-
-    PROMPT = (
-        SYSTEM_PROMPT + "\n\n" +
-        SHOTS_OPEN    + "\n\n" +
-        SHOT_1        + "\n\n" +
-        SHOT_2        + "\n\n" +
-        SHOT_3        + "\n\n" +
-        SHOTS_CUT
     )

@@ -70,7 +70,7 @@ def main() -> None:
     
     garantir_banco()
     exibir_titulo()
-    session_id = "session_2_teste"    
+    session_id = str(uuid4())   
     
     while True:
         try:

@@ -1,16 +1,15 @@
-from dotenv import load_dotenv
-import os
+from pydantic_settings import BaseSettings
 
-load_dotenv()
+class Settings(BaseSettings):
+    GEMINI_API_KEY: str
+    GROQ_API_KEY: str
+    DATABASE_URI: str
 
-def _require(key: str) -> str:
-    value = os.getenv(key)
-    
-    if not value:
-        raise EnvironmentError(f"Variável de ambiente não definida: {key}")
-    
-    return value
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,  
+        "extra": "ignore",        
+    }
 
-GEMINI_API_KEY = _require("GEMINI_API_KEY")
-GROQ_API_KEY   = _require("GROQ_API_KEY")
-DATABASE_URI   = _require("DATABASE_URI")
+settings = Settings()

@@ -1,13 +1,13 @@
-from agents.prompts.agenda import AgendaAgent
-from agents.prompts.financeiro import FinanceiroAgent
-from agents.prompts.router import RouterAgent
-from agents.prompts.orquestrador import OrquestradorAgent
-from agents.prompts.faq import FaqAgent
+from agents.prompts.agenda import AgendaPrompts
+from agents.prompts.financeiro import FinanceiroPrompts
+from agents.prompts.router import RouterPrompts
+from agents.prompts.orquestrador import OrquestradorPrompts
+from agents.prompts.faq import FaqPrompts
 
 __all__ = (
-    RouterAgent,
-    FinanceiroAgent,
-    AgendaAgent,
-    OrquestradorAgent,
-    FaqAgent,
+    RouterPrompts,
+    FinanceiroPrompts,
+    AgendaPrompts,
+    OrquestradorPrompts,
+    FaqPrompts,
 )

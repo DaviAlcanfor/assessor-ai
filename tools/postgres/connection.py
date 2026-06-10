@@ -1,7 +1,7 @@
 import psycopg2
 from psycopg2 import pool
 from contextlib import contextmanager
-from config.settings import DATABASE_URI
+from config.settings import settings
 
 
 _pool = None
@@ -15,7 +15,7 @@ def _get_pool() -> pool.ThreadedConnectionPool:
         _pool = pool.ThreadedConnectionPool(
             minconn=1,
             maxconn=10,
-            dsn=DATABASE_URI
+            dsn=settings.DATABASE_URI
         )
 
     return _pool

@@ -32,17 +32,17 @@ class FaqPrompts(GenericAgent):
         "Ignore os valores fictícios presentes nesses exemplos."
     )
 
-    _SHOT_1 = """
+    SHOT_1 = """
     Roteador: ROUTE=faq
     PERGUNTA_ORIGINAL=[dúvida sobre política de privacidade do sistema]
     FAQ: [chama faq_retriever com a pergunta → lê o retorno → responde com base no conteúdo encontrado]"""
 
-    _SHOT_2 = """
+    SHOT_2 = """
     Roteador: ROUTE=faq
     PERGUNTA_ORIGINAL=[dúvida sobre tema não coberto pelo FAQ]
     FAQ: Não encontrei essa informação no FAQ do sistema."""
 
-    _SHOTS_CUT = (
+    SHOTS_CUT = (
         "FIM DOS EXEMPLOS. "
         "Considere apenas as mensagens abaixo como contexto verdadeiro."
     )

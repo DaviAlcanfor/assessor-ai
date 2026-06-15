@@ -1,19 +1,21 @@
 from graph.state import Estado
 from graph.agents import orquestrador_app
+from agents.nodes.names import NodeName
 
 
 def no_orquestrador(estado: Estado) -> dict:
 
-    saida = orquestrador_app.invoke({
-        "messages": [
-            {"role": "human", "content": estado["resposta_especialista"]}
-        ]
-    })
+    mensagens = list(estado["messages"]) + [
+        {"role": "human", "content": estado["resposta_especialista"]}
+    ]
+
+    saida = orquestrador_app.invoke({"messages": mensagens})
 
     return {
-        "agentes_chamados": [estado["rota"], "orquestrador"],
-        "messages":         [{"role": "assistant", "content": saida["messages"][-1].content}],
+        "agentes_chamados":      [NodeName.ORQUESTRADOR],
+        "messages":              [{"role": "assistant", "content": saida["messages"][-1].content}],
+        "resposta_especialista": saida["messages"][-1].content,
     }
-    
-    
+
+
 __all__ = ['no_orquestrador']

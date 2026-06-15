@@ -20,7 +20,6 @@ class GenericAgent:
     calcular datas relativas e preencher timestamps nas operações.
     """
 
-    # Para os especialistas:
     OBRIGATORIEDADE_TOOLS = """
     ### OBRIGATORIEDADE DE TOOLS
     - TODA resposta que contenha valores, datas ou registros DEVE ser precedida
@@ -34,5 +33,37 @@ class GenericAgent:
     PAPEL: str = ""
 
     @classmethod
+    def _coletar_shots(cls) -> str:
+      shots = []
+
+      shots_open  = getattr(cls, "SHOTS_OPEN",  None) 
+      shots_cut   = getattr(cls, "SHOTS_CUT",   None)
+
+      if not shots_open:
+        return ""
+
+      shots.append(shots_open)
+
+      i = 1
+      while True:
+        shot = getattr(cls, f"SHOT_{i}", None) 
+        if not shot:
+          break
+        
+        shots.append(shot)
+        i += 1
+
+      if shots_cut:
+          shots.append(shots_cut)
+
+      return "\n\n".join(shots)
+
+    @classmethod
     def system_prompt(cls) -> str:
-        return f"{cls.PERSONA_SISTEMA}\n{cls.CONTEXTO_TEMPORAL}\n\n### PAPEL\n{cls.PAPEL}"
+      base  = f"{cls.PERSONA_SISTEMA}\n{cls.CONTEXTO_TEMPORAL}\n\n### PAPEL\n{cls.PAPEL}"
+      shots = cls._coletar_shots()
+
+      if not shots:
+          return base
+
+      return f"{base}\n\n{shots}"

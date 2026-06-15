@@ -5,7 +5,9 @@ from agents.nodes.names import NodeName
 from agents.prompts.guardrail import GuardrailPrompts
 from graph.llm import llm_rapido
 from graph.state import Estado
+from config.logging import get_logger
 
+logger = get_logger(__name__)
 
 def _saida_ok(conteudo: str) -> ResultadoGuardrail:
     return ResultadoGuardrail(
@@ -71,6 +73,8 @@ def guardrail_saida(
 
 
 def no_guardrail_saida(estado: Estado) -> dict:
+    
+    logger.info("Revisando resposta do especialista com guardrail de saída...")
     resultado = guardrail_saida(
         estado["resposta_especialista"], 
         estado.get("mapa_pii", {})

@@ -6,6 +6,9 @@ from agents.nodes.names import NodeName
 from agents.prompts.guardrail import GuardrailPrompts
 from graph.state import Estado
 from graph.llm import llm_rapido
+from config.logging import get_logger
+
+logger = get_logger(__name__)
 
 from agents.nodes.guardrail.schemas import (
     PII,
@@ -100,18 +103,21 @@ def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
 
 
 def no_guardrail_entrada(estado: Estado) -> dict:
+    logger.info("Verificando entrada com guardrail de entrada...")
     
     ultima_msg = estado["messages"][-1]
     texto_anonimizado, mapa_pii = anonimizar_entrada(ultima_msg.content)
     resultado = guardrail_entrada(texto_anonimizado)
 
-    if resultado.bloqueado:
+    if resultado["bloqueado"]:
+        logger.warning(f"Mensagem bloqueada por guardrail: {resultado['motivo']} - {ultima_msg.content}")
         return {
             "agentes_chamados":   [NodeName.GUARDRAIL_ENTRADA],
-            "mensagem_bloqueada": resultado.mensagem,
-            "messages":           [{"role": "assistant", "content": resultado.mensagem}],
+            "mensagem_bloqueada": resultado["mensagem"],
+            "messages":           [{"role": "assistant", "content": resultado["mensagem"]}],
         }
 
+    logger.info("Mensagem aprovada pelo guardrail de entrada.")
     return {
         "agentes_chamados": [NodeName.GUARDRAIL_ENTRADA],
         "mapa_pii":         mapa_pii,

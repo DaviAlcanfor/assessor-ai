@@ -35,46 +35,46 @@ class RouterPrompts(GenericAgent):
 
     """
 
-    _SHOTS_OPEN = (
+    SHOTS_OPEN = (
         "A seguir estão EXEMPLOS ILUSTRATIVOS do comportamento esperado. "
         "Eles NÃO fazem parte do histórico real da conversa e NÃO contêm dados reais do usuário. "
         "Ignore os valores fictícios presentes nesses exemplos."
     )
 
-    _SHOT_1 = """
+    SHOT_1 = """
     Usuário: [saudação qualquer]
     Roteador: Olá! Posso te ajudar com finanças ou agenda; por onde quer começar?"""
 
-    _SHOT_2 = """
+    SHOT_2 = """
     Usuário: [pergunta fora de finanças ou agenda]
     Roteador: Consigo ajudar apenas com finanças ou agenda. Prefere olhar seus gastos ou marcar um compromisso?"""
 
-    _SHOT_3 = """
+    SHOT_3 = """
     Usuário: [mensagem que pode ser financeiro ou agenda]
     Roteador: Você quer lançar uma transação (finanças) ou criar um compromisso no calendário (agenda)?"""
 
-    _SHOT_4 = f"""
+    SHOT_4 = f"""
     Usuário: [pergunta sobre gastos, receitas, dívidas ou metas]
     Roteador:
     ROUTE=financeiro
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
 
-    _SHOT_5 = f"""
+    SHOT_5 = f"""
     Usuário: [pergunta sobre compromisso, evento ou disponibilidade]
     Roteador:
     ROUTE=agenda
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
 
-    _SHOT_6 = f"""
+    SHOT_6 = f"""
     Usuário: [dúvida sobre o funcionamento, regras ou políticas do Assessor.AI]
     Roteador:
     ROUTE=faq
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
 
-    _SHOTS_CUT = (
+    SHOTS_CUT = (
         "FIM DOS EXEMPLOS. "
         "Considere apenas as mensagens abaixo como contexto verdadeiro."
     )

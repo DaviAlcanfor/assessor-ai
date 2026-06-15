@@ -28,7 +28,16 @@ logging.getLogger("langgraph").setLevel(logging.ERROR)
 
 
 def montar_mensagem_humana(conteudo: str) -> dict:
-    return {"role": "human", "content": conteudo}
+    return {
+        "role": "human", 
+        "content": conteudo
+    }
+
+def _persistir_historico(session_id: str, historico: dict, messages: list[dict]):
+    if not historico:
+        inserir(session_id, messages=messages)
+    else:
+        atualizar(session_id, messages=messages)
 
 
 def executar_fluxo_assessor(
@@ -52,10 +61,13 @@ def executar_fluxo_assessor(
 
     messages = messages_to_dict(estado_final["messages"])
     
-    if not historico:
-        inserir(session_id, messages=messages)
-    else:
-        atualizar(session_id, messages=messages)
+    if not estado_final.get("mensagem_bloqueada"):
+        messages = messages_to_dict(estado_final["messages"])
+        _persistir_historico(
+            session_id,
+            historico,
+            messages
+        )
     
 
     for msg in estado_final["messages"][::-1]:

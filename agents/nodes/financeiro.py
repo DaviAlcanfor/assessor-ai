@@ -9,9 +9,9 @@ def no_financeiro(estado: Estado) -> dict:
     resposta = saida["messages"][-1].content
 
     return {
-        "agentes_chamados":    [NodeName.FINANCEIRO],
+        "agentes_chamados":      [NodeName.FINANCEIRO],
         "resposta_especialista": resposta,
     }
-    
-    
+
+
 __all__ = ['no_financeiro']

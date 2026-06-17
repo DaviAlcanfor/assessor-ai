@@ -7,6 +7,9 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from config.settings import settings
 from config.models import Model
+from config.logging import get_logger
+
+log = get_logger(__name__)
 
 
 _PDF_PATH      = Path("data/documents/FAQ_assessor_v1.1.pdf")
@@ -40,7 +43,11 @@ def _get_index() -> FAISS:
 
 @tool("faq_retriever")
 def faq_retriever(question: str) -> str:
-    """Consulta o PDF de FAQ com as perguntas de funcionamento do Assessor AI."""
+    """
+    Consulta o PDF de FAQ com as perguntas de funcionamento do Assessor AI.
+    """
 
+    log.info(f"FAQ consultado | question: {question}")  
+    
     results = _get_index().similarity_search(question, k=_K_NUMBER)
     return "\n\n".join(res.page_content for res in results)

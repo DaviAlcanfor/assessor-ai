@@ -1,17 +1,36 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import StrEnum
 
 from langchain_core.messages import HumanMessage, AIMessage
 
 
+
+@dataclass
+class ChatDocument:
+    user_id:    str
+    session_id: str
+    messages:   list[dict]
+    resume:     str      = field(default="")
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+
+class Role(StrEnum):
+    HUMAN = "human"
+    AI    = "ai"
+    
+    
 ROLE_MAP = {
-    "human": HumanMessage,
-    "ai":    AIMessage,
+    Role.HUMAN: HumanMessage,
+    Role.AI:    AIMessage,
 }
+
 
 @dataclass
 class Mensagem:
-    role:    str
+    role:    Role
     content: str
 
     @staticmethod
@@ -31,20 +50,3 @@ class Mensagem:
 
     def para_dict(self) -> dict:
         return {"role": self.role, "content": self.content}
-
-
-@dataclass
-class UserDocument:
-    nome:    str
-    email:   str
-    profile: str = field(default="")
-
-
-@dataclass
-class ChatDocument:
-    user_id:    str
-    session_id: str
-    messages:   list[dict]
-    resume:     str      = field(default="")
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

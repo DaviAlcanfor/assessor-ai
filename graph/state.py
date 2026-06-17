@@ -20,3 +20,4 @@ class Estado(MessagesState):
     pergunta_original:     str       
     mapa_pii:              dict                      
     mensagem_bloqueada:    str
+    perfil_usuario:        str

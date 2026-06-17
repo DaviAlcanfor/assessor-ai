@@ -1,18 +1,20 @@
 from dataclasses import asdict
 from datetime import datetime, timezone
 
-from tools.mongo.resumidor import _gerar_resumo
+from tools.mongo.helpers import _gerar_resumo, _gerar_perfil
 from tools.mongo.connection import banco
-from tools.mongo.schemas import ChatDocument, Mensagem
+from tools.mongo.chats.schemas import ChatDocument, Mensagem
 from config.logging import get_logger
+
+import tools.mongo.users.core as users
 
 logger = get_logger(__name__)
 
 collection = banco["chats"]
 
 
-def inserir(user_id: str, session_id: str, mensagens: list[Mensagem]) -> None:
-    logger.info(f"Inserindo novo histórico de mensagens para session_id: {session_id}")
+def criar(user_id: str, session_id: str, mensagens: list[Mensagem]) -> None:
+    logger.info(f"Criando novo chat para session_id: {session_id}")
 
     document = ChatDocument(
         user_id=user_id,
@@ -31,7 +33,7 @@ def buscar(session_id: str, limit: int = 5) -> dict | None:
     )
 
 
-def adicionar_mensagens(session_id: str, mensagens_novas: list[Mensagem]) -> None:
+def atualizar_mensagens(session_id: str, mensagens_novas: list[Mensagem]) -> None:
     logger.info(f"Adicionando mensagens para session_id: {session_id}")
 
     collection.update_one(
@@ -52,15 +54,19 @@ def inserir_resumo(resumo: str, session_id: str) -> None:
     )
 
 
-def encerrar_sessao(session_id: str) -> str:
-    logger.info("Encerrando sessão do usuário e gerando resumo da sessão...")
+def encerrar_sessao(session_id: str, user_id: str) -> None:
+    logger.info(f"Encerrando sessão para session_id: {session_id}")
 
     doc = collection.find_one({"session_id": session_id})
 
     if not doc or not doc.get("messages"):
-        return ""
+        return
 
     resumo = _gerar_resumo(doc["messages"])
     inserir_resumo(resumo, session_id)
 
-    return resumo
+    usuario = users.buscar(user_id)
+    perfil_atual = usuario.get("profile", "") if usuario else ""
+
+    perfil_atualizado = _gerar_perfil(perfil_atual, resumo)
+    users.atualizar_perfil(user_id, perfil_atualizado)

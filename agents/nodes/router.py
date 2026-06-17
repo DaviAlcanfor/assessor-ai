@@ -3,6 +3,9 @@ import re
 from graph.state import Route, Estado
 from graph.agents import router_app
 from agents.nodes.names import NodeName
+from config.logging import get_logger
+
+log = get_logger(__name__)
 
 
 def _extrair_rota(texto: str) -> Route:
@@ -32,6 +35,8 @@ def no_roteador(estado: Estado) -> dict:
     texto = saida["messages"][-1].content
     rota  = _extrair_rota(texto)
     pergunta = _extrair_pergunta(texto)
+    
+    log.info(f"Rota escolhida: {rota} | pergunta: {pergunta}")
 
     if rota is Route.FIM:
         return {

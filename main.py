@@ -4,13 +4,10 @@ import os
 
 from graph.builder import fluxo_agentes
 from config.docker import garantir_banco
-from tools.mongo.core import (
-    inserir,
-    buscar,
-    adicionar_mensagens,
-    encerrar_sessao,
-)
-from tools.mongo.schemas import Mensagem
+import tools.mongo.chats.core as chats
+import tools.mongo.users.core as users
+from tools.mongo.chats.schemas import Mensagem, Role
+
 from ui.terminal import (
     exibir_titulo,
     exibir_usuario,
@@ -29,8 +26,24 @@ logging.getLogger("langgraph").setLevel(logging.ERROR)
 
 
 def montar_mensagem_humana(conteudo: str) -> Mensagem:
-    return Mensagem(role="human", content=conteudo)
+    return Mensagem(
+        role=Role.HUMAN, 
+        content=conteudo
+    )
 
+
+def salvar_mensagens(user_id: str, session_id: str, mensagens: list[Mensagem]) -> None:
+    if not chats.buscar(session_id):
+        chats.criar(user_id, session_id, mensagens)
+    else:
+        chats.atualizar_mensagens(session_id, mensagens)
+        
+def _extrair_resposta(estado_final: dict) -> str | None:
+    for msg in estado_final["messages"][::-1]:
+        if isinstance(msg, AIMessage):
+            return msg.content
+    return None
+        
 
 def executar_fluxo_assessor(
     pergunta_usuario: str,
@@ -38,13 +51,19 @@ def executar_fluxo_assessor(
     user_id: str,
 ) -> str:
     
-    historico = buscar(session_id)
+    # coletando historico de conversa
+    historico = chats.buscar(session_id)
     nova_msg = montar_mensagem_humana(pergunta_usuario)
     historico_msgs = Mensagem.de_dict(historico["messages"]) if historico else []
+    
+    # coletando perfil de usuario
+    usuario   = users.buscar(user_id)
+    perfil = usuario.get("profile", "")
 
     estado_inicial = {
         "messages": [m.para_langchain() for m in historico_msgs] + [nova_msg.para_langchain()],
         "agentes_chamados": [],
+        "perfil_usuario": perfil,
     }
 
     estado_final = fluxo_agentes.invoke(
@@ -52,20 +71,16 @@ def executar_fluxo_assessor(
         config={"configurable": {"thread_id": session_id}},
     )
 
+    resposta = _extrair_resposta(estado_final)
+
+    if not resposta:
+        return "Sem resposta."
+
     if not estado_final.get("mensagem_bloqueada"):
-        todas = Mensagem.de_langchain(estado_final["messages"])
-        novas = todas[len(historico_msgs):]
+        novas = [nova_msg, Mensagem(role=Role.AI, content=resposta)]
+        salvar_mensagens(user_id, session_id, novas)
 
-        if not historico:
-            inserir(user_id, session_id, novas)
-        else:
-            adicionar_mensagens(session_id, novas)
-
-    for msg in estado_final["messages"][::-1]:
-        if isinstance(msg, AIMessage):
-            return msg.content
-
-    return "Sem resposta."
+    return resposta
 
 
 def main() -> None:
@@ -73,15 +88,23 @@ def main() -> None:
     
     garantir_banco()
     exibir_titulo()
-    user_id = "dev"  
+    user_id = "dev"   
     session_id = str(uuid4())
+    
+    # mock pra teste
+    users.garantir_usuario(
+        user_id,
+        nome="Dev", 
+        email="dev@dev.com"
+    )
+    
 
     while True:
         try:
             user_input = console.input("[bold green]>[/bold green] ").strip()
 
             if user_input == "/exit":
-                encerrar_sessao(session_id)
+                chats.encerrar_sessao(session_id, user_id)
                 console.print("\n[dim]Encerrando...[/dim]")
                 break
 

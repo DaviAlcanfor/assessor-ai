@@ -36,7 +36,7 @@ def no_roteador(estado: Estado) -> dict:
     rota  = _extrair_rota(texto)
     pergunta = _extrair_pergunta(texto)
     
-    log.info(f"Rota escolhida: {rota} | pergunta: {pergunta}")
+    log.debug(f"Rota escolhida: {rota} | pergunta: {pergunta}")
 
     if rota is Route.FIM:
         return {

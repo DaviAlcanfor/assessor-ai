@@ -51,19 +51,14 @@ def executar_fluxo_assessor(
     user_id: str,
 ) -> str:
     
-    # coletando historico de conversa
-    historico = chats.buscar(session_id)
     nova_msg = montar_mensagem_humana(pergunta_usuario)
-    historico_msgs = Mensagem.de_dict(historico["messages"]) if historico else []
-    
-    # coletando perfil de usuario
-    usuario   = users.buscar(user_id)
-    perfil = usuario.get("profile", "")
+    usuario  = users.buscar(user_id)
+    perfil   = usuario.get("profile", "")
 
     estado_inicial = {
-        "messages": [m.para_langchain() for m in historico_msgs] + [nova_msg.para_langchain()],
+        "messages":         [nova_msg.para_langchain()],
         "agentes_chamados": [],
-        "perfil_usuario": perfil,
+        "perfil_usuario":   perfil,
     }
 
     estado_final = fluxo_agentes.invoke(
@@ -76,9 +71,8 @@ def executar_fluxo_assessor(
     if not resposta:
         return "Sem resposta."
 
-    if not estado_final.get("mensagem_bloqueada"):
-        novas = [nova_msg, Mensagem(role=Role.AI, content=resposta)]
-        salvar_mensagens(user_id, session_id, novas)
+    novas = [nova_msg, Mensagem(role=Role.AI, content=resposta)]
+    salvar_mensagens(user_id, session_id, novas)
 
     return resposta
 

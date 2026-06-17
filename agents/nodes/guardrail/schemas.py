@@ -19,13 +19,17 @@ class Categoria(StrEnum):
 
 
 
-PII = [
-    ("CPF",      r"\d{3}\.?\d{3}\.?\d{3}-?\d{2}"),
-    ("CNPJ",     r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}"),
-    ("TELEFONE", r"\(?\d{2}\)?\s?\d{4,5}-?\d{4}"),
+# PII do usuário — redige na entrada E na saída
+PII_USUARIO = [
+    ("CPF",     r"\d{3}\.?\d{3}\.?\d{3}-?\d{2}"),
+    ("CNPJ",    r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}"),
+    ("CONTA", r"\b\d{5,6}-\d{1}\b"),
+    ("CARTAO",  r"\d{4}\s?\d{4}\s?\d{4}\s?\d{4}"),
+]
+
+PII = PII_USUARIO + [
     ("EMAIL",    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"),
-    ("CONTA",    r"\d{4,6}-\d{1}"),
-    ("CARTAO",   r"\d{4}\s?\d{4}\s?\d{4}\s?\d{4}"),
+    ("TELEFONE", r"\(?\d{2}\)?\s?\d{4,5}-?\d{4}"),
 ]
 
 

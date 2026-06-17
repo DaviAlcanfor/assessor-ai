@@ -1,6 +1,6 @@
 import re
 
-from agents.nodes.guardrail.schemas import PII, ResultadoGuardrail
+from agents.nodes.guardrail.schemas import PII, PII_USUARIO, ResultadoGuardrail
 from agents.nodes.names import NodeName
 from agents.prompts.guardrail import GuardrailPrompts
 from graph.llm import llm_rapido
@@ -37,15 +37,11 @@ def desanonimizar_saida(
     return texto
 
 
-def _redigir_pii(texto: str) -> str:
-    for tipo, padrao in PII:    
-        texto = re.sub(
-            padrao,
-            f"[{tipo} OMITIDO]",
-            texto
-        )
-        
+def _redigir_pii(texto: str, pii_list: list = PII) -> str:
+    for tipo, padrao in pii_list:    
+        texto = re.sub(padrao, f"[{tipo} OMITIDO]", texto)
     return texto
+
 
 
 def guardrail_saida(
@@ -58,7 +54,7 @@ def guardrail_saida(
     se o LLM não seguir o formato esperado.
     """
     
-    resposta = _redigir_pii(resposta)
+    resposta = _redigir_pii(resposta, pii_list=PII_USUARIO)  
     resposta = desanonimizar_saida(resposta, mapa_pii, restaurar=restaurar_pii)
 
     saida = llm_rapido.invoke(

@@ -68,7 +68,14 @@ class RouterPrompts(GenericAgent):
     """
 
     SHOT_6 = f"""
-    Usuário: [dúvida sobre o funcionamento, regras ou políticas do Assessor.AI]
+    Usuário: [dúvida sobre funcionamento, regras, políticas, contato ou suporte do Assessor.AI]
+    Roteador:
+    ROUTE=faq
+    PERGUNTA_ORIGINAL=[mensagem completa do usuário]
+    """
+    
+    SHOT_7 = f"""
+    Usuário: [pergunta sobre contato, suporte ou ajuda com o sistema]
     Roteador:
     ROUTE=faq
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]

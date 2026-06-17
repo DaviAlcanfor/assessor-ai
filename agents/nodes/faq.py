@@ -11,8 +11,9 @@ def no_faq(estado: Estado) -> dict:
     resposta = saida["messages"][-1].content
 
     return {
-        "agentes_chamados": [NodeName.FAQ],
-        "messages":         [{"role": "assistant", "content": resposta}],
+        "agentes_chamados":      [NodeName.FAQ],
+        "messages":              [{"role": "assistant", "content": resposta}],
+        "resposta_especialista": resposta,
     }
     
     

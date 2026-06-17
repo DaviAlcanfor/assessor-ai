@@ -47,7 +47,7 @@ def faq_retriever(question: str) -> str:
     Consulta o PDF de FAQ com as perguntas de funcionamento do Assessor AI.
     """
 
-    log.info(f"FAQ consultado | question: {question}")  
+    log.debug(f"FAQ consultado | question: {question}")  
     
     results = _get_index().similarity_search(question, k=_K_NUMBER)
     return "\n\n".join(res.page_content for res in results)

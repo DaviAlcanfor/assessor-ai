@@ -114,7 +114,10 @@ def no_guardrail_entrada(estado: Estado) -> dict:
         return {
             "agentes_chamados":   [NodeName.GUARDRAIL_ENTRADA],
             "mensagem_bloqueada": resultado["mensagem"],
-            "messages":           [{"role": "assistant", "content": resultado["mensagem"]}],
+            "messages": [
+                HumanMessage(id=ultima_msg.id, content="[mensagem bloqueada]"), # salva bloqueada
+                {"role": "assistant", "content": resultado["mensagem"]},
+            ],
         }
 
     logger.info("Mensagem aprovada pelo guardrail de entrada.")

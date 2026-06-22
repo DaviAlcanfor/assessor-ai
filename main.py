@@ -53,7 +53,7 @@ def executar_fluxo_assessor(
     
     nova_msg = montar_mensagem_humana(pergunta_usuario)
     usuario  = users.buscar(user_id)
-    perfil   = usuario.get("profile", "")
+    perfil   = usuario.get("profile", "") if usuario else ""
 
     estado_inicial = {
         "messages":         [nova_msg.para_langchain()],

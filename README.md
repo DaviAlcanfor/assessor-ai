@@ -13,7 +13,7 @@ Assistente pessoal de **finanças e agenda** construído com LangChain + LangGra
 O sistema usa uma arquitetura multi-agente onde cada agente tem uma responsabilidade bem definida:  
 classificar a intenção, processar o domínio correto e formatar a resposta final para o usuário.
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=flat&logo=python&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-1.2-1C3C3C?style=flat&logo=langchain&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1.1-FF6B35?style=flat)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-psycopg2-336791?style=flat&logo=postgresql&logoColor=white)
@@ -77,7 +77,7 @@ flowchart LR
 ```
 assessor-ai/
 ├── main.py                          # Ponto de entrada — loop de conversa no terminal
-├── requirements.txt                 # Dependências do projeto
+├── pyproject.toml                   # Dependências do projeto
 │
 ├── agents/
 │   ├── prompts/                     # Prompts de cada agente
@@ -87,7 +87,8 @@ assessor-ai/
 │   │   ├── agenda.py                # AgendaPrompts
 │   │   ├── orquestrador.py          # OrquestradorPrompts
 │   │   ├── faq.py                   # FaqPrompts
-│   │   └── guardrail.py             # GuardrailPrompts
+│   │   ├── guardrail.py             # GuardrailPrompts
+│   │   └── resumidor.py             # ResumidorPrompt, PerfilPrompt
 │   └── nodes/                       # Funções de nó do grafo LangGraph
 │       ├── names.py                 # NodeName StrEnum
 │       ├── router.py                # no_roteador
@@ -102,7 +103,7 @@ assessor-ai/
 │
 ├── graph/
 │   ├── state.py                     # Estado e Route StrEnum
-│   ├── llms.py                      # build_llm e instâncias de LLM
+│   ├── llm.py                       # build_llm e instâncias de LLM
 │   ├── agents.py                    # Agentes compilados (router_app, financeiro_app, etc.)
 │   └── builder.py                   # Construção e compilação do grafo LangGraph
 │
@@ -118,8 +119,13 @@ assessor-ai/
 │   │   └── helpers.py               # resolve_type_id, get_category_id, local_date_filter_sql
 │   ├── mongo/
 │   │   ├── connection.py            # MongoClient lazy — conecta só na primeira operação
-│   │   ├── schemas.py               # ChatDocument dataclass
-│   │   └── core.py                  # inserir, buscar, atualizar
+│   │   ├── helpers.py               # _gerar_resumo, _gerar_perfil
+│   │   ├── chats/
+│   │   │   ├── schemas.py           # ChatDocument, Role, Mensagem
+│   │   │   └── core.py              # criar, buscar, atualizar_mensagens, inserir_resumo, encerrar_sessao
+│   │   └── users/
+│   │       ├── schemas.py           # UserDocument
+│   │       └── core.py              # inserir, buscar, buscar_por_email, atualizar_perfil, garantir_usuario
 │   ├── faq_tools.py                 # Tool de RAG sobre o PDF de FAQ (lazy init)
 │   └── response.py                  # Classe Response para padronizar retornos
 │
@@ -178,7 +184,7 @@ Usuário
 | **Guardrail Entrada** | `llama-3.3-70b-versatile` (temp 0.0) | Bloqueia mensagens indevidas e anonimiza PII |
 | **Router** | `llama-3.3-70b-versatile` (temp 0.0) | Classifica a intenção e emite `ROUTE=financeiro\|agenda\|faq`, ou responde diretamente |
 | **Financeiro** | `gemini-2.5-flash` + fallback `llama-3.3-70b` | Interpreta a pergunta financeira e chama as tools do banco |
-| **Agenda** | `gemini-2.5-flash` | Interpreta perguntas de agenda e chama as tools de eventos |
+| **Agenda** | `gemini-2.5-flash` + fallback `llama-3.3-70b` | Interpreta perguntas de agenda e chama as tools de eventos |
 | **FAQ** | `llama-3.3-70b-versatile` (temp 0.0) | Consulta o PDF via RAG e responde dúvidas sobre o sistema |
 | **Orquestrador** | `llama-3.3-70b-versatile` (temp 0.0) | Formata a resposta do especialista em linguagem natural |
 | **Guardrail Saída** | `llama-3.3-70b-versatile` (temp 0.0) | Revisa compliance e redige PII na resposta final |
@@ -192,7 +198,7 @@ Usuário
 O guardrail de entrada executa verificações em ordem de custo crescente:
 
 1. **Detecção determinística** — regex para prompt injection e keywords de acesso a dados internos
-2. **Anonimização de PII** — substitui CPF, e-mail, telefone e cartão por tokens antes de passar ao LLM
+2. **Anonimização de PII** — substitui CPF, CNPJ, número de conta, cartão, e-mail e telefone por tokens antes de passar ao LLM
 3. **Classificação LLM** — categoriza a mensagem em `APROVADO`, `OFENSIVO`, `PERIGOSO`, `ILICITO`, `POLITICO` ou `INDICACAO_INVEST`
 
 Mensagens bloqueadas não são persistidas no histórico.
@@ -201,7 +207,7 @@ Mensagens bloqueadas não são persistidas no histórico.
 
 O guardrail de saída nunca bloqueia — apenas revisa:
 
-1. **Redação de PII** — remove dados pessoais remanescentes da resposta
+1. **Redação de PII** — remove dados pessoais remanescentes da resposta (CPF, CNPJ, número de conta e cartão)
 2. **Compliance CVM/ANBIMA** — corrige afirmações que garantam rentabilidade futura ou recomendem ativos sem disclaimer de risco
 
 ---
@@ -243,10 +249,12 @@ Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, 
 | Camada | Tecnologia | Responsabilidade |
 |---|---|---|
 | **Transações e eventos** | PostgreSQL (Docker) | Dados financeiros e de agenda do usuário |
-| **Histórico de conversa** | MongoDB | Mensagens por sessão (últimas 10 por consulta) |
+| **Histórico de conversa** | MongoDB | Mensagens por sessão (últimas 5 por consulta) |
 | **Checkpointing de grafo** | LangGraph MemorySaver | Estado interno do grafo entre turnos |
 
-O MongoDB armazena duas coleções: `users` (cadastro) e `chats` (histórico de mensagens embarcado por sessão). O histórico é limitado via projeção `$slice: -10` para evitar contextos longos demais.
+O MongoDB armazena duas coleções: `users` (cadastro e perfil comportamental) e `chats` (histórico de mensagens por sessão). O histórico é limitado via projeção `$slice: -5` para evitar contextos longos demais.
+
+O campo `perfil_usuario` — gerado a partir do histórico acumulado e armazenado em `users` — é carregado no estado do grafo antes de cada invocação, servindo como contexto cross-session do usuário.
 
 ---
 
@@ -265,7 +273,7 @@ MONGODB_URI=mongodb://usuario:senha@host:27017/
 
 ```bash
 uv venv
-uv pip install -r requirements.txt
+uv sync
 ```
 
 ### Execução

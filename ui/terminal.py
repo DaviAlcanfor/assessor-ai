@@ -17,6 +17,7 @@ def exibir_usuario(mensagem: str) -> None:
     console.print(Panel(
         Text(mensagem, style="white"),
         title="[bold green]Você[/bold green]",
+        title_align="left",
         border_style="green",
     ))
 
@@ -26,6 +27,7 @@ def exibir_assistente(mensagem: str) -> None:
     console.print(Panel(
         Text(mensagem, style="white"),
         title="[bold cyan]Assessor[/bold cyan]",
+        title_align="left",
         border_style="cyan",
     ))
     

@@ -82,14 +82,14 @@ def main() -> None:
     
     garantir_banco()
     exibir_titulo()
-    user_id = "dev"   
+    user_id = str(uuid4())   
     session_id = str(uuid4())
     
     # mock pra teste
     users.garantir_usuario(
         user_id,
-        nome="Dev", 
-        email="dev@dev.com"
+        nome="USUARIO FALSO PARA TESTE", 
+        email="TESTE@TESTE.com"
     )
     
 
@@ -110,6 +110,7 @@ def main() -> None:
             exibir_assistente(resposta)
 
         except KeyboardInterrupt:
+            chats.encerrar_sessao(session_id, user_id)
             console.print("\n[dim]Encerrando...[/dim]")
             break
         except Exception as e:

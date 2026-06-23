@@ -39,6 +39,7 @@ def build_llm(
 llm_gemini = build_llm(model=Model.GEMINI_2_5_FLASH, temperature=0.7, top_p=0.95)
 llm_groq   = build_llm(model=Model.LLAMA_3_3_VERSATILE, temperature=0.7)
 llm_rapido = build_llm(model=Model.LLAMA_3_3_VERSATILE, temperature=0.0)
+llm_guardrail = build_llm(model=Model.GEMINI_2_5_FLASH, temperature=0.0)
 llm_especialista = llm_gemini.with_fallbacks([llm_groq])
 
 
@@ -48,4 +49,5 @@ __all__ = [
     "llm_groq",
     "llm_rapido",
     "llm_especialista",
+    "llm_guardrail",
 ]

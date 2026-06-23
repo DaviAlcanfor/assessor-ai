@@ -5,7 +5,7 @@ import uuid
 from agents.nodes.names import NodeName
 from agents.prompts.guardrail import GuardrailPrompts
 from graph.state import Estado
-from graph.llm import llm_rapido
+from graph.llm import llm_guardrail
 from config.logging import get_logger
 
 logger = get_logger(__name__)
@@ -89,11 +89,11 @@ def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     if _detectar_acesso_interno(mensagem_anonimizada):
         return _bloquear("acesso_dados_internos", "Não tenho como compartilhar informações internas do sistema.")
     
-    categoria = _extrair_categoria(
-        llm_rapido.invoke(
-            GuardrailPrompts.CLASSIFICADOR.format(mensagem=mensagem_anonimizada)
-        ).content
-    )
+    mensagem = llm_guardrail.invoke(
+                GuardrailPrompts.CLASSIFICADOR.format(mensagem=mensagem_anonimizada)
+            ).content
+    
+    categoria = _extrair_categoria(mensagem)
 
     if categoria in _RESPOSTAS_BLOQUEIO:
         motivo, mensagem = _RESPOSTAS_BLOQUEIO[categoria]
@@ -122,9 +122,10 @@ def no_guardrail_entrada(estado: Estado) -> dict:
 
     logger.info("Mensagem aprovada pelo guardrail de entrada.")
     return {
-        "agentes_chamados": [NodeName.GUARDRAIL_ENTRADA],
-        "mapa_pii":         mapa_pii,
-        "messages":         [HumanMessage(id=ultima_msg.id, content=texto_anonimizado)],
+        "agentes_chamados":   [NodeName.GUARDRAIL_ENTRADA],
+        "mapa_pii":           mapa_pii,
+        "messages":           [HumanMessage(id=ultima_msg.id, content=texto_anonimizado)],
+        "mensagem_bloqueada": None, # limpa mensagem bloqueada, era isso q tava fudendo tudo
     }
 
 

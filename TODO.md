@@ -170,3 +170,14 @@ verdade com [Textual](https://github.com/Textualize/textual).
       thread/worker do Textual para não travar a UI)
 - [ ] Tela/painel lateral opcional mostrando qual agente está ativo (`agentes_chamados` do estado)
 - [ ] Comando `/exit` e `Ctrl+C` encerrando a sessão via `chat.service`
+
+## Débitos técnicos / melhorias soltas
+
+- [ ] Transformar as tabelas de `types` (`tools/postgres/models.py:TransactionType`, hoje resolvida
+      via `resolve_type_id` em `tools/postgres/helpers.py`) em `enum` Python + `type` `payment_types`
+      no lugar de linhas em tabela consultadas em runtime
+- [ ] `[project.scripts]` no `pyproject.toml` para rodar `assessor` (comando instalado) em vez de
+      `uv run main.py <args>`
+- [ ] Adicionar checagem de tipagem estática com **mypy** (ruff cobre lint/format mas não faz type
+      checking; mypy é o que de fato valida as anotações de tipo) — avaliar `strict` vs. modo
+      incremental dado que o projeto ainda não tem nenhuma tipagem checada

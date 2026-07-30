@@ -47,6 +47,41 @@ Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools 
 - Tools retornam a classe `Response` (`tools/response.py`) para padronizar sucesso/erro.
 - Não commitar `.env`; usar `.env.example` como referência de variáveis novas.
 
+## Padrões de organização e clean code
+
+Padrões já em uso no repo — mantenha-os ao adicionar código novo (inclui o que está planejado em
+TODO.md: `chat/`, `interfaces/`, Alembic):
+
+- **Package by feature, não por camada técnica.** `tools/postgres/{financeiro,agenda}`,
+  `tools/mongo/{chats,users}` — cada domínio é uma pasta com tudo que ele precisa, em vez de um
+  `models/`, `services/`, `schemas/` genéricos misturando domínios. Ao criar Redis/Qdrant, seguir o
+  mesmo corte: `tools/<sistema>/<domínio>/`.
+- **Repository leve por domínio.** `core.py` expõe as operações (`buscar`, `criar`, `atualizar_*`)
+  como funções de módulo, não classes — é o repository pattern sem cerimônia de classe/interface.
+  `schemas.py` ao lado define o contrato de dados (Pydantic) separado da lógica.
+- **Infra isolada e lazy.** Toda conexão externa (`tools/postgres/connection.py`,
+  `tools/mongo/connection.py`, `tools/faq_tools.py`) inicializa só no primeiro uso — nunca há
+  side effect de I/O no import de um módulo. Isso é o que torna o projeto testável sem mockar tudo
+  na importação.
+- **Single responsibility por nó de agente.** `agents/nodes/` (execução) fica separado de
+  `agents/prompts/` (conteúdo/persona) — mudar o texto de um prompt nunca deveria exigir tocar na
+  lógica de roteamento do grafo, e vice-versa.
+- **Contrato de retorno único.** Tools não retornam dict cru nem deixam exception vazar para o
+  agente — usam `Response` (`tools/response.py`) como envelope padrão de sucesso/erro. Ao criar
+  tool nova, reusar essa classe em vez de inventar outro formato de retorno.
+- **Config centralizada.** Uma única fonte de env vars (`config/settings.py`, `pydantic-settings`)
+  e um único enum fechado de modelos/providers (`config/models.py:Model`/`PROVIDER_MAP`). Não ler
+  `os.environ` direto em outros módulos.
+- **Entrypoint fino.** `main.py` deveria só orquestrar (montar estado, chamar o grafo, persistir) —
+  hoje ele acumula um pouco de lógica de negócio que está planejada para sair em TODO.md
+  ("Refatoração: camada de serviço compartilhada"). Ao mexer em `main.py`, prefira mover lógica
+  para um módulo de serviço em vez de engordar o arquivo.
+- **Camadas da futura refatoração** (`chat/` + `interfaces/`, ver TODO.md) seguem uma separação
+  tipo clean architecture bem simplificada: `interfaces/*` (I/O — terminal, TUI, HTTP) →
+  `chat/service.py` (casos de uso) → `chat/runner.py` + `chat/repositories.py` (LangGraph e
+  persistência). Nenhuma interface deve chamar `graph/builder.py` ou `tools/mongo/*` diretamente —
+  sempre via `chat/service.py`.
+
 ## Comandos
 
 ```bash

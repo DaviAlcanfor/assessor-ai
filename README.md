@@ -288,6 +288,18 @@ O sistema sobe automaticamente o container Docker do PostgreSQL ao iniciar e o e
 
 Digite `/exit` para encerrar.
 
+### Migrations (Alembic)
+
+Schema do PostgreSQL versionado em `alembic/versions/`. Com o container do Postgres no ar
+(`DATABASE_URI` configurado):
+
+```bash
+uv run alembic upgrade head
+```
+
+Não há autogenerate configurado (o projeto usa SQL puro via `psycopg2`, sem ORM) — toda migration
+nova é escrita à mão com `alembic revision -m "..."` e `op.execute(...)`.
+
 ---
 
 ## Dependências principais

@@ -6,6 +6,7 @@ from graph.builder import fluxo_agentes
 from config.docker import garantir_banco
 import tools.mongo.chats.core as chats
 import tools.mongo.users.core as users
+import tools.postgres.users.core as pg_users
 from tools.mongo.chats.schemas import Mensagem, Role
 
 from ui.terminal import (
@@ -88,10 +89,11 @@ def main() -> None:
     # mock pra teste
     users.garantir_usuario(
         user_id,
-        nome="USUARIO FALSO PARA TESTE", 
+        nome="USUARIO FALSO PARA TESTE",
         email="TESTE@TESTE.com"
     )
-    
+    pg_users.garantir_usuario(user_id)
+
 
     while True:
         try:

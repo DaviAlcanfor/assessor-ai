@@ -6,9 +6,10 @@ Contexto do projeto **Assessor.AI** para agentes de IA (Claude Code, Copilot, et
 
 Assistente pessoal de **finanças** e **agenda** construído com LangChain + LangGraph. Arquitetura
 multi-agente: um grafo de nós onde cada nó tem responsabilidade única (guardrail, roteamento,
-especialista de domínio, orquestração de resposta). Interface atual é um loop de terminal (Rich +
-pyfiglet). Detalhes completos de arquitetura, fluxo de agentes e tools estão no [README.md](README.md)
-— leia-o antes de mexer em `agents/` ou `graph/`.
+especialista de domínio, orquestração de resposta). `main.py` é um dispatcher (`python main.py
+terminal|tui|api`); hoje só `terminal` tem implementação — `tui` e `api` são stubs vazios (ver
+TODO.md). Detalhes completos de arquitetura, fluxo de agentes e tools estão no
+[README.md](README.md) — leia-o antes de mexer em `agents/` ou `graph/`.
 
 ## Stack
 
@@ -26,13 +27,18 @@ pyfiglet). Detalhes completos de arquitetura, fluxo de agentes e tools estão no
 ## Estrutura
 
 ```
+chat/       service.py (API pública), runner.py (invoca o grafo), repositories.py (Mongo/Postgres), models.py
+interfaces/ um pacote por forma de uso: terminal/{app.py,display.py} (implementado), tui/app.py e api/app.py (vazios)
 agents/     prompts (agents/prompts) e nós de grafo (agents/nodes) — um arquivo por agente
 graph/      state.py (estado + Route), llm.py (builders), agents.py (apps compilados), builder.py (grafo)
 tools/      integrações externas: tools/postgres/{financeiro,agenda}, tools/mongo/{chats,users}, faq_tools.py
 config/     settings.py (env vars via pydantic-settings), models.py (Model enum + providers), docker.py, logging.py
-ui/         terminal.py — interface Rich atual (candidata a virar TUI com Textual, ver TODO.md)
 data/       documents/ — PDFs para RAG
 ```
+
+Nenhuma interface (`interfaces/*`) deve chamar `graph/builder.py`, `tools/mongo/*` ou
+`tools/postgres/*` diretamente — sempre via `chat/service.py`. É esse limite que permite TUI e API
+existirem sem duplicar a lógica de montar estado, invocar o grafo e persistir histórico.
 
 Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools em si) + `connection.py`
 (conexão lazy, só inicializa no primeiro uso). Siga esse padrão para qualquer tool nova (redis, qdrant, etc).
@@ -68,8 +74,7 @@ Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools 
 
 ## Padrões de organização e clean code
 
-Padrões já em uso no repo — mantenha-os ao adicionar código novo (inclui o que está planejado em
-TODO.md: `chat/`, `interfaces/`, Alembic):
+Padrões já em uso no repo — mantenha-os ao adicionar código novo:
 
 - **Package by feature, não por camada técnica.** `tools/postgres/{financeiro,agenda}`,
   `tools/mongo/{chats,users}` — cada domínio é uma pasta com tudo que ele precisa, em vez de um
@@ -98,21 +103,19 @@ TODO.md: `chat/`, `interfaces/`, Alembic):
 - **Config centralizada.** Uma única fonte de env vars (`config/settings.py`, `pydantic-settings`)
   e um único enum fechado de modelos/providers (`config/models.py:Model`/`PROVIDER_MAP`). Não ler
   `os.environ` direto em outros módulos.
-- **Entrypoint fino.** `main.py` deveria só orquestrar (montar estado, chamar o grafo, persistir) —
-  hoje ele acumula um pouco de lógica de negócio que está planejada para sair em TODO.md
-  ("Refatoração: camada de serviço compartilhada"). Ao mexer em `main.py`, prefira mover lógica
-  para um módulo de serviço em vez de engordar o arquivo.
-- **Camadas da futura refatoração** (`chat/` + `interfaces/`, ver TODO.md) seguem uma separação
-  tipo clean architecture bem simplificada: `interfaces/*` (I/O — terminal, TUI, HTTP) →
-  `chat/service.py` (casos de uso) → `chat/runner.py` + `chat/repositories.py` (LangGraph e
-  persistência). Nenhuma interface deve chamar `graph/builder.py` ou `tools/mongo/*` diretamente —
-  sempre via `chat/service.py`.
+- **Entrypoint fino.** `main.py` só faz dispatch por argv (`terminal`/`tui`/`api`) — nenhuma lógica
+  de negócio nele. Lógica de negócio nova vai em `chat/`, nunca de volta pra `main.py`.
+- **Camadas de `chat/` + `interfaces/`** seguem uma separação tipo clean architecture bem
+  simplificada: `interfaces/*` (I/O — terminal, TUI, HTTP) → `chat/service.py` (casos de uso) →
+  `chat/runner.py` + `chat/repositories.py` (LangGraph e persistência). `chat/models.py` define o
+  contrato (`ChatMessage`, `Role`) independente dos schemas do Mongo — `chat/repositories.py` é
+  quem converte entre os dois.
 
 ## Comandos
 
 ```bash
-uv venv && uv sync     # instalar dependências
-python main.py         # rodar o assistente (sobe o container Postgres automaticamente)
+uv venv && uv sync       # instalar dependências
+python main.py terminal # rodar o assistente no terminal (sobe o container Postgres automaticamente)
 ```
 
 Não há suíte de testes no projeto ainda.

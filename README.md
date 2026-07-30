@@ -78,8 +78,23 @@ flowchart LR
 
 ```
 assessor-ai/
-├── main.py                          # Ponto de entrada — loop de conversa no terminal
+├── main.py                          # Dispatcher — `python main.py terminal|tui|api`
 ├── pyproject.toml                   # Dependências do projeto
+│
+├── chat/                            # Camada de serviço compartilhada entre as interfaces
+│   ├── models.py                    # ChatMessage, Role — contrato interno, independente de Mongo/tool
+│   ├── repositories.py              # Acesso a tools/mongo/chats, tools/mongo/users e tools/postgres/users
+│   ├── runner.py                    # Invoca fluxo_agentes (graph/builder.py) e extrai a resposta
+│   └── service.py                   # create_chat, send_message, get_history, encerrar_sessao — API pública
+│
+├── interfaces/                      # Um pacote por forma de uso, todos consumindo chat/service.py
+│   ├── terminal/
+│   │   ├── app.py                   # run() — loop de input() do terminal
+│   │   └── display.py               # Interface Rich + pyfiglet (exibir_titulo, exibir_usuario, ...)
+│   ├── tui/
+│   │   └── app.py                   # (vazio — ver TODO.md "TUI com Textual")
+│   └── api/
+│       └── app.py                   # (vazio — ver TODO.md "API")
 │
 ├── agents/
 │   ├── prompts/                     # Prompts de cada agente
@@ -140,9 +155,6 @@ assessor-ai/
 │   ├── logging.py                   # ColorFormatter e get_logger
 │   ├── decorators.py                # log_tool decorator
 │   └── docker.py                    # Auto start/stop do container PostgreSQL
-│
-├── ui/
-│   └── terminal.py                  # Interface Rich + pyfiglet no terminal
 │
 └── data/
     └── documents/                   # PDFs para RAG
@@ -284,8 +296,11 @@ uv sync
 ### Execução
 
 ```bash
-python main.py
+python main.py terminal
 ```
+
+`tui` e `api` também são opções válidas de `main.py`, mas ainda não têm implementação
+(`interfaces/tui/app.py` e `interfaces/api/app.py` — ver TODO.md).
 
 O sistema sobe automaticamente o container Docker do PostgreSQL ao iniciar e o encerra ao fechar.
 

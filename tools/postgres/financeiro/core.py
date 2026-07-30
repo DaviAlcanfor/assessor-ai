@@ -1,16 +1,18 @@
-from typing import List, Optional, Any
+from datetime import datetime, timezone
+from typing import Optional
 from langchain.tools import tool
+from sqlalchemy import case, func, or_, select
 
-from config.settings import settings
 from config.decorators import log_tool
 from config.logging import get_logger
 
 from tools.response import Response
-from tools.postgres.connection import get_conn
+from tools.postgres.connection import get_session
+from tools.postgres.models import Transaction
 from tools.postgres.helpers import (
     resolve_type_id,
     get_category_id,
-    local_date_filter_sql
+    local_date_filter
 )
 from tools.postgres.financeiro.schemas import (
     AddTransactionArgs,
@@ -47,36 +49,34 @@ def add_transaction(
     Se occurred_at não for informado, usa o timestamp atual do servidor.
     """
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            try:
-                resolved_type_id = resolve_type_id(cur, type_id, type_name)
-                if not resolved_type_id:
-                    return Response.error("Tipo inválido (use type_id ou type_name: INCOME/EXPENSES/TRANSFER).")
+    with get_session() as session:
+        try:
+            resolved_type_id = resolve_type_id(session, type_id, type_name)
+            if not resolved_type_id:
+                return Response.error("Tipo inválido (use type_id ou type_name: INCOME/EXPENSES/TRANSFER).")
 
-                if not category_id:
-                    category_id = get_category_id(cur, category_name)
+            if not category_id:
+                category_id = get_category_id(session, category_name)
 
-                ts = occurred_at if occurred_at else "NOW()"
-                cur.execute("""
-                    INSERT INTO transactions
-                        (amount, type, category_id, description, payment_method, occurred_at, source_text)
-                    VALUES
-                        (%s, %s, %s, %s, %s, %s::timestamptz, %s)
-                    RETURNING id, occurred_at;
-                """, (amount, resolved_type_id, category_id, description, payment_method, ts, source_text))
+            tx = Transaction(
+                amount=amount,
+                type=resolved_type_id,
+                category_id=category_id,
+                description=description,
+                payment_method=payment_method,
+                occurred_at=datetime.fromisoformat(occurred_at) if occurred_at else datetime.now(timezone.utc),
+                source_text=source_text,
+            )
+            session.add(tx)
+            session.flush()
 
-                new_id, occurred = cur.fetchone()
-                conn.commit()
+            logger.info("INSERT OK | id=%s amount=%.2f type_id=%s occurred_at=%s", tx.id, amount, resolved_type_id, tx.occurred_at)
 
-                logger.info("INSERT OK | id=%s amount=%.2f type_id=%s occurred_at=%s", new_id, amount, resolved_type_id, occurred)
+            return Response.ok(id=tx.id, occurred_at=str(tx.occurred_at))
 
-                return Response.ok(id=new_id, occurred_at=str(occurred))
-
-            except Exception as e:
-                conn.rollback()
-                logger.error("INSERT ERRO | %s", e)
-                return Response.error(e)
+        except Exception as e:
+            logger.error("INSERT ERRO | %s", e)
+            return Response.error(e)
 
 
 @tool("total_balance")
@@ -84,25 +84,23 @@ def add_transaction(
 def total_balance() -> dict:
     """Retorna o saldo total do usuário (INCOME - EXPENSES)."""
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            try:
-                cur.execute("""
-                    SELECT
-                        (SUM(CASE WHEN type = 1 THEN amount ELSE 0 END) -
-                         SUM(CASE WHEN type = 2 THEN amount ELSE 0 END)) AS total_balance
-                    FROM transactions;
-                """)
-                result = cur.fetchone()
-                balance = float(result[0]) if result and result[0] is not None else 0.0
+    with get_session() as session:
+        try:
+            result = session.scalar(
+                select(
+                    func.sum(case((Transaction.type == 1, Transaction.amount), else_=0))
+                    - func.sum(case((Transaction.type == 2, Transaction.amount), else_=0))
+                )
+            )
+            balance = float(result) if result is not None else 0.0
 
-                logger.info("QUERY OK | total_balance=%.2f", balance)
+            logger.info("QUERY OK | total_balance=%.2f", balance)
 
-                return Response.ok(amount=balance)
+            return Response.ok(amount=balance)
 
-            except Exception as e:
-                logger.error("QUERY ERRO | total_balance | %s", e)
-                return Response.error(e)
+        except Exception as e:
+            logger.error("QUERY ERRO | total_balance | %s", e)
+            return Response.error(e)
 
 
 @tool("daily_balance")
@@ -114,27 +112,24 @@ def daily_balance(date_local: str) -> dict:
     date_local deve estar no formato YYYY-MM-DD, interpretado no fuso America/Sao_Paulo.
     """
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            try:
-                cur.execute("""
-                    SELECT
-                        (SUM(CASE WHEN type = 1 THEN amount ELSE 0 END) -
-                         SUM(CASE WHEN type = 2 THEN amount ELSE 0 END)) AS total_balance
-                    FROM transactions
-                    WHERE DATE(occurred_at) = DATE(%s)
-                """, (date_local,))
+    with get_session() as session:
+        try:
+            result = session.scalar(
+                select(
+                    func.sum(case((Transaction.type == 1, Transaction.amount), else_=0))
+                    - func.sum(case((Transaction.type == 2, Transaction.amount), else_=0))
+                )
+                .where(func.date(Transaction.occurred_at) == func.date(date_local))
+            )
+            balance = float(result) if result is not None else 0.0
 
-                result = cur.fetchone()
-                balance = float(result[0]) if result and result[0] is not None else 0.0
+            logger.info("QUERY OK | daily_balance date=%s balance=%.2f", date_local, balance)
 
-                logger.info("QUERY OK | daily_balance date=%s balance=%.2f", date_local, balance)
+            return Response.ok(balance_date=date_local, total_balance=balance)
 
-                return Response.ok(balance_date=date_local, total_balance=balance)
-
-            except Exception as e:
-                logger.error("QUERY ERRO | daily_balance | %s", e)
-                return Response.error(e)
+        except Exception as e:
+            logger.error("QUERY ERRO | daily_balance | %s", e)
+            return Response.error(e)
 
 
 @tool("query_transactions", args_schema=QueryTransactionArgs)
@@ -153,55 +148,47 @@ def query_transactions(
     Datas devem estar no formato YYYY-MM-DD, interpretadas no fuso America/Sao_Paulo.
     """
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            try:
-                base_query = """
-                    SELECT id, amount, type, category_id, description, payment_method, occurred_at
-                    FROM transactions
-                    WHERE 1=1
-                """
-                params = []
+    with get_session() as session:
+        try:
+            stmt = select(Transaction)
 
-                if date_from_local and date_to_local:
-                    base_query += " AND DATE(occurred_at) BETWEEN %s AND %s"
-                    params.extend([date_from_local, date_to_local])
+            if date_from_local and date_to_local:
+                stmt = stmt.where(func.date(Transaction.occurred_at).between(date_from_local, date_to_local))
+                stmt = stmt.order_by(Transaction.occurred_at.asc())
+            else:
+                stmt = stmt.order_by(Transaction.occurred_at.desc())
 
-                if type_name:
-                    resolved_type_id = resolve_type_id(cur, None, type_name)
-                    if resolved_type_id:
-                        base_query += " AND type = %s"
-                        params.append(resolved_type_id)
+            if type_name:
+                resolved_type_id = resolve_type_id(session, None, type_name)
+                if resolved_type_id:
+                    stmt = stmt.where(Transaction.type == resolved_type_id)
 
-                if source_text:
-                    base_query += " AND (source_text ILIKE %s OR description ILIKE %s)"
-                    params.extend([f"%{source_text}%", f"%{source_text}%"])
+            if source_text:
+                like = f"%{source_text}%"
+                stmt = stmt.where(or_(Transaction.source_text.ilike(like), Transaction.description.ilike(like)))
 
-                base_query += " ORDER BY occurred_at ASC" if (date_from_local and date_to_local) else " ORDER BY occurred_at DESC"
+            rows = session.scalars(stmt).all()
 
-                cur.execute(base_query, params)
-                rows = cur.fetchall()
+            transactions = [
+                {
+                    "id":             t.id,
+                    "amount":         float(t.amount),
+                    "type":           t.type,
+                    "category_id":    t.category_id,
+                    "description":    t.description,
+                    "payment_method": t.payment_method,
+                    "occurred_at":    str(t.occurred_at),
+                }
+                for t in rows
+            ]
 
-                transactions = [
-                    {
-                        "id":             row[0],
-                        "amount":         float(row[1]),
-                        "type":           row[2],
-                        "category_id":    row[3],
-                        "description":    row[4],
-                        "payment_method": row[5],
-                        "occurred_at":    str(row[6]),
-                    }
-                    for row in rows
-                ]
+            logger.info("QUERY OK | query_transactions | total_records=%s", len(transactions))
 
-                logger.info("QUERY OK | query_transactions | total_records=%s", len(transactions))
+            return Response.ok(total_records=len(transactions), transactions=transactions)
 
-                return Response.ok(total_records=len(transactions), transactions=transactions)
-
-            except Exception as e:
-                logger.error("QUERY ERRO | query_transactions | %s", e)
-                return Response.error(e)
+        except Exception as e:
+            logger.error("QUERY ERRO | query_transactions | %s", e)
+            return Response.error(e)
 
 
 @tool("update_transaction", args_schema=UpdateTransactionArgs)
@@ -231,85 +218,70 @@ def update_transaction(
     if not any([amount, type_id, type_name, category_id, category_name, description, payment_method, occurred_at]):
         return Response.error("Nada para atualizar: forneça pelo menos um campo.")
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            try:
-                target_id = id
-                if target_id is None:
-                    if not match_text or not date_local:
-                        return Response.error("Sem 'id': informe match_text E date_local para localizar o registro.")
+    target_id = id
 
-                    cur.execute(
-                        f"""
-                        SELECT t.id FROM transactions t
-                        WHERE (unaccent(t.source_text) ILIKE unaccent(%s) OR unaccent(t.description) ILIKE unaccent(%s))
-                        AND {local_date_filter_sql("t.occurred_at")}
-                        ORDER BY t.occurred_at DESC
-                        LIMIT 1;
-                        """,
-                        (f"%{match_text}%", f"%{match_text}%", date_local)
+    with get_session() as session:
+        try:
+            if target_id is None:
+                if not match_text or not date_local:
+                    return Response.error("Sem 'id': informe match_text E date_local para localizar o registro.")
+
+                target_id = session.scalar(
+                    select(Transaction.id)
+                    .where(
+                        or_(
+                            func.unaccent(Transaction.source_text).ilike(func.unaccent(f"%{match_text}%")),
+                            func.unaccent(Transaction.description).ilike(func.unaccent(f"%{match_text}%")),
+                        ),
+                        local_date_filter(Transaction.occurred_at, date_local),
                     )
-                    row = cur.fetchone()
-                    if not row:
-                        return Response.error("Nenhuma transação encontrada para os filtros fornecidos.")
-                    target_id = row[0]
-
-                resolved_type_id     = resolve_type_id(cur, type_id, type_name) if (type_id or type_name) else None
-                resolved_category_id = category_id
-                if category_name and not category_id:
-                    resolved_category_id = get_category_id(cur, category_name)
-
-                sets: List[str] = []
-                params: List[Any] = []
-
-                if amount           is not None: sets.append("amount = %s");                    params.append(amount)
-                if resolved_type_id is not None: sets.append("type = %s");                      params.append(resolved_type_id)
-                if resolved_category_id is not None: sets.append("category_id = %s");           params.append(resolved_category_id)
-                if description      is not None: sets.append("description = %s");               params.append(description)
-                if payment_method   is not None: sets.append("payment_method = %s");            params.append(payment_method)
-                if occurred_at      is not None: sets.append("occurred_at = %s::timestamptz");  params.append(occurred_at)
-
-                if not sets:
-                    return Response.error("Nenhum campo válido para atualizar.")
-
-                params.append(target_id)
-                cur.execute(f"UPDATE transactions SET {', '.join(sets)} WHERE id = %s;", params)
-                rows_affected = cur.rowcount
-                conn.commit()
-
-                cur.execute("""
-                    SELECT t.id, t.occurred_at, t.amount, tt.type, c.name, t.description, t.payment_method, t.source_text
-                    FROM transactions t
-                    JOIN transaction_types tt ON tt.id = t.type
-                    LEFT JOIN categories c ON c.id = t.category_id
-                    WHERE t.id = %s;
-                """, (target_id,))
-
-                row = cur.fetchone()
-                updated = {
-                    "id": row[0], "occurred_at": str(row[1]), "amount": float(row[2]),
-                    "type": row[3], "category": row[4], "description": row[5],
-                    "payment_method": row[6], "source_text": row[7],
-                } if row else None
-
-                logger.info("UPDATE OK | id=%s rows_affected=%s", target_id, rows_affected)
-
-                return Response.ok(
-                    rows_affected=rows_affected, 
-                    id=target_id, 
-                    updated=updated
+                    .order_by(Transaction.occurred_at.desc())
+                    .limit(1)
                 )
+                if not target_id:
+                    return Response.error("Nenhuma transação encontrada para os filtros fornecidos.")
 
-            except Exception as e:
-                conn.rollback()
-                logger.error("UPDATE ERRO | id=%s | %s", target_id, e)
-                return Response.error(e)
+            tx = session.get(Transaction, target_id)
+            if tx is None:
+                return Response.ok(rows_affected=0, id=target_id, updated=None)
+
+            resolved_type_id     = resolve_type_id(session, type_id, type_name) if (type_id or type_name) else None
+            resolved_category_id = category_id
+            if category_name and not category_id:
+                resolved_category_id = get_category_id(session, category_name)
+
+            if amount is not None:           tx.amount = amount
+            if resolved_type_id is not None: tx.type = resolved_type_id
+            if resolved_category_id is not None: tx.category_id = resolved_category_id
+            if description is not None:      tx.description = description
+            if payment_method is not None:   tx.payment_method = payment_method
+            if occurred_at is not None:      tx.occurred_at = datetime.fromisoformat(occurred_at)
+
+            session.flush()
+
+            updated = {
+                "id": tx.id, "occurred_at": str(tx.occurred_at), "amount": float(tx.amount),
+                "type": tx.transaction_type.type, "category": tx.category.name if tx.category else None,
+                "description": tx.description, "payment_method": tx.payment_method, "source_text": tx.source_text,
+            }
+
+            logger.info("UPDATE OK | id=%s rows_affected=1", target_id)
+
+            return Response.ok(
+                rows_affected=1,
+                id=target_id,
+                updated=updated
+            )
+
+        except Exception as e:
+            logger.error("UPDATE ERRO | id=%s | %s", target_id, e)
+            return Response.error(e)
 
 
 __all__ = [
-    "add_transaction", 
-    "daily_balance", 
-    "total_balance", 
-    "query_transactions", 
+    "add_transaction",
+    "daily_balance",
+    "total_balance",
+    "query_transactions",
     "update_transaction",
 ]

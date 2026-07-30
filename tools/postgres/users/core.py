@@ -1,6 +1,9 @@
+from sqlalchemy.dialects.postgresql import insert
+
 from config.logging import get_logger
 
-from tools.postgres.connection import get_conn
+from tools.postgres.connection import get_session
+from tools.postgres.models import User
 
 logger = get_logger("pg_users")
 
@@ -14,13 +17,9 @@ def garantir_usuario(user_id: str) -> None:
     manter os dois bancos com o mesmo identificador.
     """
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO users (id) VALUES (%s) ON CONFLICT (id) DO NOTHING;",
-                (user_id,)
-            )
-            conn.commit()
+    with get_session() as session:
+        stmt = insert(User).values(id=user_id).on_conflict_do_nothing(index_elements=["id"])
+        session.execute(stmt)
 
 
 __all__ = ["garantir_usuario"]

@@ -96,30 +96,35 @@ Sem uma tabela de usuário no Postgres, transações e eventos (`tools/postgres/
 gravam nem filtram por `user_id` real — todo INSERT novo cai no usuário legado via `DEFAULT` da
 coluna. Propagar o `user_id` do agente por essas tools e então remover o `DEFAULT` da coluna.
 
-## ORM (SQLAlchemy)
+## ORM (SQLAlchemy) — concluído
 
-Depende da seção Alembic acima estar fechada (schema final com a FK de `users` definido). Hoje
-`tools/postgres/*` usa `psycopg2` cru; `sqlalchemy` já é dependência (via Alembic), então o driver
-já está disponível. Vale a pena principalmente onde já tem SQL montado na mão: `query_transactions`
-(filtros dinâmicos concatenados em `base_query`) e `update_transaction` (`JOIN` manual +
-`Response` montado campo a campo) — isso vira `session.query(...).filter(...)` e `relationship()`
-no ORM.
+`tools/postgres/*` migrou de `psycopg2` cru pra SQLAlchemy ORM.
 
-- [ ] Models declarativos para as tabelas já existentes (`users`, `transactions`,
-      `transaction_types`, `categories`, `events`) — mapear o schema atual, não redesenhar
-- [ ] Trocar `tools/postgres/connection.py` (pool `ThreadedConnectionPool` do psycopg2) por
-      `Engine`/`sessionmaker` do SQLAlchemy; decidir o equivalente do `get_conn()` atual
-      (Session por chamada de tool, mesmo formato de context manager)
-- [ ] Reescrever `tools/postgres/financeiro/core.py` e `tools/postgres/agenda/core.py` tool por
-      tool — `add_transaction`, `query_transactions`, `update_transaction`, `total_balance`,
-      `daily_balance`, `add_event`, `query_events`, `query_daily_events`, `update_event`
-- [ ] `tools/postgres/helpers.py` (`resolve_type_id`, `get_category_id`, `local_date_filter_sql`)
-      tende a sumir ou virar lookup simples via ORM — revisar caso a caso
-- [ ] `tools/postgres/financeiro/schemas.py` / `agenda/schemas.py` (schemas Pydantic de entrada das
-      tools) não deveriam precisar mudar — são o contrato da tool, não o acesso a dado
-- [ ] Ligar `target_metadata` em `alembic/env.py` aos models declarativos e voltar a usar
-      `--autogenerate` daqui pra frente (hoje é `None` de propósito — ver comentário no arquivo,
-      todas as migrations são escritas à mão)
+- [x] Models declarativos em `tools/postgres/models.py` (`User`, `TransactionType`, `Category`,
+      `Transaction`, `Event`) — mapeiam o schema existente 1:1, incluindo os índices já criados
+      pelas migrations (`idx_transactions_occurred_at`, `idx_transactions_category_time`,
+      `idx_transactions_localday` — este último como expressão via `text()` pra bater
+      exatamente com o índice reflectido) e o `ondelete="SET NULL"` da FK de categoria
+- [x] `tools/postgres/connection.py` trocou `ThreadedConnectionPool` por `Engine`/`sessionmaker`;
+      `get_session()` já faz `commit()`/`rollback()` automático (tools não chamam mais isso na mão)
+- [x] `tools/postgres/financeiro/core.py` e `agenda/core.py` reescritas tool por tool, preservando
+      exatamente o mesmo dict de retorno (`Response.ok`/`Response.error`) e o `try/except` em volta
+      de cada tool — necessário porque `log_tool` não captura exceção nenhuma, só inspeciona
+      `result["status"]`
+- [x] `tools/postgres/helpers.py`: `resolve_type_id`/`get_category_id` via `select()`;
+      `local_date_filter_sql` virou `local_date`/`local_date_filter`/`local_date_range_filter`
+      (expressões SQLAlchemy reutilizáveis, unificando um filtro de timezone que antes estava
+      duplicado inline em três lugares de `agenda/core.py`)
+- [x] `tools/postgres/users/core.py`: `garantir_usuario` agora usa
+      `insert(...).on_conflict_do_nothing()` do dialeto Postgres, preservando a idempotência
+- [x] `alembic/env.py` com `target_metadata = Base.metadata` — `--autogenerate` funciona a partir
+      de agora (verificado: diff vazio contra o schema real após os ajustes de tipo/índice/FK)
+
+**Achado durante a migration:** diferente do SQL cru (que omite a coluna e deixa o Postgres aplicar
+o `DEFAULT`), o SQLAlchemy ORM sempre manda a coluna no `INSERT`, incluindo `NULL` explícito pra
+atributos não setados — isso quebrava o `DEFAULT` do usuário legado (`user_id`) até adicionar um
+`default=LEGACY_USER_ID` do lado Python em `Transaction`/`Event` (`tools/postgres/models.py`).
+Continua valendo o follow-up de propagar `user_id` real, registrado na seção Alembic acima.
 
 ## Redis
 

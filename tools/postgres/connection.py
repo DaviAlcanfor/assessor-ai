@@ -1,31 +1,35 @@
-import psycopg2
-from psycopg2 import pool
 from contextlib import contextmanager
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 from config.settings import settings
 
 
-_pool = None
+_engine = None
+_SessionFactory = None
 
 
-def _get_pool() -> pool.ThreadedConnectionPool:
+def _get_session_factory() -> sessionmaker:
 
-    global _pool
+    global _engine, _SessionFactory
 
-    if _pool is None:
-        _pool = pool.ThreadedConnectionPool(
-            minconn=1,
-            maxconn=10,
-            dsn=settings.DATABASE_URI
-        )
+    if _SessionFactory is None:
+        _engine = create_engine(settings.DATABASE_URI, pool_size=10)
+        _SessionFactory = sessionmaker(bind=_engine)
 
-    return _pool
+    return _SessionFactory
 
 
 @contextmanager
-def get_conn():
+def get_session():
 
-    conn = _get_pool().getconn()
+    session: Session = _get_session_factory()()
     try:
-        yield conn
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
-        _get_pool().putconn(conn)
+        session.close()

@@ -16,7 +16,8 @@ pyfiglet). Detalhes completos de arquitetura, fluxo de agentes e tools estão no
 - LangChain 1.2 / LangGraph 1.1 para orquestração de agentes
 - LLMs: Gemini (`gemini-2.5-flash`), Groq (`llama-3.3-70b-versatile`), com Claude e Qwen mapeados em
   `config/models.py` mas ainda não usados por nenhum agente
-- PostgreSQL (via Docker, auto start/stop em `config/docker.py`) para transações e eventos
+- PostgreSQL (via Docker, auto start/stop em `config/docker.py`) para transações e eventos, acessado
+  via SQLAlchemy ORM (`tools/postgres/models.py`) + Alembic pra migrations
 - MongoDB para histórico de conversa e perfil de usuário
 - FAISS + Gemini Embeddings para RAG do FAQ
 - Redis está em `pyproject.toml` como dependência mas **ainda não tem nenhuma tool implementada**
@@ -81,6 +82,13 @@ TODO.md: `chat/`, `interfaces/`, Alembic):
   `tools/mongo/connection.py`, `tools/faq_tools.py`) inicializa só no primeiro uso — nunca há
   side effect de I/O no import de um módulo. Isso é o que torna o projeto testável sem mockar tudo
   na importação.
+- **ORM sobre Postgres, mas cada tool continua com seu próprio `try/except`.**
+  `tools/postgres/models.py` tem os models declarativos; `connection.py:get_session()` já faz
+  `commit()`/`rollback()` automático (a tool não chama mais isso na mão). Mas o `try/except Exception
+  as e: return Response.error(e)` dentro de cada tool continua obrigatório — `log_tool`
+  (`config/decorators.py`) não captura exceção nenhuma, só inspeciona `result["status"]`, então uma
+  tool que deixar uma exception escapar quebra o turno inteiro no `except` genérico do chamador em
+  vez de devolver um erro estruturado pro LLM reagir.
 - **Single responsibility por nó de agente.** `agents/nodes/` (execução) fica separado de
   `agents/prompts/` (conteúdo/persona) — mudar o texto de um prompt nunca deveria exigir tocar na
   lógica de roteamento do grafo, e vice-versa.

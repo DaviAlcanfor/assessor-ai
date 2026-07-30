@@ -2,58 +2,50 @@
 
 Próximos passos planejados. Contexto do projeto em [AGENTS.md](AGENTS.md).
 
-## Refatoração: camada de serviço compartilhada
+## Refatoração: camada de serviço compartilhada — concluída (terminal)
 
-Hoje `main.py` mistura três coisas: o loop de terminal, a lógica de montar/persistir mensagens
-(`montar_mensagem_humana`, `salvar_mensagens`, `_extrair_resposta`) e a invocação do grafo
-(`fluxo_agentes.invoke`). Isso trava a criação de TUI e API, porque as duas precisariam duplicar
-essa lógica. Extrair tudo que não é "loop de terminal" para um módulo compartilhado, usado igualmente
-por CLI, TUI e API. `main.py` vira só um dispatcher (`python main.py terminal|tui|api`).
+`main.py` mistura três coisas: o loop de terminal, a lógica de montar/persistir mensagens e a
+invocação do grafo. Isso travava a criação de TUI e API, porque as duas precisariam duplicar essa
+lógica. Extraído pra um módulo compartilhado (`chat/`), usado igualmente por CLI, TUI e API.
+`main.py` virou um dispatcher puro (`python main.py terminal|tui|api`).
 
-**Nome do módulo:** o exemplo usou `agent_flow/` como provisório. Sugestão: chamar de **`chat/`**
-em vez disso — evita colisão de vocabulário com `graph/` (que já é o "flow" do LangGraph) e
-`agents/` (que já é "agent"), e casa com o nome que a collection do Mongo já usa
-(`tools/mongo/chats`). Mas qualquer nome único e sem overlap com os módulos existentes resolve;
-decidir na hora de implementar.
+**Nome do módulo:** ficou `chat/` (em vez do `agent_flow/` provisório do rascunho original) — evita
+colisão de vocabulário com `graph/` (já é o "flow" do LangGraph) e `agents/` (já é "agent"), e casa
+com o nome que a collection do Mongo já usa (`tools/mongo/chats`).
 
-Estrutura proposta (usando `chat/` como nome de exemplo):
+Estrutura implementada:
 
 ```text
 chat/
-├── service.py        # send_message(), create_chat(), get_history() — a API pública do módulo
-├── models.py          # modelos internos (request/response), independentes dos schemas do Mongo/tool
-├── repositories.py    # acesso a chats/mensagens (hoje espalhado em tools/mongo/chats e tools/mongo/users)
-└── runner.py           # chama fluxo_agentes.invoke (graph/builder.py) e extrai a resposta
+├── models.py          # ChatMessage, Role — contrato interno, independente de Mongo/tool
+├── repositories.py    # acesso a tools/mongo/chats, tools/mongo/users e tools/postgres/users
+├── runner.py           # chama fluxo_agentes.invoke (graph/builder.py) e extrai a resposta
+└── service.py          # create_chat(), send_message(), get_history(), encerrar_sessao()
 
 interfaces/
-├── terminal.py         # TerminalService — loop de input() atual do main.py, usando chat.service
+├── terminal/
+│   ├── app.py           # run() — loop de input() do terminal, usando chat.service
+│   └── display.py        # Rich + pyfiglet (era ui/terminal.py, absorvido aqui)
 ├── tui/
-│   └── app.py           # AssessorTUI (Textual), usando chat.service — ver seção "TUI com Textual"
+│   └── app.py           # vazio — ver "TUI com Textual" abaixo
 └── api/
-    └── app.py            # FastAPI app + rotas HTTP, usando chat.service — ver seção "API"
+    └── app.py           # vazio — ver "API" abaixo
 ```
 
-- [ ] Definir o nome final do módulo de serviço (`chat/`, `agent_flow/` ou outro) e criar a pasta
-- [ ] `chat/models.py` — modelos de entrada/saída do serviço, sem depender de detalhes do LangGraph
-      ou do schema do Mongo diretamente
-- [ ] `chat/repositories.py` — mover para cá o acesso a `tools/mongo/chats` e `tools/mongo/users`
-      hoje chamado direto em `main.py` (`chats.buscar`, `chats.criar`, `chats.atualizar_mensagens`,
-      `users.buscar`, `chats.encerrar_sessao`)
-- [ ] `chat/runner.py` — mover `estado_inicial` + `fluxo_agentes.invoke` + `_extrair_resposta` de
-      `main.py` para cá
-- [ ] `chat/service.py` com `send_message(user_id, chat_id, content)`, `create_chat(user_id)`,
-      `get_history(chat_id)` — orquestra runner + repositories, é o único ponto de entrada usado
-      pelas três interfaces
-- [ ] `interfaces/terminal.py` — extrair o `while True` de `main.py` para uma `TerminalService`/função
-      que só faz I/O de terminal (Rich) e chama `chat.service`
-- [ ] `interfaces/tui/app.py` — ver checklist da seção "TUI com Textual" abaixo, agora consumindo
-      `chat.service` em vez de chamar `graph/builder.py` direto
-- [ ] `interfaces/api/app.py` — ver checklist da seção "API" abaixo, agora consumindo `chat.service`
-- [ ] Reescrever `main.py` como dispatcher puro (`terminal`/`tui`/`api` por argv), sem lógica de negócio
-- [ ] Atualizar `ui/terminal.py` (funções de exibição Rich) para ser usado só por `interfaces/terminal.py`
-      e `interfaces/tui/app.py`, não por lógica de fluxo
+- [x] `chat/models.py`, `chat/repositories.py`, `chat/runner.py`, `chat/service.py`
+- [x] `interfaces/terminal/app.py` + `interfaces/terminal/display.py` — `ui/terminal.py` foi
+      absorvido aqui (só era consumido pelo terminal; TUI vai usar widgets Textual, não Rich)
+- [x] `main.py` reescrito como dispatcher puro — `terminal` funcional, `tui`/`api` imprimem
+      "ainda não implementado" e saem (os arquivos `interfaces/{tui,api}/app.py` ficam vazios até
+      as seções abaixo saírem do papel)
+- [ ] `interfaces/tui/app.py` — ver checklist da seção "TUI com Textual" abaixo
+- [ ] `interfaces/api/app.py` — ver checklist da seção "API" abaixo
 
-Fluxo da API depois da refatoração:
+Verificado: `python main.py terminal` ponta a ponta via stdin (mensagem real → guardrail → router →
+financeiro → resposta → resumo de sessão + atualização de perfil no `/exit`), comportamento
+idêntico ao `main.py` antigo.
+
+Fluxo da API quando sair do papel:
 
 ```text
 HTTP request

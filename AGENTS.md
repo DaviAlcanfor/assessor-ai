@@ -46,6 +46,24 @@ Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools 
   no import do módulo. Mantenha esse padrão para novas integrações (Redis, Qdrant).
 - Tools retornam a classe `Response` (`tools/response.py`) para padronizar sucesso/erro.
 - Não commitar `.env`; usar `.env.example` como referência de variáveis novas.
+- **Simplicidade acima de tudo.** Projeto pessoal em estágio inicial — prefira a solução direta à
+  abstração "flexível para o futuro". Sem camada genérica, sem config plugável, sem interface para
+  uma única implementação. Se dá pra resolver com uma função e um `if`, não vira classe/padrão de
+  projeto. Isso vale tanto para código de domínio quanto para infra.
+
+## Fluxo de trabalho (Git)
+
+- Mudança de qualquer tamanho (feature, fix, refactor) vai em **branch própria**, nunca commit
+  direto em `main` — exceção só pra coisas triviais tipo ajuste de README/badge, que o próprio
+  histórico do repo já mostra indo direto (`git log --oneline`).
+- Nome de branch segue `tipo/slug-curto-em-ingles-ou-portugues`, mesmo padrão já usado no repo:
+  `feat/perfil-usuario`, `fix/guardrail-falso-positivo`, `refactor/mongo-tools`. Tipos comuns:
+  `feat`, `fix`, `refactor`, `chore`.
+  - Ao dar deploy/criar branch como agente, use o mesmo prefixo do tipo de mudança.
+- Commits seguem o padrão `tipo: descrição curta` (`feat:`, `fix:`, `chore:`) — ver `git log` para
+  exemplos reais.
+- Mudança termina em **Pull Request** para `main`, mesmo em projeto pessoal — mantém o histórico de
+  `git log --all --graph` navegável e dá um ponto de review antes do merge.
 
 ## Padrões de organização e clean code
 

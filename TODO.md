@@ -74,17 +74,52 @@ Hoje não existe tabela de usuário no Postgres — `user_id` é só uma string 
 Sem uma tabela de usuário no Postgres, transações e eventos (`tools/postgres/financeiro`,
 `tools/postgres/agenda`) não têm de fato uma FK confiável para `user_id`.
 
-- [ ] Adicionar `alembic` às dependências (`uv add alembic`) e rodar `alembic init`
-- [ ] Tabela `users` no Postgres **enxuta** — só o necessário para ligar com o domínio financeiro/agenda
-      (ex. `id`, `mongo_user_id` ou algum identificador comum, `created_at`); dados "valiosos" de
-      perfil/comportamento continuam só no Mongo (`profile`, histórico, etc.)
-- [ ] Decidir o identificador comum entre Postgres e Mongo (reusar o mesmo UUID nos dois em vez de
-      IDs desacoplados) e garantir que `users.garantir_usuario` (Mongo) e a nova tabela Postgres
-      sejam criados juntos
-- [ ] Migration inicial cobrindo o schema atual (transações, eventos, categorias) já existente no
-      Postgres, hoje presumivelmente criado fora de migration — trazer para dentro do Alembic
-- [ ] FK de `transactions`/`events` para `users.id`
-- [ ] Documentar o comando de migration no README (`alembic upgrade head`)
+- [x] Adicionar `alembic` às dependências (`uv add alembic`) e rodar `alembic init`
+- [x] Migration inicial (`1ae7bbffb913_baseline_schema.py`) cobrindo o schema atual (transações,
+      eventos, categorias) que já existia no Postgres fora de migration — banco de dev marcado
+      com `alembic stamp` nessa revisão em vez de recriado
+- [x] Tabela `users` enxuta (`28948ff7767a_add_users_table.py`) — só `id` (mesmo UUID já usado como
+      `user_id` no Mongo) e `created_at`; dados "valiosos" de perfil continuam só no Mongo
+- [x] Decidir o identificador comum entre Postgres e Mongo — reusar o mesmo UUID nos dois em vez de
+      IDs desacoplados (confirmado no comentário da migration `28948ff7767a`)
+- [x] FK de `transactions`/`events` para `users.id` (`a83e50c95f94_add_user_id_fk_to_transactions_and_.py`)
+      — coluna `user_id` NOT NULL com backfill para um usuário "legado"
+      (`00000000-0000-0000-0000-000000000001`) e `DEFAULT` para esse mesmo usuário, já que
+      `add_transaction`/`add_event` ainda não passam `user_id` explícito (ver follow-up abaixo)
+- [x] Garantir que a criação do usuário no Mongo (`users.garantir_usuario`) e o insert em `users` do
+      Postgres (`tools/postgres/users/core.py:garantir_usuario`) aconteçam juntos — ambos chamados
+      em `main.py` com o mesmo `user_id`
+- [x] Documentar o comando de migration no README (`alembic upgrade head`)
+
+**Follow-up (fora do escopo do que foi feito acima):** `add_transaction`, `query_transactions`,
+`update_transaction`, `add_event`, `query_daily_events`, `query_events`, `update_event` ainda não
+gravam nem filtram por `user_id` real — todo INSERT novo cai no usuário legado via `DEFAULT` da
+coluna. Propagar o `user_id` do agente por essas tools e então remover o `DEFAULT` da coluna.
+
+## ORM (SQLAlchemy)
+
+Depende da seção Alembic acima estar fechada (schema final com a FK de `users` definido). Hoje
+`tools/postgres/*` usa `psycopg2` cru; `sqlalchemy` já é dependência (via Alembic), então o driver
+já está disponível. Vale a pena principalmente onde já tem SQL montado na mão: `query_transactions`
+(filtros dinâmicos concatenados em `base_query`) e `update_transaction` (`JOIN` manual +
+`Response` montado campo a campo) — isso vira `session.query(...).filter(...)` e `relationship()`
+no ORM.
+
+- [ ] Models declarativos para as tabelas já existentes (`users`, `transactions`,
+      `transaction_types`, `categories`, `events`) — mapear o schema atual, não redesenhar
+- [ ] Trocar `tools/postgres/connection.py` (pool `ThreadedConnectionPool` do psycopg2) por
+      `Engine`/`sessionmaker` do SQLAlchemy; decidir o equivalente do `get_conn()` atual
+      (Session por chamada de tool, mesmo formato de context manager)
+- [ ] Reescrever `tools/postgres/financeiro/core.py` e `tools/postgres/agenda/core.py` tool por
+      tool — `add_transaction`, `query_transactions`, `update_transaction`, `total_balance`,
+      `daily_balance`, `add_event`, `query_events`, `query_daily_events`, `update_event`
+- [ ] `tools/postgres/helpers.py` (`resolve_type_id`, `get_category_id`, `local_date_filter_sql`)
+      tende a sumir ou virar lookup simples via ORM — revisar caso a caso
+- [ ] `tools/postgres/financeiro/schemas.py` / `agenda/schemas.py` (schemas Pydantic de entrada das
+      tools) não deveriam precisar mudar — são o contrato da tool, não o acesso a dado
+- [ ] Ligar `target_metadata` em `alembic/env.py` aos models declarativos e voltar a usar
+      `--autogenerate` daqui pra frente (hoje é `None` de propósito — ver comentário no arquivo,
+      todas as migrations são escritas à mão)
 
 ## Redis
 

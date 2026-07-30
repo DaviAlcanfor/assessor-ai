@@ -18,6 +18,8 @@ classificar a intenção, processar o domínio correto e formatar a resposta fin
 ![LangGraph](https://img.shields.io/badge/LangGraph-1.1-FF6B35?style=flat)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-psycopg2-336791?style=flat&logo=postgresql&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-pymongo-47A248?style=flat&logo=mongodb&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-pyredis-FF4438?style=flat&logo=redis&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-qdrant--client-DC244C?style=flat&logo=qdrant&logoColor=white)
 
 </div>
 

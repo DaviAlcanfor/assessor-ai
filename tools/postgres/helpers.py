@@ -1,5 +1,10 @@
 from typing import Optional
 
+from sqlalchemy import ColumnElement, func, select
+from sqlalchemy.orm import Session
+
+from tools.postgres.models import Category, TransactionType
+
 
 _TYPE_ALIASES: dict[str, list[str]] = {
     "INCOME":   ["GANHO", "RENDA", "ENTRADA"],
@@ -11,7 +16,7 @@ _DEFAULT_TYPE_ID = 2  # EXPENSES
 
 
 def resolve_type_id(
-    cur,
+    session:   Session,
     type_id:   Optional[int],
     type_name: Optional[str],
 ) -> Optional[int]:
@@ -21,7 +26,6 @@ def resolve_type_id(
     Aceita aliases em português (ex: "GASTO" → EXPENSES).
     Se nenhum argumento for fornecido, retorna o tipo padrão (EXPENSES).
     """
-
 
     if type_name:
         t = type_name.strip().upper()
@@ -34,9 +38,9 @@ def resolve_type_id(
                 t = main_type
                 break
 
-        cur.execute("SELECT id FROM transaction_types WHERE UPPER(type)=%s LIMIT 1;", (t,))
-        row = cur.fetchone()
-        return row[0] if row else None
+        return session.scalar(
+            select(TransactionType.id).where(func.upper(TransactionType.type) == t)
+        )
 
     if type_id:
         return int(type_id)
@@ -44,7 +48,7 @@ def resolve_type_id(
     return _DEFAULT_TYPE_ID
 
 
-def get_category_id(cur, category_name: Optional[str]) -> Optional[int]:
+def get_category_id(session: Session, category_name: Optional[str]) -> Optional[int]:
     """
     Busca o ID de uma categoria pelo nome, com comparação case-insensitive.
 
@@ -54,28 +58,37 @@ def get_category_id(cur, category_name: Optional[str]) -> Optional[int]:
     if not category_name:
         return None
 
-    cur.execute(
-        "SELECT id FROM categories WHERE LOWER(name) = LOWER(%s) LIMIT 1;",
-        (category_name,)
+    return session.scalar(
+        select(Category.id).where(func.lower(Category.name) == category_name.lower())
     )
-    row = cur.fetchone()
-    return row[0] if row else None
 
 
-def local_date_filter_sql(field: str = "occurred_at") -> str:
+def local_date(column):
     """
-    Gera um trecho SQL para filtrar registros por data local (America/Sao_Paulo).
+    Expressão de data local (America/Sao_Paulo) a partir de uma coluna timestamptz.
 
-    Exemplo de saída:
-        ((occurred_at AT TIME ZONE 'America/Sao_Paulo')::date = %s::date)
+    Equivalente a: (column AT TIME ZONE 'America/Sao_Paulo')::date
     """
-    
-    return f"(({field} AT TIME ZONE 'America/Sao_Paulo')::date = %s::date)"
 
+    return func.date(func.timezone("America/Sao_Paulo", column))
+
+
+def local_date_filter(column, date_local: str) -> ColumnElement[bool]:
+    """Expressão booleana pra filtrar registros por uma data local específica."""
+
+    return local_date(column) == date_local
+
+
+def local_date_range_filter(column, date_from_local: str, date_to_local: str) -> ColumnElement[bool]:
+    """Expressão booleana pra filtrar registros por um intervalo de datas locais."""
+
+    return local_date(column).between(date_from_local, date_to_local)
 
 
 __all__ = [
     "resolve_type_id",
     "get_category_id",
-    "local_date_filter_sql",
+    "local_date",
+    "local_date_filter",
+    "local_date_range_filter",
 ]

@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from config.settings import settings
+from tools.postgres.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -20,10 +21,7 @@ config.set_main_option("sqlalchemy.url", settings.DATABASE_URI)
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# O projeto não usa ORM (só psycopg2 raw), então não há um sa.MetaData/modelos
-# para autogenerate diffar. target_metadata fica None de propósito: todas as
-# migrations são escritas à mão (op.execute/op.create_table), sem --autogenerate.
-target_metadata = None
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

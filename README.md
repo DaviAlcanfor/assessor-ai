@@ -111,14 +111,17 @@ assessor-ai/
 │
 ├── tools/
 │   ├── postgres/
+│   │   ├── models.py                # Models declarativos SQLAlchemy (User, Transaction, Event, ...)
 │   │   ├── financeiro/
 │   │   │   ├── schemas.py           # Schemas Pydantic das tools financeiras
 │   │   │   └── core.py              # Tools: add_transaction, query_transactions, update_transaction, total_balance, daily_balance
 │   │   ├── agenda/
 │   │   │   ├── schemas.py           # Schemas Pydantic das tools de agenda
 │   │   │   └── core.py              # Tools: add_event, query_events, query_daily_events, update_event
-│   │   ├── connection.py            # Pool de conexões PostgreSQL (lazy init)
-│   │   └── helpers.py               # resolve_type_id, get_category_id, local_date_filter_sql
+│   │   ├── users/
+│   │   │   └── core.py              # garantir_usuario — mesmo user_id do Mongo, tabela enxuta
+│   │   ├── connection.py            # Engine/Session SQLAlchemy (lazy init)
+│   │   └── helpers.py               # resolve_type_id, get_category_id, local_date_filter, local_date_range_filter
 │   ├── mongo/
 │   │   ├── connection.py            # MongoClient lazy — conecta só na primeira operação
 │   │   ├── helpers.py               # _gerar_resumo, _gerar_perfil
@@ -297,8 +300,15 @@ Schema do PostgreSQL versionado em `alembic/versions/`. Com o container do Postg
 uv run alembic upgrade head
 ```
 
-Não há autogenerate configurado (o projeto usa SQL puro via `psycopg2`, sem ORM) — toda migration
-nova é escrita à mão com `alembic revision -m "..."` e `op.execute(...)`.
+O acesso a dados usa SQLAlchemy ORM (`tools/postgres/models.py`), então `--autogenerate` funciona
+normalmente a partir daqui:
+
+```bash
+uv run alembic revision --autogenerate -m "..."
+```
+
+Sempre revise o diff gerado antes de aplicar — e rode `--autogenerate` sem alterações pendentes de
+vez em quando pra garantir que os models continuam batendo exatamente com o schema real (diff vazio).
 
 ---
 
@@ -306,7 +316,8 @@ nova é escrita à mão com `alembic revision -m "..."` e `op.execute(...)`.
 
 - [LangChain](https://github.com/langchain-ai/langchain) — framework de agentes e tools
 - [LangGraph](https://github.com/langchain-ai/langgraph) — orquestração stateful e checkpointing
-- [psycopg2](https://pypi.org/project/psycopg2/) — driver PostgreSQL com connection pool
+- [SQLAlchemy](https://www.sqlalchemy.org/) — ORM sobre o PostgreSQL (`tools/postgres/models.py`), com `psycopg2` como driver
+- [Alembic](https://alembic.sqlalchemy.org/) — migrations versionadas do schema PostgreSQL
 - [pymongo](https://pymongo.readthedocs.io/) — driver MongoDB para histórico de conversa
 - [FAISS](https://github.com/facebookresearch/faiss) — busca vetorial para RAG do FAQ
 - [Rich](https://github.com/Textualize/rich) + [pyfiglet](https://github.com/pwaller/pyfiglet) — interface de terminal

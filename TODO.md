@@ -118,17 +118,26 @@ atributos não setados — isso quebrava o `DEFAULT` do usuário legado (`user_i
 `default=LEGACY_USER_ID` do lado Python em `Transaction`/`Event` (`tools/postgres/models.py`).
 Continua valendo o follow-up de propagar `user_id` real, registrado na seção Alembic acima.
 
-## Redis
+## Redis — em andamento
 
-`redis` já está em `pyproject.toml` mas nenhuma tool usa ainda.
+`tools/redis/core.py` já existe com client lazy (`get_client()`), mas o padrão dos outros domínios
+(`schemas.py` + `core.py` + `connection.py` separados) não foi seguido à risca — conexão e tools
+estão juntas em `core.py` em vez de um `connection.py` dedicado.
 
-- [ ] `tools/redis/connection.py` — client lazy (init só no primeiro uso, seguindo o padrão de
-      `tools/postgres/connection.py` e `tools/mongo/connection.py`)
+- [x] Client lazy (`tools/redis/core.py:get_client`) — segue o padrão de init só no primeiro uso
+- [ ] Extrair a conexão para `tools/redis/connection.py`, deixando `core.py` só com as tools (mesmo
+      corte usado em `tools/postgres` e `tools/mongo`)
+- [x] Rate limit / cooldown por `user_id` — implementado (`can_send_message`,
+      `tools/redis/core.py:28`), mas **ainda não é chamado por nenhum agente/nó** (não está plugado
+      no guardrail de entrada, `agents/nodes/guardrail/entrada.py`)
+- [ ] Alocação de API key por usuário (`allocate_api_key`/`get_api_key`, `tools/redis/core.py:48`) —
+      implementado mas também **não é chamado em lugar nenhum ainda** (nem em `interfaces/api/app/auth.py`,
+      que está vazio)
 - [ ] Cache de sessão: mover/duplicar o histórico curto de mensagens (hoje via `$slice: -5` no
       Mongo) para Redis, com TTL, reduzindo round-trip ao Mongo em cada turno
 - [ ] Cache de `perfil_usuario` (hoje lido do Mongo a cada invocação em `main.py:executar_fluxo_assessor`)
-- [ ] Rate limit / cooldown do guardrail de entrada por `user_id`
-- [ ] Variável de ambiente `REDIS_URI` em `.env.example` e `config/settings.py`
+- [ ] Variável de ambiente `REDIS_URI` em `.env.example` — já existe em `config/settings.py` mas
+      falta documentar no `.env.example`
 
 ## Qdrant
 
@@ -142,18 +151,25 @@ precisar de mais de um documento/coleção ou busca persistente fora de memória
 - [ ] Decidir: Qdrant local (Docker, mesmo padrão do `config/docker.py`) vs. Qdrant Cloud
 - [ ] Variáveis `QDRANT_URL` / `QDRANT_API_KEY`
 
-## API
+## API — scaffold criado, endpoints ainda não implementados
 
-Hoje só existe o loop de terminal em `main.py`. Expor o fluxo via API para permitir outros clientes
-(TUI, frontend, integrações). Depende da refatoração acima — a API é só mais uma interface sobre
-`chat.service`, não deve chamar `graph/builder.py` direto.
+Estrutura já existe (`interfaces/api/main.py` + `interfaces/api/app/{routes,auth,schemas,gen_key}.py`),
+mas é só o esqueleto: `FastAPI()` sem rota nenhuma registrada, `auth.py` vazio, `schemas.py` só tem
+`Message`/`Role` genéricos (não o contrato real de request/response dos endpoints). `main.py
+api` (o dispatcher) ainda não chama `interfaces/api/main.py` — continua imprimindo "ainda não
+implementado".
 
-- [ ] Escolher framework (FastAPI é o caminho natural dado o resto do stack Python async)
-- [ ] `interfaces/api/app.py` com endpoint `POST /chats/{chat_id}/messages` chamando
-      `chat.service.send_message(...)` e retornando a resposta
+- [x] Escolher framework — FastAPI
+- [x] Esqueleto de pastas (`interfaces/api/app/routes.py`, `auth.py`, `schemas.py`, `gen_key.py`)
+- [ ] `gen_key.py:generate_api_key` gerar e persistir a key via `tools/redis/core.py:allocate_api_key`
+      (hoje as duas funções existem mas não se conectam)
+- [ ] `auth.py` — implementar a autenticação (está vazio) usando `tools/redis/core.py:get_api_key`
+- [ ] `routes.py` — endpoint `POST /chats/{chat_id}/messages` chamando
+      `chat.service.send_message(...)` e retornando a resposta (hoje o router não tem rota nenhuma)
 - [ ] Endpoint de streaming (SSE ou WS) para respostas incrementais do LangGraph
 - [ ] Autenticação por token, identificando `user_id` a partir dele (hoje é mockado em `main.py`) e
       validando ownership do chat antes de chamar o service
+- [ ] Ligar `main.py api` ao app de `interfaces/api/main.py` (hoje é só um stub que imprime e sai)
 - [ ] Dockerfile + healthcheck
 
 ## TUI com Textual
@@ -170,6 +186,25 @@ verdade com [Textual](https://github.com/Textualize/textual).
       thread/worker do Textual para não travar a UI)
 - [ ] Tela/painel lateral opcional mostrando qual agente está ativo (`agentes_chamados` do estado)
 - [ ] Comando `/exit` e `Ctrl+C` encerrando a sessão via `chat.service`
+
+## Testes
+
+Hoje não existe suíte de testes (ver AGENTS.md). Criar pasta `tests/` espelhando a estrutura de
+`tools/`, `chat/`, `agents/`, `graph/` (package by feature, mesmo corte usado no resto do repo).
+
+- [ ] Adicionar `pytest` (e `pytest-mock`/`pytest-asyncio` se necessário) como dev dependency
+      (`uv add --dev pytest`)
+- [ ] `tests/conftest.py` com fixtures compartilhadas — provavelmente mocks de
+      `tools/postgres/connection.py:get_session` e `tools/mongo/connection.py` pra não depender de
+      banco real nos testes unitários
+- [ ] `tests/tools/` — começar pelo mais isolado e sem I/O: `tools/response.py` (`Response.ok`/`Response.error`),
+      `tools/postgres/helpers.py` (resolve_type_id, local_date/local_date_filter), `tools/redis/schemas.py`
+      (`_chave_mensagem`/`_chave_api_key`)
+- [ ] `tests/chat/` — `chat/service.py` e `chat/runner.py` com o grafo mockado (não deve chamar
+      LLM de verdade em teste unitário)
+- [ ] Decidir separação `tests/unit/` vs. `tests/integration/` (integration = sobe Postgres/Mongo
+      via `config/docker.py`) antes de crescer demais, ou manter achatado enquanto a suíte for pequena
+- [ ] CI (GitHub Actions) rodando `pytest` no PR, uma vez que exista massa crítica de testes
 
 ## Débitos técnicos / melhorias soltas
 

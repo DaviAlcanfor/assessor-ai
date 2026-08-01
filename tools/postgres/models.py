@@ -84,4 +84,4 @@ Index("idx_transactions_category_time", Transaction.category_id, Transaction.occ
 Index("idx_events_start_time", Event.start_time.desc())
 
 
-__all__ = ["Base", "User", "TransactionType", "Category", "Transaction", "Event"]
+__all__ = ["Base", "Category", "Event", "Transaction", "TransactionType", "User"]

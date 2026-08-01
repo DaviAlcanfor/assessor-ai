@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from uuid import uuid4
+from fastapi import APIRouter, Depends, status
 
 from chat import service as chat_service
 from interfaces.api.auth import get_current_user
@@ -7,7 +6,6 @@ from interfaces.api.schemas.chat import (
     ChatCreateResponse,
     ChatMessageResponse,
     MessageCreate,
-    MessageResponse,
 )
 
 router = APIRouter(prefix="/v1/chats", tags=["chats"])

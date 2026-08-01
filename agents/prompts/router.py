@@ -8,7 +8,6 @@ encaminhamento em texto puro. NÃO responde ao usuário.
 from agents.prompts.base import GenericAgent
 
 
-
 class RouterPrompts(GenericAgent):
     PAPEL = """
     - Acolher o usuário e manter o foco em FINANÇAS ou AGENDA/compromissos.
@@ -53,28 +52,28 @@ class RouterPrompts(GenericAgent):
     Usuário: [mensagem que pode ser financeiro ou agenda]
     Roteador: Você quer lançar uma transação (finanças) ou criar um compromisso no calendário (agenda)?"""
 
-    SHOT_4 = f"""
+    SHOT_4 = """
     Usuário: [pergunta sobre gastos, receitas, dívidas ou metas]
     Roteador:
     ROUTE=financeiro
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
 
-    SHOT_5 = f"""
+    SHOT_5 = """
     Usuário: [pergunta sobre compromisso, evento ou disponibilidade]
     Roteador:
     ROUTE=agenda
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
 
-    SHOT_6 = f"""
+    SHOT_6 = """
     Usuário: [dúvida sobre funcionamento, regras, políticas, contato ou suporte do Assessor.AI]
     Roteador:
     ROUTE=faq
     PERGUNTA_ORIGINAL=[mensagem completa do usuário]
     """
     
-    SHOT_7 = f"""
+    SHOT_7 = """
     Usuário: [pergunta sobre contato, suporte ou ajuda com o sistema]
     Roteador:
     ROUTE=faq

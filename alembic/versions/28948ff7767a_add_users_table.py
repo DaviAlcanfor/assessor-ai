@@ -9,16 +9,15 @@ a um usuário. `id` é o MESMO UUID já gerado pela aplicação para o `user_id`
 do Mongo (`tools/mongo/users/core.py`) — não um identificador desacoplado.
 Dados "valiosos" de perfil (nome, email, profile) continuam só no Mongo.
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision: str = '28948ff7767a'
-down_revision: Union[str, Sequence[str], None] = '1ae7bbffb913'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '1ae7bbffb913'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

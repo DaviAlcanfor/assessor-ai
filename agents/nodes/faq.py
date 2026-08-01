@@ -1,6 +1,6 @@
-from graph.state import Estado
-from graph.agents import faq_app
 from agents.nodes.names import NodeName
+from graph.agents import faq_app
+from graph.state import Estado
 
 
 def no_faq(estado: Estado) -> dict:

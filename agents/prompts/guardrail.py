@@ -1,7 +1,6 @@
 from agents.prompts.base import GenericAgent
 
 
-
 class GuardrailPrompts(GenericAgent):
     PAPEL = """
     Você atua como camada de segurança do sistema. Sua função é classificar

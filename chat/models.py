@@ -13,4 +13,4 @@ class ChatMessage:
     content: str
 
 
-__all__ = ["Role", "ChatMessage"]
+__all__ = ["ChatMessage", "Role"]

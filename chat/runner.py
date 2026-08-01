@@ -3,8 +3,8 @@ import warnings
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from graph.builder import fluxo_agentes
 from chat.models import ChatMessage, Role
+from graph.builder import fluxo_agentes
 
 warnings.filterwarnings("ignore", message="Deserializing unregistered type")
 logging.getLogger("langgraph").setLevel(logging.ERROR)

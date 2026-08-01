@@ -1,23 +1,23 @@
 import os
+
 os.environ["LANGGRAPH_ALLOWED_MSGPACK_MODULES"] = (
     "agents.nodes.names,graph.state"
 )
 
-from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, StateGraph
 
-from graph.state import Estado, Route
-
-from agents.nodes.names import NodeName
 from agents.nodes import (
-    no_roteador,
-    no_orquestrador,
-    no_financeiro,
     no_agenda,
     no_faq,
+    no_financeiro,
     no_guardrail_entrada,
     no_guardrail_saida,
+    no_orquestrador,
+    no_roteador,
 )
+from agents.nodes.names import NodeName
+from graph.state import Estado, Route
 
 
 def decidir_apos_guardrail_entrada(estado: Estado) -> str:

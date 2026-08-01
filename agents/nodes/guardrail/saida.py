@@ -3,9 +3,9 @@ import re
 from agents.nodes.guardrail.schemas import PII, PII_USUARIO, ResultadoGuardrail
 from agents.nodes.names import NodeName
 from agents.prompts.guardrail import GuardrailPrompts
+from config.logging import get_logger
 from graph.llm import llm_rapido
 from graph.state import Estado
-from config.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -1,9 +1,9 @@
 import re
 
-from graph.state import Route, Estado
-from graph.agents import router_app
 from agents.nodes.names import NodeName
 from config.logging import get_logger
+from graph.agents import router_app
+from graph.state import Estado, Route
 
 log = get_logger(__name__)
 

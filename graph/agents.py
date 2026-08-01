@@ -1,23 +1,16 @@
 from langchain.agents import create_agent
 
-
-from agents.prompts.router import RouterPrompts
-from agents.prompts.financeiro import FinanceiroPrompts
 from agents.prompts.agenda import AgendaPrompts
-from agents.prompts.orquestrador import OrquestradorPrompts
 from agents.prompts.faq import FaqPrompts
-
-from graph.llm import (
-    llm_rapido,
-    llm_especialista
-)
-
+from agents.prompts.financeiro import FinanceiroPrompts
+from agents.prompts.orquestrador import OrquestradorPrompts
+from agents.prompts.router import RouterPrompts
+from graph.llm import llm_especialista, llm_rapido
 from tools import (
-    FINANCEIRO_TOOLS,
     AGENDA_TOOLS,
     FAQ_TOOLS,
+    FINANCEIRO_TOOLS,
 )
-
 
 router_app = create_agent(
     model=llm_rapido,
@@ -49,9 +42,9 @@ faq_app = create_agent(
 
 
 __all__ = [
-    "router_app",
-    "financeiro_app",
     "agenda_app",
-    "orquestrador_app",
     "faq_app",
+    "financeiro_app",
+    "orquestrador_app",
+    "router_app",
 ]

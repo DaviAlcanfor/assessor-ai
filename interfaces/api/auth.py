@@ -3,7 +3,6 @@ from fastapi.security import APIKeyHeader
 
 from tools.redis.core import get_user_id_by_api_key
 
-
 _api_key_header = APIKeyHeader(name="X-API-Key")
 
 

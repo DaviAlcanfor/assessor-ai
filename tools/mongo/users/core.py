@@ -1,9 +1,9 @@
 from dataclasses import asdict
+from uuid import uuid4
 
+from config.logging import get_logger
 from tools.mongo.connection import banco
 from tools.mongo.users.schemas import UserDocument
-from config.logging import get_logger
-from uuid import uuid4
 
 logger = get_logger(__name__)
 

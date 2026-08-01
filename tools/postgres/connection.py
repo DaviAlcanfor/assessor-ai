@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from config.settings import settings
 
-
 _engine = None
 _SessionFactory = None
 

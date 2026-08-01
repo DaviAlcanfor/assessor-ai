@@ -1,16 +1,15 @@
-from typing import Optional
+
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 
-from config.models import Model, PROVIDER_MAP, BUILDERS, API_KEYS
-
+from config.models import API_KEYS, BUILDERS, PROVIDER_MAP, Model
 
 
 def build_llm(
     temperature: float,
-    top_p: Optional[float] = None,
-    model: Optional[str] = None
+    top_p: float | None = None,
+    model: str | None = None
 ) -> ChatGoogleGenerativeAI | ChatGroq | ChatAnthropic:
     """
     Cria uma LLM com base no modelo informado.
@@ -45,9 +44,9 @@ llm_especialista = llm_gemini.with_fallbacks([llm_groq])
 
 
 __all__ = [
+    "llm_especialista",
     "llm_gemini",
     "llm_groq",
-    "llm_rapido",
-    "llm_especialista",
     "llm_guardrail",
+    "llm_rapido",
 ]

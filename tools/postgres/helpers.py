@@ -1,10 +1,8 @@
-from typing import Optional
 
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from tools.postgres.models import Category, TransactionType
-
 
 _TYPE_ALIASES: dict[str, list[str]] = {
     "INCOME":   ["GANHO", "RENDA", "ENTRADA"],
@@ -17,9 +15,9 @@ _DEFAULT_TYPE_ID = 2  # EXPENSES
 
 def resolve_type_id(
     session:   Session,
-    type_id:   Optional[int],
-    type_name: Optional[str],
-) -> Optional[int]:
+    type_id:   int | None,
+    type_name: str | None,
+) -> int | None:
     """
     Resolve o ID do tipo de transação a partir de um nome ou ID direto.
 
@@ -48,7 +46,7 @@ def resolve_type_id(
     return _DEFAULT_TYPE_ID
 
 
-def get_category_id(session: Session, category_name: Optional[str]) -> Optional[int]:
+def get_category_id(session: Session, category_name: str | None) -> int | None:
     """
     Busca o ID de uma categoria pelo nome, com comparação case-insensitive.
 
@@ -86,9 +84,9 @@ def local_date_range_filter(column, date_from_local: str, date_to_local: str) ->
 
 
 __all__ = [
-    "resolve_type_id",
     "get_category_id",
     "local_date",
     "local_date_filter",
     "local_date_range_filter",
+    "resolve_type_id",
 ]

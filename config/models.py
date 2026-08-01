@@ -1,8 +1,10 @@
 from enum import StrEnum
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 
 from .settings import settings
+
 
 class Model(StrEnum):
     GEMINI_2_5_FLASH    = "gemini-2.5-flash"

@@ -1,25 +1,19 @@
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+
 from langchain.tools import tool
 from sqlalchemy import case, func, or_, select
 
 from config.decorators import log_tool
 from config.logging import get_logger
-
-from tools.response import Response
 from tools.postgres.connection import get_session
-from tools.postgres.models import Transaction
-from tools.postgres.helpers import (
-    resolve_type_id,
-    get_category_id,
-    local_date_filter
-)
 from tools.postgres.financeiro.schemas import (
     AddTransactionArgs,
     QueryTransactionArgs,
-    UpdateTransactionArgs
+    UpdateTransactionArgs,
 )
-
+from tools.postgres.helpers import get_category_id, local_date_filter, resolve_type_id
+from tools.postgres.models import Transaction
+from tools.response import Response
 
 logger = get_logger("pg_tools")
 
@@ -30,13 +24,13 @@ logger = get_logger("pg_tools")
 def add_transaction(
     amount: float,
     source_text: str,
-    occurred_at: Optional[str] = None,
-    type_id: Optional[int] = None,
-    type_name: Optional[str] = None,
-    category_id: Optional[int] = None,
-    description: Optional[str] = None,
-    payment_method: Optional[str] = None,
-    category_name: Optional[str] = None,
+    occurred_at: str | None = None,
+    type_id: int | None = None,
+    type_name: str | None = None,
+    category_id: int | None = None,
+    description: str | None = None,
+    payment_method: str | None = None,
+    category_name: str | None = None,
 ) -> dict:
     """
     Insere uma transação financeira no banco de dados.
@@ -64,7 +58,7 @@ def add_transaction(
                 category_id=category_id,
                 description=description,
                 payment_method=payment_method,
-                occurred_at=datetime.fromisoformat(occurred_at) if occurred_at else datetime.now(timezone.utc),
+                occurred_at=datetime.fromisoformat(occurred_at) if occurred_at else datetime.now(UTC),
                 source_text=source_text,
             )
             session.add(tx)
@@ -135,10 +129,10 @@ def daily_balance(date_local: str) -> dict:
 @tool("query_transactions", args_schema=QueryTransactionArgs)
 @log_tool
 def query_transactions(
-    date_from_local: Optional[str] = None,
-    date_to_local: Optional[str] = None,
-    type_name: Optional[str] = None,
-    source_text: Optional[str] = None,
+    date_from_local: str | None = None,
+    date_to_local: str | None = None,
+    type_name: str | None = None,
+    source_text: str | None = None,
 ) -> dict:
     """
     Consulta transações com filtros opcionais por data, tipo e texto.
@@ -194,17 +188,17 @@ def query_transactions(
 @tool("update_transaction", args_schema=UpdateTransactionArgs)
 @log_tool
 def update_transaction(
-    id: Optional[int] = None,
-    match_text: Optional[str] = None,
-    date_local: Optional[str] = None,
-    amount: Optional[float] = None,
-    type_id: Optional[int] = None,
-    type_name: Optional[str] = None,
-    category_id: Optional[int] = None,
-    category_name: Optional[str] = None,
-    description: Optional[str] = None,
-    payment_method: Optional[str] = None,
-    occurred_at: Optional[str] = None,
+    id: int | None = None,
+    match_text: str | None = None,
+    date_local: str | None = None,
+    amount: float | None = None,
+    type_id: int | None = None,
+    type_name: str | None = None,
+    category_id: int | None = None,
+    category_name: str | None = None,
+    description: str | None = None,
+    payment_method: str | None = None,
+    occurred_at: str | None = None,
 ) -> dict:
     """
     Atualiza campos de uma transação existente.
@@ -281,7 +275,7 @@ def update_transaction(
 __all__ = [
     "add_transaction",
     "daily_balance",
-    "total_balance",
     "query_transactions",
+    "total_balance",
     "update_transaction",
 ]

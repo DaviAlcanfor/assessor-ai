@@ -1,25 +1,24 @@
-from langchain_core.messages import HumanMessage
 import re
 import uuid
 
+from langchain_core.messages import HumanMessage
+
 from agents.nodes.names import NodeName
 from agents.prompts.guardrail import GuardrailPrompts
-from graph.state import Estado
-from graph.llm import llm_guardrail
 from config.logging import get_logger
+from graph.llm import llm_guardrail
+from graph.state import Estado
 
 logger = get_logger(__name__)
 
 from agents.nodes.guardrail.schemas import (
-    PII,
-    _PADROES_INJECAO,
     _KEYWORDS_DADOS_INTERNOS,
+    _PADROES_INJECAO,
     _RESPOSTAS_BLOQUEIO,
+    PII,
     Categoria,
     ResultadoGuardrail,
 )
-
-
 
 
 def _bloquear(motivo: str, mensagem: str) -> ResultadoGuardrail:

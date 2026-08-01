@@ -1,15 +1,14 @@
 from redis import Redis
 
-from config.settings import settings
 from config.logging import get_logger
+from config.settings import settings
 from tools.redis.schemas import (
     API_KEY_TTL_TIME,
     CHAT_TTL_TIME,
     N_MESSAGES_ACCEPTED,
-    
-    _chave_mensagem,
     _chave_api_key,
     _chave_api_key_lookup,
+    _chave_mensagem,
     _hash_api_key,
 )
 

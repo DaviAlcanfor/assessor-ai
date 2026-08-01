@@ -1,6 +1,6 @@
-from graph.llm import llm_rapido
-from agents.prompts.resumidor import ResumidorPrompt, PerfilPrompt
+from agents.prompts.resumidor import PerfilPrompt, ResumidorPrompt
 from config.logging import get_logger
+from graph.llm import llm_rapido
 
 log = get_logger(__name__)
 

@@ -1,7 +1,6 @@
 from sqlalchemy.dialects.postgresql import insert
 
 from config.logging import get_logger
-
 from tools.postgres.connection import get_session
 from tools.postgres.models import User
 

@@ -1,6 +1,6 @@
-from graph.state import Estado
-from graph.agents import financeiro_app
 from agents.nodes.names import NodeName
+from graph.agents import financeiro_app
+from graph.state import Estado
 
 
 def no_financeiro(estado: Estado) -> dict:

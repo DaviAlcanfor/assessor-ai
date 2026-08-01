@@ -1,9 +1,9 @@
 import tools.mongo.chats.core as chats
 import tools.mongo.users.core as mongo_users
 import tools.postgres.users.core as pg_users
-from tools.mongo.chats.schemas import Mensagem, Role as MongoRole
-
 from chat.models import ChatMessage, Role
+from tools.mongo.chats.schemas import Mensagem
+from tools.mongo.chats.schemas import Role as MongoRole
 
 
 def _para_mensagem(msg: ChatMessage) -> Mensagem:
@@ -45,9 +45,9 @@ def encerrar_sessao(session_id: str, user_id: str) -> None:
 
 
 __all__ = [
-    "garantir_usuario",
-    "buscar_perfil",
     "buscar_historico",
-    "salvar_mensagens",
+    "buscar_perfil",
     "encerrar_sessao",
+    "garantir_usuario",
+    "salvar_mensagens",
 ]

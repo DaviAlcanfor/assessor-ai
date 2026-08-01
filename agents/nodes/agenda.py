@@ -1,6 +1,6 @@
-from graph.state import Estado
-from graph.agents import agenda_app
 from agents.nodes.names import NodeName
+from graph.agents import agenda_app
+from graph.state import Estado
 
 
 def no_agenda(estado: Estado) -> dict:

@@ -1,14 +1,13 @@
 import os
 from uuid import uuid4
 
-from config.docker import garantir_banco
 from chat import service
-
+from config.docker import garantir_banco
 from interfaces.terminal.display import (
+    console,
+    exibir_assistente,
     exibir_titulo,
     exibir_usuario,
-    exibir_assistente,
-    console,
 )
 
 

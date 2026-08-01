@@ -42,8 +42,8 @@ def encerrar_sessao(session_id: str, user_id: str) -> None:
 
 __all__ = [
     "create_chat",
-    "garantir_usuario",
-    "send_message",
-    "get_history",
     "encerrar_sessao",
+    "garantir_usuario",
+    "get_history",
+    "send_message",
 ]

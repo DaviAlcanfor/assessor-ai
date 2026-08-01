@@ -17,16 +17,15 @@ follow-up). Sem o default, esses INSERTs quebrariam por violação de NOT
 NULL. Quando o follow-up passar a propagar o `user_id` real do agente, esse
 `DEFAULT` deve ser removido.
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision: str = 'a83e50c95f94'
-down_revision: Union[str, Sequence[str], None] = '28948ff7767a'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '28948ff7767a'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 _LEGACY_USER_ID = "00000000-0000-0000-0000-000000000001"
 

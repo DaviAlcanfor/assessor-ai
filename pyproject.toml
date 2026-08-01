@@ -98,3 +98,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["agents", "chat", "config", "graph", "interfaces", "tools"]
 include = ["main.py"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.1",
+]
+
+[tool.ruff]
+target-version = "py313"

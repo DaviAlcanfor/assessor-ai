@@ -1,7 +1,8 @@
 import operator
-from typing import Annotated
-from langgraph.graph import MessagesState
 from enum import StrEnum
+from typing import Annotated
+
+from langgraph.graph import MessagesState
 
 
 class Route(StrEnum):

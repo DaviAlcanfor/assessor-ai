@@ -1,7 +1,6 @@
 from agents.prompts.base import GenericAgent
 
 
-
 class FaqPrompts(GenericAgent):
     PAPEL = """
     ### ENTRADA

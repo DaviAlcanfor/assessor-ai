@@ -1,21 +1,19 @@
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+
 from langchain.tools import tool
 from sqlalchemy import or_, select
 
 from config.decorators import log_tool
 from config.logging import get_logger
-
-from tools.response import Response
-from tools.postgres.connection import get_session
-from tools.postgres.models import Event
-from tools.postgres.helpers import local_date_filter, local_date_range_filter
 from tools.postgres.agenda.schemas import (
     AddEventArgs,
     QueryEventArgs,
     UpdateEventArgs,
 )
-
+from tools.postgres.connection import get_session
+from tools.postgres.helpers import local_date_filter, local_date_range_filter
+from tools.postgres.models import Event
+from tools.response import Response
 
 logger = get_logger("pg_events")
 
@@ -27,8 +25,8 @@ def add_event(
     start_time: str,
     source_text: str,
     notes: str,
-    end_time: Optional[str] = None,
-    location: Optional[str] = None,
+    end_time: str | None = None,
+    location: str | None = None,
 ) -> dict:
     """
     Insere um evento na agenda do usuário.
@@ -46,7 +44,7 @@ def add_event(
                 location=location,
                 notes=notes,
                 source_text=source_text,
-                recorded_at=datetime.now(timezone.utc),
+                recorded_at=datetime.now(UTC),
             )
             session.add(event)
             session.flush()
@@ -102,9 +100,9 @@ def query_daily_events(date_local: str) -> dict:
 @tool("query_events", args_schema=QueryEventArgs)
 @log_tool
 def query_events(
-    date_from_local: Optional[str] = None,
-    date_to_local: Optional[str] = None,
-    title: Optional[str] = None,
+    date_from_local: str | None = None,
+    date_to_local: str | None = None,
+    title: str | None = None,
 ) -> dict:
     """
     Consulta eventos com filtros opcionais por período e título.
@@ -154,14 +152,14 @@ def query_events(
 @tool("update_event", args_schema=UpdateEventArgs)
 @log_tool
 def update_event(
-    id: Optional[int] = None,
-    match_text: Optional[str] = None,
-    date_local: Optional[str] = None,
-    title: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    location: Optional[str] = None,
-    notes: Optional[str] = None,
+    id: int | None = None,
+    match_text: str | None = None,
+    date_local: str | None = None,
+    title: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    location: str | None = None,
+    notes: str | None = None,
 ) -> dict:
     """
     Atualiza campos de um evento existente.

@@ -1,12 +1,11 @@
 from dataclasses import asdict
-from datetime import datetime, timezone
-
-from tools.mongo.helpers import _gerar_resumo, _gerar_perfil
-from tools.mongo.connection import banco
-from tools.mongo.chats.schemas import ChatDocument, Mensagem
-from config.logging import get_logger
+from datetime import UTC, datetime
 
 import tools.mongo.users.core as users
+from config.logging import get_logger
+from tools.mongo.chats.schemas import ChatDocument, Mensagem
+from tools.mongo.connection import banco
+from tools.mongo.helpers import _gerar_perfil, _gerar_resumo
 
 logger = get_logger(__name__)
 
@@ -40,7 +39,7 @@ def atualizar_mensagens(session_id: str, mensagens_novas: list[Mensagem]) -> Non
         {"session_id": session_id},
         {
             "$push": {"messages": {"$each": [m.para_dict() for m in mensagens_novas]}},
-            "$set":  {"updated_at": datetime.now(timezone.utc)},
+            "$set":  {"updated_at": datetime.now(UTC)},
         }
     )
 

@@ -1,0 +1,35 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import uuid4
+
+from chat import service as chat_service
+from interfaces.api.auth import get_current_user
+from interfaces.api.schemas.chat import (
+    ChatCreateResponse,
+    ChatMessageResponse,
+    MessageCreate,
+    MessageResponse,
+)
+
+router = APIRouter(prefix="/v1/chats", tags=["chats"])
+
+@router.post("", response_model=ChatCreateResponse, status_code=status.HTTP_201_CREATED)
+def create_chat(user_id: str = Depends(get_current_user)):
+    chat_id = chat_service.create_chat(user_id)
+
+    return ChatCreateResponse(chat_id=chat_id)
+
+
+@router.post("/{chat_id}/messages", response_model=ChatMessageResponse)
+def send_message(
+    chat_id: str,
+    payload: MessageCreate,
+    user_id: str = Depends(get_current_user),
+):
+    return ChatMessageResponse(
+        chat_id=chat_id,
+        content=chat_service.send_message(
+            user_id,
+            chat_id,
+            payload.content
+        ),
+    )

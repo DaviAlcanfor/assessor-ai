@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from agents.nodes.guardrail.entrada import anonimizar_entrada
 from chat import repositories, runner
 from chat.models import ChatMessage, Role
 
@@ -21,7 +22,11 @@ def send_message(user_id: str, session_id: str, content: str) -> str:
     if not resposta:
         return "Sem resposta."
 
-    novas = [mensagem, ChatMessage(role=Role.AI, content=resposta)]
+    conteudo_redigido, _ = anonimizar_entrada(content)
+    novas = [
+        ChatMessage(role=Role.HUMAN, content=conteudo_redigido), 
+        ChatMessage(role=Role.AI, content=resposta)
+    ]
     repositories.salvar_mensagens(user_id, session_id, novas)
 
     return resposta

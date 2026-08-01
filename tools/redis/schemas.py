@@ -1,18 +1,17 @@
-# consts
-API_KEY_TTL_TIME = 3600 * 24 
+import hashlib
+
+API_KEY_TTL_TIME = 3600 * 24
 CHAT_TTL_TIME = 60
 N_MESSAGES_ACCEPTED = 10
 
-
-
-# Chaves redis por enquanto: 
-
-# - chat:user:message -> guarda a quantidade de mensagens enviadas pelo usuário 
-# - api_key:user -> guarda a chave de API alocada para o usuário
-# ...
+def _hash_api_key(api_key: str) -> str:
+    return hashlib.sha256(api_key.encode()).hexdigest()
 
 def _chave_mensagem(user_id: str) -> str:
     return f"chat:{user_id}:message"
 
 def _chave_api_key(user_id: str) -> str:
-    return f"api_key:{user_id}"
+    return f"auth:user:{user_id}:api-key-hash"
+
+def _chave_api_key_lookup(hashed_key: str) -> str:
+    return f"auth:api-key:{hashed_key}"

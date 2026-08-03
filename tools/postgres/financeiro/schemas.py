@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from tools.postgres.models import PaymentType
+
 
 class AddTransactionArgs(BaseModel):
     amount: float = Field(..., description="Valor da transação (use positivo).")
@@ -10,14 +12,13 @@ class AddTransactionArgs(BaseModel):
         default=None,
         description="Timestamp ISO 8601; se ausente, usa NOW() no banco."
     )
-    
-    type_id: int | None = Field(default=None, description="ID em transaction_types (1=INCOME, 2=EXPENSES, 3=TRANSFER).")
+
     type_name: str | None = Field(default=None, description="Nome do tipo: INCOME | EXPENSES | TRANSFER.")
     category_id: int | None = Field(default=None, description="FK de categories (opcional).")
     category_name: str | None = Field(default=None, description="Nome da categoria entre as disponíveis: comida, besteira,  (opcional, usado para resolver category_id).")
     description: str | None = Field(default=None, description="Descrição (opcional).")
-    payment_method: str | None = Field(default=None, description="Forma de pagamento (opcional).")
-    
+    payment_method: PaymentType | None = Field(default=None, description="Forma de pagamento (opcional).")
+
 
 
 class QueryTransactionArgs(BaseModel):
@@ -42,12 +43,11 @@ class UpdateTransactionArgs(BaseModel):
         description="Data local (YYYY-MM-DD) em America/Sao_Paulo; usado em conjunto com match_text quando id ausente."
     )
     amount: float | None = Field(default=None, description="Novo valor.")
-    type_id: int | None = Field(default=None, description="Novo type_id (1/2/3).")
     type_name: str | None = Field(default=None, description="Novo type_name: INCOME | EXPENSES | TRANSFER.")
     category_id: int | None = Field(default=None, description="Nova categoria (id).")
     category_name: str | None = Field(default=None, description="Nova categoria (nome).")
     description: str | None = Field(default=None, description="Nova descrição.")
-    payment_method: str | None = Field(default=None, description="Novo meio de pagamento.")
+    payment_method: PaymentType | None = Field(default=None, description="Novo meio de pagamento.")
     occurred_at: str | None = Field(default=None, description="Novo timestamp ISO 8601.")
 
  

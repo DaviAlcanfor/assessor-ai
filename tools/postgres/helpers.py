@@ -6,44 +6,28 @@ from tools.postgres.models import Category, TransactionType
 
 _TYPE_ALIASES: dict[str, list[str]] = {
     "INCOME":   ["GANHO", "RENDA", "ENTRADA"],
-    "EXPENSES": ["DESPESA", "GASTO"],
+    "EXPENSES": ["DESPESA", "GASTO", "EXPENSE"],
     "TRANSFER": ["MANDEI", "TRANSFER", "ENVIO"],
 }
 
-_DEFAULT_TYPE_ID = 2  # EXPENSES
 
-
-def resolve_type_id(
-    session:   Session,
-    type_id:   int | None,
-    type_name: str | None,
-) -> int | None:
+def resolve_transaction_type(type_name: str | None) -> TransactionType:
     """
-    Resolve o ID do tipo de transação a partir de um nome ou ID direto.
-
-    Aceita aliases em português (ex: "GASTO" → EXPENSES).
-    Se nenhum argumento for fornecido, retorna o tipo padrão (EXPENSES).
+    Resolve o tipo de transação a partir de um nome livre (aceita aliases em
+    português, ex: "GASTO" → EXPENSES). Sem argumento, retorna o tipo padrão
+    (EXPENSES). Puramente em Python — não depende mais de lookup em tabela.
     """
 
-    if type_name:
-        t = type_name.strip().upper()
+    if not type_name:
+        return TransactionType.EXPENSES
 
-        if t == "EXPENSE":
-            t = "EXPENSES"
+    t = type_name.strip().upper()
 
-        for main_type, aliases in _TYPE_ALIASES.items():
-            if t == main_type or t in aliases:
-                t = main_type
-                break
+    for main_type, aliases in _TYPE_ALIASES.items():
+        if t == main_type or t in aliases:
+            return TransactionType(main_type)
 
-        return session.scalar(
-            select(TransactionType.id).where(func.upper(TransactionType.type) == t)
-        )
-
-    if type_id:
-        return int(type_id)
-
-    return _DEFAULT_TYPE_ID
+    return TransactionType.EXPENSES
 
 
 def get_category_id(session: Session, category_name: str | None) -> int | None:
@@ -88,5 +72,5 @@ __all__ = [
     "local_date",
     "local_date_filter",
     "local_date_range_filter",
-    "resolve_type_id",
+    "resolve_transaction_type",
 ]

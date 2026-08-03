@@ -11,8 +11,12 @@ from tools.postgres.financeiro.schemas import (
     QueryTransactionArgs,
     UpdateTransactionArgs,
 )
-from tools.postgres.helpers import get_category_id, local_date_filter, resolve_type_id
-from tools.postgres.models import Transaction
+from tools.postgres.helpers import (
+    get_category_id,
+    local_date_filter,
+    resolve_transaction_type,
+)
+from tools.postgres.models import PaymentType, Transaction, TransactionType
 from tools.response import Response
 
 logger = get_logger("pg_tools")
@@ -25,19 +29,18 @@ def add_transaction(
     amount: float,
     source_text: str,
     occurred_at: str | None = None,
-    type_id: int | None = None,
     type_name: str | None = None,
     category_id: int | None = None,
     description: str | None = None,
-    payment_method: str | None = None,
+    payment_method: PaymentType | None = None,
     category_name: str | None = None,
 ) -> dict:
     """
     Insere uma transação financeira no banco de dados.
 
-    O tipo pode ser informado por ID (type_id) ou nome (type_name).
-    Aliases em português são aceitos: 'GASTO' → EXPENSES, 'GANHO' → INCOME.
-    Se nenhum tipo for fornecido, assume EXPENSES por padrão.
+    O tipo é informado por nome (type_name). Aliases em português são aceitos:
+    'GASTO' → EXPENSES, 'GANHO' → INCOME. Se nenhum tipo for fornecido, assume
+    EXPENSES por padrão.
 
     A categoria pode ser informada por ID (category_id) ou nome (category_name).
     Se occurred_at não for informado, usa o timestamp atual do servidor.
@@ -45,16 +48,14 @@ def add_transaction(
 
     with get_session() as session:
         try:
-            resolved_type_id = resolve_type_id(session, type_id, type_name)
-            if not resolved_type_id:
-                return Response.error("Tipo inválido (use type_id ou type_name: INCOME/EXPENSES/TRANSFER).")
+            resolved_type = resolve_transaction_type(type_name)
 
             if not category_id:
                 category_id = get_category_id(session, category_name)
 
             tx = Transaction(
                 amount=amount,
-                type=resolved_type_id,
+                type=resolved_type,
                 category_id=category_id,
                 description=description,
                 payment_method=payment_method,
@@ -64,7 +65,7 @@ def add_transaction(
             session.add(tx)
             session.flush()
 
-            logger.info("INSERT OK | id=%s amount=%.2f type_id=%s occurred_at=%s", tx.id, amount, resolved_type_id, tx.occurred_at)
+            logger.info("INSERT OK | id=%s amount=%.2f type=%s occurred_at=%s", tx.id, amount, resolved_type, tx.occurred_at)
 
             return Response.ok(id=tx.id, occurred_at=str(tx.occurred_at))
 
@@ -82,8 +83,8 @@ def total_balance() -> dict:
         try:
             result = session.scalar(
                 select(
-                    func.sum(case((Transaction.type == 1, Transaction.amount), else_=0))
-                    - func.sum(case((Transaction.type == 2, Transaction.amount), else_=0))
+                    func.sum(case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0))
+                    - func.sum(case((Transaction.type == TransactionType.EXPENSES, Transaction.amount), else_=0))
                 )
             )
             balance = float(result) if result is not None else 0.0
@@ -110,8 +111,8 @@ def daily_balance(date_local: str) -> dict:
         try:
             result = session.scalar(
                 select(
-                    func.sum(case((Transaction.type == 1, Transaction.amount), else_=0))
-                    - func.sum(case((Transaction.type == 2, Transaction.amount), else_=0))
+                    func.sum(case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0))
+                    - func.sum(case((Transaction.type == TransactionType.EXPENSES, Transaction.amount), else_=0))
                 )
                 .where(func.date(Transaction.occurred_at) == func.date(date_local))
             )
@@ -153,9 +154,7 @@ def query_transactions(
                 stmt = stmt.order_by(Transaction.occurred_at.desc())
 
             if type_name:
-                resolved_type_id = resolve_type_id(session, None, type_name)
-                if resolved_type_id:
-                    stmt = stmt.where(Transaction.type == resolved_type_id)
+                stmt = stmt.where(Transaction.type == resolve_transaction_type(type_name))
 
             if source_text:
                 like = f"%{source_text}%"
@@ -192,12 +191,11 @@ def update_transaction(
     match_text: str | None = None,
     date_local: str | None = None,
     amount: float | None = None,
-    type_id: int | None = None,
     type_name: str | None = None,
     category_id: int | None = None,
     category_name: str | None = None,
     description: str | None = None,
-    payment_method: str | None = None,
+    payment_method: PaymentType | None = None,
     occurred_at: str | None = None,
 ) -> dict:
     """
@@ -209,7 +207,7 @@ def update_transaction(
     Retorna o registro atualizado completo após o commit.
     """
 
-    if not any([amount, type_id, type_name, category_id, category_name, description, payment_method, occurred_at]):
+    if not any([amount, type_name, category_id, category_name, description, payment_method, occurred_at]):
         return Response.error("Nada para atualizar: forneça pelo menos um campo.")
 
     target_id = id
@@ -239,13 +237,13 @@ def update_transaction(
             if tx is None:
                 return Response.ok(rows_affected=0, id=target_id, updated=None)
 
-            resolved_type_id     = resolve_type_id(session, type_id, type_name) if (type_id or type_name) else None
+            resolved_type         = resolve_transaction_type(type_name) if type_name else None
             resolved_category_id = category_id
             if category_name and not category_id:
                 resolved_category_id = get_category_id(session, category_name)
 
             if amount is not None:           tx.amount = amount
-            if resolved_type_id is not None: tx.type = resolved_type_id
+            if resolved_type is not None:    tx.type = resolved_type
             if resolved_category_id is not None: tx.category_id = resolved_category_id
             if description is not None:      tx.description = description
             if payment_method is not None:   tx.payment_method = payment_method
@@ -255,7 +253,7 @@ def update_transaction(
 
             updated = {
                 "id": tx.id, "occurred_at": str(tx.occurred_at), "amount": float(tx.amount),
-                "type": tx.transaction_type.type, "category": tx.category.name if tx.category else None,
+                "type": tx.type, "category": tx.category.name if tx.category else None,
                 "description": tx.description, "payment_method": tx.payment_method, "source_text": tx.source_text,
             }
 

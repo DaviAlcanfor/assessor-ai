@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from pymongo.database import Database
-from config.settings import settings
 
+from config.settings import settings
 
 _client: MongoClient | None = None
 

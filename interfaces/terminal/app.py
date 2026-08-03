@@ -3,13 +3,13 @@ from uuid import uuid4
 
 from chat import service
 from config.docker import garantir_ambiente
-from mocks.generate_user import generate_user
 from interfaces.terminal.display import (
     console,
     exibir_assistente,
     exibir_titulo,
     exibir_usuario,
 )
+from mocks.generate_user import generate_user
 
 
 def run(local: bool = False) -> None:

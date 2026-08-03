@@ -1,11 +1,6 @@
-from tools.redis.connection import get_client
 from config.logging import get_logger
-from tools.redis.schemas import (
-    CHAT_TTL_TIME,
-    N_MESSAGES_ACCEPTED,
-    _chave_mensagem
-)
-
+from tools.redis.connection import get_client
+from tools.redis.schemas import CHAT_TTL_TIME, N_MESSAGES_ACCEPTED, _chave_mensagem
 
 logger = get_logger(__name__)
 

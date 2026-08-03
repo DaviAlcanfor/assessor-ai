@@ -1,5 +1,5 @@
-from tools.redis.connection import get_client
 from config.logging import get_logger
+from tools.redis.connection import get_client
 from tools.redis.schemas import (
     API_KEY_TTL_TIME,
     _chave_api_key,

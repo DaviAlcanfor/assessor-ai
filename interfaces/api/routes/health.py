@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
+
 from tools.redis.connection import get_client
 
 router = APIRouter(prefix="/health", tags=["health"])

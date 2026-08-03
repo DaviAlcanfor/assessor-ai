@@ -1,4 +1,5 @@
 from redis import Redis
+
 from config.settings import settings
 
 

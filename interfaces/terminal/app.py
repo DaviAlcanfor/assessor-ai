@@ -14,7 +14,7 @@ from mocks.generate_user import generate_user
 
 def run(local: bool = False) -> None:
     # os.system deprecated
-    subprocess.run(["cls"], shell=True)
+    # subprocess.run(["cls"], shell=True)
 
     if local:
         garantir_ambiente()

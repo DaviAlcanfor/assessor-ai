@@ -1,4 +1,16 @@
 import sys
+import warnings
+
+from langchain_core._api.deprecation import LangChainPendingDeprecationWarning
+
+# langgraph-checkpoint 4.0.2 instancia `Reviver()` sem `allowed_objects` ao ser
+# importado, disparando esse warning só por causa da import — não é algo que
+# nosso código controla. Suprime até a lib fixar isso ou atualizarmos a versão.
+warnings.filterwarnings(
+    "ignore",
+    category=LangChainPendingDeprecationWarning,
+    message=r".*allowed_objects.*",
+)
 
 from interfaces.terminal import app
 

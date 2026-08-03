@@ -1,8 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric, Text, text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -24,11 +26,26 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-class TransactionType(Base):
-    __tablename__ = "transaction_types"
+class TransactionType(StrEnum):
+    INCOME = "INCOME"
+    EXPENSES = "EXPENSES"
+    TRANSFER = "TRANSFER"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    type: Mapped[str] = mapped_column(Text)
+
+class PaymentType(StrEnum):
+    DINHEIRO = "DINHEIRO"
+    PIX = "PIX"
+    CARTAO_CREDITO = "CARTAO_CREDITO"
+    CARTAO_DEBITO = "CARTAO_DEBITO"
+    BOLETO = "BOLETO"
+    OUTRO = "OUTRO"
+
+
+# native_enum=True + create_type=False: os tipos `transaction_type`/`payment_type` já
+# existem no Postgres (CREATE TYPE feito na migration) — o SQLAlchemy só deve referenciar,
+# nunca tentar criar/dropar o tipo via metadata.
+_transaction_type_enum = SAEnum(TransactionType, name="transaction_type", create_type=False)
+_payment_type_enum = SAEnum(PaymentType, name="payment_type", create_type=False)
 
 
 class Category(Base):
@@ -51,15 +68,14 @@ class Transaction(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
-    type: Mapped[int] = mapped_column(ForeignKey("transaction_types.id"))
+    type: Mapped[TransactionType] = mapped_column(_transaction_type_enum, default=TransactionType.EXPENSES)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
     description: Mapped[str | None] = mapped_column(Text)
-    payment_method: Mapped[str | None]
+    payment_method: Mapped[PaymentType | None] = mapped_column(_payment_type_enum)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     source_text: Mapped[str] = mapped_column(Text)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), default=LEGACY_USER_ID)
 
-    transaction_type: Mapped["TransactionType"] = relationship()
     category: Mapped["Category | None"] = relationship()
 
 
@@ -84,4 +100,4 @@ Index("idx_transactions_category_time", Transaction.category_id, Transaction.occ
 Index("idx_events_start_time", Event.start_time.desc())
 
 
-__all__ = ["Base", "Category", "Event", "Transaction", "TransactionType", "User"]
+__all__ = ["Base", "Category", "Event", "PaymentType", "Transaction", "TransactionType", "User"]

@@ -12,7 +12,7 @@ config = context.config
 
 # URL do banco vem de config/settings.py (fonte única de env vars do projeto),
 # nunca de alembic.ini nem de parsing próprio do .env.
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URI)
+config.set_main_option("sqlalchemy.url", settings.POSTGRES_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

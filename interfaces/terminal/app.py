@@ -1,8 +1,9 @@
-import os
+import subprocess
 from uuid import uuid4
 
 from chat import service
-from config.docker import garantir_banco
+from config.docker import garantir_ambiente
+from mocks.generate_user import generate_user
 from interfaces.terminal.display import (
     console,
     exibir_assistente,
@@ -11,20 +12,23 @@ from interfaces.terminal.display import (
 )
 
 
-def run() -> None:
-    os.system("cls")
+def run(local: bool = False) -> None:
+    # os.system deprecated
+    subprocess.run(["cls"], shell=True)
 
-    garantir_banco()
+    if local:
+        garantir_ambiente()
+
     exibir_titulo()
 
     user_id = str(uuid4())
     session_id = service.create_chat(user_id)
 
-    # mock pra teste
+    user = generate_user()
     service.garantir_usuario(
         user_id,
-        nome="USUARIO FALSO PARA TESTE",
-        email="TESTE@TESTE.com"
+        nome=user["name"],
+        email=user["email"]
     )
 
     while True:

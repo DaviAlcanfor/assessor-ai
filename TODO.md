@@ -118,59 +118,63 @@ atributos não setados — isso quebrava o `DEFAULT` do usuário legado (`user_i
 `default=LEGACY_USER_ID` do lado Python em `Transaction`/`Event` (`tools/postgres/models.py`).
 Continua valendo o follow-up de propagar `user_id` real, registrado na seção Alembic acima.
 
-## Redis — em andamento
+## Redis — estrutura concluída, integrações pendentes
 
-`tools/redis/core.py` já existe com client lazy (`get_client()`), mas o padrão dos outros domínios
-(`schemas.py` + `core.py` + `connection.py` separados) não foi seguido à risca — conexão e tools
-estão juntas em `core.py` em vez de um `connection.py` dedicado.
+Split em `tools/redis/{connection.py,api_key.py,chat.py,schemas.py}` feito, seguindo o mesmo corte
+de `tools/postgres` e `tools/mongo`.
 
-- [x] Client lazy (`tools/redis/core.py:get_client`) — segue o padrão de init só no primeiro uso
-- [ ] Extrair a conexão para `tools/redis/connection.py`, deixando `core.py` só com as tools (mesmo
-      corte usado em `tools/postgres` e `tools/mongo`)
-- [x] Rate limit / cooldown por `user_id` — implementado (`can_send_message`,
-      `tools/redis/core.py:28`), mas **ainda não é chamado por nenhum agente/nó** (não está plugado
-      no guardrail de entrada, `agents/nodes/guardrail/entrada.py`)
-- [ ] Alocação de API key por usuário (`allocate_api_key`/`get_api_key`, `tools/redis/core.py:48`) —
-      implementado mas também **não é chamado em lugar nenhum ainda** (nem em `interfaces/api/app/auth.py`,
-      que está vazio)
+- [x] Client lazy (`tools/redis/connection.py:get_client`)
+- [x] Extrair a conexão para `tools/redis/connection.py`, deixando `api_key.py`/`chat.py` só com as
+      tools
+- [x] Rate limit / cooldown por `user_id` (`can_send_message`, `tools/redis/chat.py:8`) — mas
+      **ainda não é chamado em lugar nenhum** (nem no guardrail de entrada, nem nas rotas da API;
+      as rotas usam `slowapi` por IP via `@limiter.limit(...)`, que é um mecanismo separado)
+- [ ] Alocação de API key por usuário (`allocate_api_key`/`get_user_id_by_api_key`,
+      `tools/redis/api_key.py`) — implementado e já consumido em leitura por
+      `interfaces/api/auth.py:get_current_user`, mas **nada chama `allocate_api_key` ainda**:
+      `interfaces/api/gen_key.py:generate_api_key` só gera a string, não persiste no Redis
 - [ ] Cache de sessão: mover/duplicar o histórico curto de mensagens (hoje via `$slice: -5` no
       Mongo) para Redis, com TTL, reduzindo round-trip ao Mongo em cada turno
 - [ ] Cache de `perfil_usuario` (hoje lido do Mongo a cada invocação em `main.py:executar_fluxo_assessor`)
-- [ ] Variável de ambiente `REDIS_URI` em `.env.example` — já existe em `config/settings.py` mas
-      falta documentar no `.env.example`
 
-## Qdrant
+## Qdrant — conexão criada, tools ainda não
 
 Hoje o RAG do FAQ usa FAISS local (`tools/faq_tools.py`). Avaliar migração para Qdrant quando
 precisar de mais de um documento/coleção ou busca persistente fora de memória.
 
-- [ ] `tools/qdrant/connection.py` — client lazy
+- [x] `tools/qdrant/connection.py` — client assíncrono lazy (`get_qdrant_client`, generator
+      `yield`/`close` pra uso como dependency do FastAPI)
+- [x] Variáveis `QDRANT_URL` / `QDRANT_API_KEY` no `.env.example`
 - [ ] `tools/qdrant/faq/core.py` — reimplementar `faq_retriever` sobre Qdrant (collection por domínio,
       ex. `faq`, e futuramente `financeiro`/`agenda` para busca semântica sobre histórico)
 - [ ] Script de ingestão dos PDFs de `data/documents/` para a collection do Qdrant
-- [ ] Decidir: Qdrant local (Docker, mesmo padrão do `config/docker.py`) vs. Qdrant Cloud
-- [ ] Variáveis `QDRANT_URL` / `QDRANT_API_KEY`
+- [ ] Decidir: Qdrant local (Docker, mesmo padrão do `docker-compose.yml`) vs. Qdrant Cloud — hoje
+      o compose já sobe `qdrant/qdrant:latest` local
 
-## API — scaffold criado, endpoints ainda não implementados
+## API — endpoints de chat funcionando, faltam streaming e infra
 
-Estrutura já existe (`interfaces/api/main.py` + `interfaces/api/app/{routes,auth,schemas,gen_key}.py`),
-mas é só o esqueleto: `FastAPI()` sem rota nenhuma registrada, `auth.py` vazio, `schemas.py` só tem
-`Message`/`Role` genéricos (não o contrato real de request/response dos endpoints). `main.py
-api` (o dispatcher) ainda não chama `interfaces/api/main.py` — continua imprimindo "ainda não
-implementado".
+Saiu do esqueleto: `interfaces/api/main.py` registra `health_router` e `chats_router` de verdade,
+com autenticação por API key (`X-API-Key` via `interfaces/api/auth.py`) e rate limiting por IP
+(`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` (o dispatcher do CLI) ainda não sobe
+esse app — continua imprimindo "ainda não implementado"; hoje a API roda direto via uvicorn.
 
 - [x] Escolher framework — FastAPI
-- [x] Esqueleto de pastas (`interfaces/api/app/routes.py`, `auth.py`, `schemas.py`, `gen_key.py`)
-- [ ] `gen_key.py:generate_api_key` gerar e persistir a key via `tools/redis/core.py:allocate_api_key`
-      (hoje as duas funções existem mas não se conectam)
-- [ ] `auth.py` — implementar a autenticação (está vazio) usando `tools/redis/core.py:get_api_key`
-- [ ] `routes.py` — endpoint `POST /chats/{chat_id}/messages` chamando
-      `chat.service.send_message(...)` e retornando a resposta (hoje o router não tem rota nenhuma)
+- [x] Esqueleto de pastas — virou `interfaces/api/{main,auth,gen_key,rate_limiting}.py` +
+      `routes/{chats,health}.py` + `schemas/chat.py` (não `app/` como o TODO antigo previa)
+- [x] `auth.py` — `get_current_user` via `APIKeyHeader` + `tools/redis/api_key.py:get_user_id_by_api_key`
+- [x] `routes/chats.py` — `POST /v1/chats` (cria chat) e `POST /v1/chats/{chat_id}/messages`
+      chamando `chat.service.send_message(...)`
+- [x] `routes/health.py` — `/health/live` e `/health/ready` (ping no Redis)
+- [x] Rate limiting por IP nas rotas de chat (`slowapi`, 5/min criar chat, 10/min mensagem)
+- [ ] `gen_key.py:generate_api_key` gerar **e persistir** a key via
+      `tools/redis/api_key.py:allocate_api_key` (hoje as duas funções existem mas não se conectam —
+      não tem endpoint/script que de fato emite uma key utilizável)
+- [ ] Validar ownership do chat antes de `send_message` (hoje qualquer `user_id` autenticado pode
+      mandar mensagem pra qualquer `chat_id`, sem checar se o chat pertence a ele)
 - [ ] Endpoint de streaming (SSE ou WS) para respostas incrementais do LangGraph
-- [ ] Autenticação por token, identificando `user_id` a partir dele (hoje é mockado em `main.py`) e
-      validando ownership do chat antes de chamar o service
 - [ ] Ligar `main.py api` ao app de `interfaces/api/main.py` (hoje é só um stub que imprime e sai)
-- [ ] Dockerfile + healthcheck
+- [ ] Dockerfile + healthcheck (compose hoje só sobe a infra — postgres/mongo/redis/qdrant —, não a
+      própria API)
 
 ## TUI com Textual
 
@@ -198,7 +202,7 @@ Hoje não existe suíte de testes (ver AGENTS.md). Criar pasta `tests/` espelhan
       `tools/postgres/connection.py:get_session` e `tools/mongo/connection.py` pra não depender de
       banco real nos testes unitários
 - [ ] `tests/tools/` — começar pelo mais isolado e sem I/O: `tools/response.py` (`Response.ok`/`Response.error`),
-      `tools/postgres/helpers.py` (resolve_type_id, local_date/local_date_filter), `tools/redis/schemas.py`
+      `tools/postgres/helpers.py` (resolve_transaction_type, local_date/local_date_filter), `tools/redis/schemas.py`
       (`_chave_mensagem`/`_chave_api_key`)
 - [ ] `tests/chat/` — `chat/service.py` e `chat/runner.py` com o grafo mockado (não deve chamar
       LLM de verdade em teste unitário)
@@ -208,11 +212,24 @@ Hoje não existe suíte de testes (ver AGENTS.md). Criar pasta `tests/` espelhan
 
 ## Débitos técnicos / melhorias soltas
 
-- [ ] Transformar as tabelas de `types` (`tools/postgres/models.py:TransactionType`, hoje resolvida
-      via `resolve_type_id` em `tools/postgres/helpers.py`) em `enum` Python + `type` `payment_types`
-      no lugar de linhas em tabela consultadas em runtime
-- [ ] `[project.scripts]` no `pyproject.toml` para rodar `assessor` (comando instalado) em vez de
-      `uv run main.py <args>`
+- [x] Transformar as tabelas de `types` em `enum` Python + tipo nativo do Postgres — `TransactionType`
+      e `PaymentType` (`tools/postgres/models.py`) agora são `StrEnum` mapeados pra `SAEnum(...,
+      create_type=False)` sobre os tipos `transaction_type`/`payment_type` já criados via migration
+      (`..._transaction_type_and_payment_type_as_...py`); `resolve_type_id` virou
+      `resolve_transaction_type`, puramente em Python (`tools/postgres/helpers.py`)
+- [x] `ruff` (lint + format) adicionado e aplicado no repo (`dd09c43`, `c95365c`) — ver
+      `ruff check` pendente: `PLE0604` em `agents/prompts/__init__.py` (bug real, `__all__` com
+      classes em vez de strings) e alguns `BLE001`/`PLW1510` que ficaram de fora do `--fix` por
+      exigirem decisão manual
+- [x] `[project.scripts]` no `pyproject.toml` — `assessor-ai = 'main:main'`
 - [ ] Adicionar checagem de tipagem estática com **mypy** (ruff cobre lint/format mas não faz type
       checking; mypy é o que de fato valida as anotações de tipo) — avaliar `strict` vs. modo
       incremental dado que o projeto ainda não tem nenhuma tipagem checada
+- [ ] Corrigir `PLE0604` em `agents/prompts/__init__.py` — `__all__` referencia as classes
+      (`RouterPrompts`, `FinanceiroPrompts`, ...) em vez dos nomes como string
+- [ ] `config/settings.py` está dessincronizado do `.env.example` pós-migração pra Docker Compose:
+      settings pede `POSTGRES_URL`, `MONGO_USER`/`MONGO_PASSWORD`/`MONGO_URL`/`MONGO_COLLECTION_NAME`,
+      `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, `QDRANT_CLUSTER_ENDPOINT`; o
+      `.env.example` documenta `POSTGRES_URI`, `MONGODB_URI`, `REDIS_URI`, `QDRANT_URL` — nomes
+      diferentes. Como são campos obrigatórios do `pydantic-settings` (sem default), subir a app só
+      com o `.env.example` como guia falha na validação — precisa alinhar um lado pro outro

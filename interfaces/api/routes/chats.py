@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, status
 
-from chat import service as chat_service
+from assessor_ai.chat import service as chat_service
 from interfaces.api.auth import get_current_user
 from interfaces.api.rate_limiting import limiter
 from interfaces.api.schemas.chat import (

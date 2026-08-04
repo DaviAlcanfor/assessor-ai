@@ -7,8 +7,7 @@ class Settings(BaseSettings):
     
     POSTGRES_URL: str 
     
-    UPSTASH_REDIS_REST_URL: str 
-    UPSTASH_REDIS_REST_TOKEN: str
+    REDIS_URL: str
     
     MONGO_USER: str
     MONGO_PASSWORD: str
@@ -19,8 +18,6 @@ class Settings(BaseSettings):
     QDRANT_CLUSTER_ENDPOINT: str
     QDRANT_COLLECTION_NAME: str
     
-    JWT_SECRET_KEY: str
-
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

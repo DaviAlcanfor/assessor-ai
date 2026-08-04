@@ -1,7 +1,7 @@
 from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
-from tools.redis.api_key import get_user_id_by_api_key
+from assessor_ai.tools.redis.api_key import get_user_id_by_api_key
 
 _api_key_header = APIKeyHeader(name="X-API-Key")
 

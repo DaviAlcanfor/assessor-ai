@@ -1,7 +1,7 @@
 import subprocess
 from uuid import uuid4
 
-from chat import service
+from assessor_ai.chat import service
 from config.docker import garantir_ambiente
 from interfaces.terminal.display import (
     console,

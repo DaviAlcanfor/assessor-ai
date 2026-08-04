@@ -129,13 +129,17 @@ de `tools/postgres` e `tools/mongo`.
       Corrigido.
 - [x] Extrair a conexão para `tools/redis/connection.py`, deixando `api_key.py`/`chat.py` só com as
       tools
-- [x] Rate limit / cooldown por `user_id` (`can_send_message`, `tools/redis/chat.py:8`) — mas
-      **ainda não é chamado em lugar nenhum** (nem no guardrail de entrada, nem nas rotas da API;
-      as rotas usam `slowapi` por IP via `@limiter.limit(...)`, que é um mecanismo separado)
-- [ ] Alocação de API key por usuário (`allocate_api_key`/`get_user_id_by_api_key`,
-      `tools/redis/api_key.py`) — implementado e já consumido em leitura por
-      `interfaces/api/auth.py:get_current_user`, mas **nada chama `allocate_api_key` ainda**:
-      `interfaces/api/gen_key.py:generate_api_key` só gera a string, não persiste no Redis
+- [x] Rate limit / cooldown por `user_id` (`can_send_message`, `tools/redis/chat.py:8`) chamado em
+      `chat/service.py:send_message` — não no nó de guardrail do LangGraph (`Estado`, o TypedDict do
+      grafo, não carrega `user_id` hoje, e enfiar isso lá só pra checar um contador do Redis seria
+      complexidade desnecessária). `send_message` é o único ponto por onde terminal, TUI e API
+      passam, então cobre as três interfaces de uma vez. Estourar o limite levanta
+      `LimiteDeMensagensExcedido` (nova, `chat/service.py`); `routes/chats.py` traduz isso pra `429`
+      antes do catch-all genérico que vira `500`. Continua complementar ao `slowapi` por IP das
+      rotas — mecanismos diferentes, um por IP (infra) e outro por `user_id` (produto)
+- [x] Alocação de API key por usuário (`allocate_api_key`/`get_user_id_by_api_key`,
+      `tools/redis/api_key.py`) — ligado via `POST /v1/keys` (`interfaces/api/routes/keys.py`, ver
+      seção API acima)
 - [ ] Cache de sessão: mover/duplicar o histórico curto de mensagens (hoje via `$slice: -5` no
       Mongo) para Redis, com TTL, reduzindo round-trip ao Mongo em cada turno
 - [ ] Cache de `perfil_usuario` (hoje lido do Mongo a cada invocação em `main.py:executar_fluxo_assessor`)

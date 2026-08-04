@@ -3,6 +3,11 @@ from uuid import uuid4
 from assessor_ai.agents.nodes.guardrail.entrada import anonimizar_entrada
 from assessor_ai.chat import repositories, runner
 from assessor_ai.chat.models import ChatMessage, Role
+from assessor_ai.tools.redis.chat import can_send_message
+
+
+class LimiteDeMensagensExcedido(Exception):
+    pass
 
 
 def create_chat(user_id: str) -> str:
@@ -36,6 +41,11 @@ def obter_ou_criar_usuario(nome: str, email: str) -> str:
 
 
 def send_message(user_id: str, session_id: str, content: str) -> str:
+    if not can_send_message(user_id):
+        raise LimiteDeMensagensExcedido(
+            "Você atingiu o limite de mensagens. Tente novamente em alguns instantes."
+        )
+
     mensagem = ChatMessage(role=Role.HUMAN, content=content)
     perfil = repositories.buscar_perfil(user_id)
 
@@ -63,6 +73,7 @@ def encerrar_sessao(session_id: str, user_id: str) -> None:
 
 
 __all__ = [
+    "LimiteDeMensagensExcedido",
     "buscar_usuario_existente",
     "create_chat",
     "encerrar_sessao",

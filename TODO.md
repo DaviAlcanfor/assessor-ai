@@ -210,6 +210,21 @@ Hoje não existe suíte de testes (ver AGENTS.md). Criar pasta `tests/` espelhan
       via `config/docker.py`) antes de crescer demais, ou manter achatado enquanto a suíte for pequena
 - [ ] CI (GitHub Actions) rodando `pytest` no PR, uma vez que exista massa crítica de testes
 
+## LangSmith — observabilidade / auditoria dos agentes
+
+Hoje não existe nenhuma instrumentação de tracing sobre o grafo — os únicos logs são os manuais via
+`config/logging.py:get_logger`, sem visibilidade de latência, tokens ou prompt/resposta completos por
+nó do LangGraph (guardrail, router, financeiro, agenda, faq, orquestrador). `langsmith` já é
+dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta ligar.
+
+- [ ] Variáveis `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, `LANGCHAIN_PROJECT` em
+      `config/settings.py` + `.env.example`
+- [ ] Decidir escopo do projeto no LangSmith (um projeto por ambiente — dev/prod — ou um só)
+- [ ] Confirmar que o trace não vaza dado sensível — checar se passa pelo guardrail de entrada
+      (`agents/nodes/guardrail/entrada.py`) antes de ligar tracing em produção
+- [ ] Tag/metadata por run (ex. `user_id`, nó ativo) pra permitir auditoria por usuário/sessão, não só
+      por chamada de LLM solta
+
 ## Débitos técnicos / melhorias soltas
 
 - [x] Transformar as tabelas de `types` em `enum` Python + tipo nativo do Postgres — `TransactionType`

@@ -1,17 +1,18 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from tools.redis.connection import get_client
+from assessor_ai.tools.redis.connection import get_client
+from interfaces.api.schemas.health import HealthCheckResponse
 
 router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("/live", status_code=status.HTTP_200_OK)
+@router.get("/live", status_code=status.HTTP_200_OK, response_model=HealthCheckResponse)
 def liveness():
-    return {"status": "ok"}
+    return HealthCheckResponse(status="ok", message="service is running")
 
 
-@router.get("/ready", status_code=status.HTTP_200_OK)
+@router.get("/ready", status_code=status.HTTP_200_OK, response_model=HealthCheckResponse)
 def readiness():
     checks = {"redis": False}
 
@@ -23,7 +24,9 @@ def readiness():
     except Exception:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "unavailable", "checks": checks},
+            content=HealthCheckResponse(
+                status="unavailable", message="one or more dependencies are down", checks=checks
+            ).model_dump(),
         )
 
-    return {"status": "ready", "checks": checks}
+    return HealthCheckResponse(status="ready", message="all systems operational", checks=checks)

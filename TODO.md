@@ -176,8 +176,12 @@ sobe esse app — continua imprimindo "ainda não implementado"; hoje a API roda
       só com rate limit (5/min, mesmo padrão dos outros endpoints) — decisão consciente: emitir key
       sem auth prévia é aceitável no estágio atual do projeto, sem introduzir uma segunda credencial
       (admin key) só pra isso
-- [ ] Validar ownership do chat antes de `send_message` (hoje qualquer `user_id` autenticado pode
-      mandar mensagem pra qualquer `chat_id`, sem checar se o chat pertence a ele)
+- [x] Validar ownership do chat antes de `send_message` — `chat/service.py:obter_dono_chat` (novo)
+      + `routes/chats.py:_validar_ownership`: `404` se o chat não existe, `403` se existe mas é de
+      outro usuário. Só foi possível porque `create_chat` passou a persistir o documento no Mongo
+      na hora da criação (`chat/repositories.py:criar_chat`) — antes `POST /v1/chats` só gerava um
+      `uuid4()` em memória e não gravava nada, então não tinha contra o que validar ownership até a
+      primeira mensagem ser enviada
 - [ ] Endpoint de streaming (SSE ou WS) para respostas incrementais do LangGraph
 - [ ] Ligar `main.py api` ao app de `interfaces/api/main.py` (hoje é só um stub que imprime e sai)
 - [ ] Dockerfile + healthcheck (compose hoje só sobe a infra — postgres/mongo/redis/qdrant —, não a
@@ -186,9 +190,9 @@ sobe esse app — continua imprimindo "ainda não implementado"; hoje a API roda
       `chat.service.get_history(session_id)` já existe e nunca é chamado, e
       `interfaces/api/schemas/chat.py:MessageResponse` (role/content/created_at) já está desenhado
       pra esse retorno e também nunca é usado — os dois só fazem sentido juntos nesse endpoint
-- [ ] Tratamento de erro nas rotas de `routes/chats.py` — hoje `create_chat`/`send_message` chamam
-      `chat_service` sem try/except, então qualquer exceção (Mongo/Postgres fora do ar, LLM falhando)
-      vira 500 cru pro cliente da API, sem log nem corpo padronizado
+- [x] Tratamento de erro nas rotas de `routes/chats.py` — `create_chat`/`send_message` agora têm
+      `try/except` com log (`config/logging.py:get_logger`) e retornam `500` com corpo padronizado
+      do FastAPI (`{"detail": ...}` via `HTTPException`) em vez de traceback cru
 
 ## TUI com Textual
 

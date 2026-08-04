@@ -32,10 +32,21 @@ def buscar_usuario_por_email(email: str) -> dict | None:
     return mongo_users.buscar_por_email(email)
 
 
+def criar_chat(user_id: str, session_id: str) -> None:
+    chats.criar(user_id, session_id, [])
+
+
+def buscar_dono_chat(session_id: str) -> str | None:
+    doc = chats.buscar(session_id)
+    
+    return doc["user_id"] if doc else None
+
+
 def buscar_historico(session_id: str) -> list[ChatMessage] | None:
     doc = chats.buscar(session_id)
     if not doc:
         return None
+    
     return [_de_mensagem(m) for m in Mensagem.de_dict(doc["messages"])]
 
 
@@ -53,10 +64,12 @@ def encerrar_sessao(session_id: str, user_id: str) -> None:
 
 
 __all__ = [
+    "buscar_dono_chat",
     "buscar_historico",
     "buscar_perfil",
     "buscar_usuario_existente",
     "buscar_usuario_por_email",
+    "criar_chat",
     "encerrar_sessao",
     "garantir_usuario",
     "salvar_mensagens",

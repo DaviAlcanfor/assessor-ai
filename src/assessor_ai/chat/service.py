@@ -6,7 +6,13 @@ from assessor_ai.chat.models import ChatMessage, Role
 
 
 def create_chat(user_id: str) -> str:
-    return str(uuid4())
+    session_id = str(uuid4())
+    repositories.criar_chat(user_id, session_id)
+    return session_id
+
+
+def obter_dono_chat(session_id: str) -> str | None:
+    return repositories.buscar_dono_chat(session_id)
 
 
 def garantir_usuario(user_id: str, nome: str, email: str) -> None:
@@ -62,6 +68,7 @@ __all__ = [
     "encerrar_sessao",
     "garantir_usuario",
     "get_history",
+    "obter_dono_chat",
     "obter_ou_criar_usuario",
     "send_message",
 ]

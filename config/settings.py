@@ -9,13 +9,11 @@ class Settings(BaseSettings):
     
     REDIS_URL: str
     
-    MONGO_USER: str
-    MONGO_PASSWORD: str
     MONGO_URL: str
     MONGO_COLLECTION_NAME: str
     
+    QDRANT_URL: str
     QDRANT_API_KEY: str
-    QDRANT_CLUSTER_ENDPOINT: str
     QDRANT_COLLECTION_NAME: str
     
     model_config = {

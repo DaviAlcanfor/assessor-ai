@@ -5,7 +5,7 @@ from config.settings import settings
 
 async def get_qdrant_client():
     client = AsyncQdrantClient(
-        url=settings.QDRANT_CLUSTER_ENDPOINT,
+        url=settings.QDRANT_URL,
         api_key=settings.QDRANT_API_KEY
     )
 

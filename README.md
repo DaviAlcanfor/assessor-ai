@@ -282,9 +282,15 @@ O campo `perfil_usuario` — gerado a partir do histórico acumulado e armazenad
 ```env
 GEMINI_API_KEY=...
 GROQ_API_KEY=...
-DATABASE_URI=postgresql://usuario:senha@host:5432/banco
-MONGODB_URI=mongodb://usuario:senha@host:27017/
+POSTGRES_URL=postgresql://usuario:senha@host:5432/banco
+MONGO_URL=mongodb://usuario:senha@host:27017/
+MONGO_COLLECTION_NAME=assessor
+REDIS_URL=redis://host:6379/0
+QDRANT_URL=http://host:6333
+QDRANT_COLLECTION_NAME=faq
 ```
+
+Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant).
 
 ### Instalação
 
@@ -299,8 +305,9 @@ uv sync
 python main.py terminal
 ```
 
-`tui` e `api` também são opções válidas de `main.py`, mas ainda não têm implementação
-(`interfaces/tui/app.py` e `interfaces/api/app.py` — ver TODO.md).
+`tui` ainda não tem implementação (`interfaces/tui/app.py` — ver TODO.md). `api` já tem o app
+FastAPI funcional em `interfaces/api/main.py`, mas o dispatcher do `main.py` ainda não o invoca —
+hoje a API roda direto via uvicorn (ver TODO.md).
 
 O sistema sobe automaticamente o container Docker do PostgreSQL ao iniciar e o encerra ao fechar.
 
@@ -309,7 +316,7 @@ Digite `/exit` para encerrar.
 ### Migrations (Alembic)
 
 Schema do PostgreSQL versionado em `alembic/versions/`. Com o container do Postgres no ar
-(`DATABASE_URI` configurado):
+(`POSTGRES_URL` configurado):
 
 ```bash
 uv run alembic upgrade head

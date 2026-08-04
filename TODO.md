@@ -257,9 +257,12 @@ dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta l
       incremental dado que o projeto ainda não tem nenhuma tipagem checada
 - [ ] Corrigir `PLE0604` em `agents/prompts/__init__.py` — `__all__` referencia as classes
       (`RouterPrompts`, `FinanceiroPrompts`, ...) em vez dos nomes como string
-- [ ] `config/settings.py` está dessincronizado do `.env.example` pós-migração pra Docker Compose:
-      settings pede `POSTGRES_URL`, `MONGO_USER`/`MONGO_PASSWORD`/`MONGO_URL`/`MONGO_COLLECTION_NAME`,
-      `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, `QDRANT_CLUSTER_ENDPOINT`; o
-      `.env.example` documenta `POSTGRES_URI`, `MONGODB_URI`, `REDIS_URI`, `QDRANT_URL` — nomes
-      diferentes. Como são campos obrigatórios do `pydantic-settings` (sem default), subir a app só
-      com o `.env.example` como guia falha na validação — precisa alinhar um lado pro outro
+- [x] `config/settings.py` dessincronizado do `.env.example` — alinhado nos dois lados em torno do
+      padrão `<SISTEMA>_URL` (`POSTGRES_URL`, `MONGO_URL`, `REDIS_URL`, `QDRANT_URL`); removido
+      `MONGO_USER`/`MONGO_PASSWORD` (não usados, a URI já carrega credenciais); `QDRANT_CLUSTER_ENDPOINT`
+      renomeado para `QDRANT_URL` (`tools/qdrant/connection.py` ajustado junto); `MONGO_COLLECTION_NAME`
+      e `QDRANT_COLLECTION_NAME` (obrigatórios no `Settings`, faltavam no `.env.example`) documentados.
+      README também tinha `DATABASE_URI`/`MONGODB_URI` (nomes de antes da migração pra Docker Compose)
+      e um `interfaces/api/app.py` que não existe (é `main.py`) — corrigidos.
+      **Atenção:** isso não toca `.env` local (gitignored) — se o seu `.env` ainda tiver os nomes
+      antigos, precisa atualizar manualmente pra bater com o novo `.env.example`.

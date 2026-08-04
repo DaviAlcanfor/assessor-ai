@@ -156,22 +156,26 @@ precisar de mais de um documento/coleção ou busca persistente fora de memória
 
 ## API — endpoints de chat funcionando, faltam streaming e infra
 
-Saiu do esqueleto: `interfaces/api/main.py` registra `health_router` e `chats_router` de verdade,
-com autenticação por API key (`X-API-Key` via `interfaces/api/auth.py`) e rate limiting por IP
-(`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` (o dispatcher do CLI) ainda não sobe
-esse app — continua imprimindo "ainda não implementado"; hoje a API roda direto via uvicorn.
+Saiu do esqueleto: `interfaces/api/main.py` registra `health_router`, `chats_router` e `keys_router`
+de verdade, com autenticação por API key (`X-API-Key` via `interfaces/api/auth.py`) e rate limiting
+por IP (`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` (o dispatcher do CLI) ainda não
+sobe esse app — continua imprimindo "ainda não implementado"; hoje a API roda direto via uvicorn.
 
 - [x] Escolher framework — FastAPI
 - [x] Esqueleto de pastas — virou `interfaces/api/{main,auth,gen_key,rate_limiting}.py` +
-      `routes/{chats,health}.py` + `schemas/chat.py` (não `app/` como o TODO antigo previa)
+      `routes/{chats,health,keys}.py` + `schemas/{chat,key}.py` (não `app/` como o TODO antigo previa)
 - [x] `auth.py` — `get_current_user` via `APIKeyHeader` + `tools/redis/api_key.py:get_user_id_by_api_key`
 - [x] `routes/chats.py` — `POST /v1/chats` (cria chat) e `POST /v1/chats/{chat_id}/messages`
       chamando `chat.service.send_message(...)`
 - [x] `routes/health.py` — `/health/live` e `/health/ready` (ping no Redis)
 - [x] Rate limiting por IP nas rotas de chat (`slowapi`, 5/min criar chat, 10/min mensagem)
-- [ ] `gen_key.py:generate_api_key` gerar **e persistir** a key via
-      `tools/redis/api_key.py:allocate_api_key` (hoje as duas funções existem mas não se conectam —
-      não tem endpoint/script que de fato emite uma key utilizável)
+- [x] `gen_key.py:generate_api_key` ligado à API — `POST /v1/keys` (`interfaces/api/routes/keys.py`),
+      corpo `{nome, email}`, resolve o usuário por email (`chat/service.py:obter_ou_criar_usuario`,
+      novo — reaproveita se o email já existir, senão cria) e chama `allocate_api_key`; `409` se o
+      usuário já tiver uma key ativa (não dá pra reexibir, só o hash fica salvo). Endpoint público,
+      só com rate limit (5/min, mesmo padrão dos outros endpoints) — decisão consciente: emitir key
+      sem auth prévia é aceitável no estágio atual do projeto, sem introduzir uma segunda credencial
+      (admin key) só pra isso
 - [ ] Validar ownership do chat antes de `send_message` (hoje qualquer `user_id` autenticado pode
       mandar mensagem pra qualquer `chat_id`, sem checar se o chat pertence a ele)
 - [ ] Endpoint de streaming (SSE ou WS) para respostas incrementais do LangGraph

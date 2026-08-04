@@ -17,6 +17,18 @@ def buscar_usuario_existente() -> dict | None:
     return repositories.buscar_usuario_existente()
 
 
+def obter_ou_criar_usuario(nome: str, email: str) -> str:
+    usuario = repositories.buscar_usuario_por_email(email)
+    
+    if usuario:
+        return usuario["user_id"]
+
+    user_id = str(uuid4())
+    garantir_usuario(user_id, nome=nome, email=email)
+    
+    return user_id
+
+
 def send_message(user_id: str, session_id: str, content: str) -> str:
     mensagem = ChatMessage(role=Role.HUMAN, content=content)
     perfil = repositories.buscar_perfil(user_id)
@@ -50,5 +62,6 @@ __all__ = [
     "encerrar_sessao",
     "garantir_usuario",
     "get_history",
+    "obter_ou_criar_usuario",
     "send_message",
 ]

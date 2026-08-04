@@ -21,13 +21,12 @@ def build_llm(
     if provider is None:
         raise ValueError(f"Modelo desconhecido: {model}")
 
-    kwargs = dict(
-        model=model,
-        temperature=temperature,
-        api_key=API_KEYS.get(provider),
-    )
+    kwargs = {
+        "model": model,
+        "temperature": temperature,
+        "api_key": API_KEYS.get(provider),
+    }
 
-    # se fizer somente if top_p e valor dele seja 0.0, o python interpreta como False (mto legal)
     if top_p is not None and provider == "gemini":
         kwargs["top_p"] = top_p
 

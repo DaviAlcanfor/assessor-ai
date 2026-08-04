@@ -110,3 +110,8 @@ dev = [
 
 [tool.ruff]
 target-version = "py313"
+
+[tool.ruff.lint]
+ignore = [
+    "BLE001", # catch-all + log + Response.error é o padrão intencional das tools (log_tool não captura exceção)
+]

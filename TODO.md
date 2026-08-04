@@ -123,7 +123,10 @@ Continua valendo o follow-up de propagar `user_id` real, registrado na seção A
 Split em `tools/redis/{connection.py,api_key.py,chat.py,schemas.py}` feito, seguindo o mesmo corte
 de `tools/postgres` e `tools/mongo`.
 
-- [x] Client lazy (`tools/redis/connection.py:get_client`)
+- [x] Client lazy (`tools/redis/connection.py:get_client`) — **achado:** faltava o `_client: Redis |
+      None = None` no module scope, então `get_client()` quebrava com `NameError` na primeira
+      chamada; ficou mascarado porque todo chamador está dentro de um `except Exception` genérico.
+      Corrigido.
 - [x] Extrair a conexão para `tools/redis/connection.py`, deixando `api_key.py`/`chat.py` só com as
       tools
 - [x] Rate limit / cooldown por `user_id` (`can_send_message`, `tools/redis/chat.py:8`) — mas
@@ -175,6 +178,13 @@ esse app — continua imprimindo "ainda não implementado"; hoje a API roda dire
 - [ ] Ligar `main.py api` ao app de `interfaces/api/main.py` (hoje é só um stub que imprime e sai)
 - [ ] Dockerfile + healthcheck (compose hoje só sobe a infra — postgres/mongo/redis/qdrant —, não a
       própria API)
+- [ ] `GET /v1/chats/{chat_id}/messages` (listar histórico) — não existe rota nenhuma pra isso hoje.
+      `chat.service.get_history(session_id)` já existe e nunca é chamado, e
+      `interfaces/api/schemas/chat.py:MessageResponse` (role/content/created_at) já está desenhado
+      pra esse retorno e também nunca é usado — os dois só fazem sentido juntos nesse endpoint
+- [ ] Tratamento de erro nas rotas de `routes/chats.py` — hoje `create_chat`/`send_message` chamam
+      `chat_service` sem try/except, então qualquer exceção (Mongo/Postgres fora do ar, LLM falhando)
+      vira 500 cru pro cliente da API, sem log nem corpo padronizado
 
 ## TUI com Textual
 
@@ -237,6 +247,11 @@ dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta l
       classes em vez de strings) e alguns `BLE001`/`PLW1510` que ficaram de fora do `--fix` por
       exigirem decisão manual
 - [x] `[project.scripts]` no `pyproject.toml` — `assessor-ai = 'main:main'`
+- [ ] `interfaces/terminal/app.py:21` sempre gera um `user_id` novo (`uuid4()`) a cada execução do
+      terminal, em vez de buscar um usuário já existente no banco — cada sessão vira um usuário
+      "descartável" que nunca reaproveita histórico/perfil de um usuário real. `service.garantir_usuario`
+      já existe e é chamado logo em seguida, mas cria de novo em vez de checar se já tem alguém salvo
+      (comentário `# TODO -> buscar usuário no banco de dados` movido daqui pra este item)
 - [ ] Adicionar checagem de tipagem estática com **mypy** (ruff cobre lint/format mas não faz type
       checking; mypy é o que de fato valida as anotações de tipo) — avaliar `strict` vs. modo
       incremental dado que o projeto ainda não tem nenhuma tipagem checada

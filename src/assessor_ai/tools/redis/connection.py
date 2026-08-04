@@ -2,6 +2,8 @@ from redis import Redis
 
 from config.settings import settings
 
+_client: Redis | None = None
+
 
 def get_client() -> Redis:
     global _client

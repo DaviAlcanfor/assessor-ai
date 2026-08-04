@@ -42,14 +42,6 @@ def _validar_ownership(chat_id: str, user_id: str) -> None:
     """
     Verifica se um chat pertence ao usuário recebido.
     Lança HTTPException caso o chat não exista ou não pertença ao usuário.
-
-    Args:
-        chat_id (str): id do chat (session_id)
-        user_id (str): id do usuário
-
-    Raises:
-        HTTPException: chat não encontrado
-        HTTPException: chat pertence a outro usuário
     """
     
     dono = chat_service.obter_dono_chat(chat_id)
@@ -67,10 +59,6 @@ def create_chat(request: Request, user_id: str = Depends(get_current_user)):
     """
     Cria um chat caso não exista de acordo com o usuário autenticado.
     Retorna o chat_id (session_id) do chat criado.
-    
-    Args:
-        request (Request): objeto de requisição do FastAPI
-        user_id (str): id do usuário autenticado
     """
     
     try:
@@ -95,19 +83,6 @@ def send_message(
 ):
     """
     Envia uma mensagem para um chat específico.
-
-    Args:
-        request (Request): objeto de requisição do FastAPI
-        chat_id (str): id do chat (session_id)
-        payload (MessageCreate): mensagem enviada pelo usuário
-        user_id (str, optional): id do usuario. Defaults to Depends(get_current_user).
-
-    Raises:
-        HTTPException: Falha ao processar mensagem no chat_id
-        HTTPException: Limite de mensagens excedido
-
-    Returns:
-        _type_: ChatMessageResponse - objeto de resposta do chat
     """
     
     _validar_ownership(chat_id, user_id)
@@ -133,14 +108,6 @@ def send_message(
 def get_messages(request: Request, chat_id: str, user_id: str = Depends(get_current_user)):
     """
     Obtém as mensagens de histórico de um chat específico.
-
-    Args:
-        request (Request): objeto de requisição do FastAPI
-        chat_id (str): id do chat (session_id)
-        user_id (str, optional): id do usuário. Defaults to Depends(get_current_user).
-
-    Returns:
-        _type_: List[MessageResponse] - lista de mensagens do chat
     """
     
     _validar_ownership(chat_id, user_id)

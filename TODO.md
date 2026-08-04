@@ -186,10 +186,13 @@ sobe esse app — continua imprimindo "ainda não implementado"; hoje a API roda
 - [ ] Ligar `main.py api` ao app de `interfaces/api/main.py` (hoje é só um stub que imprime e sai)
 - [ ] Dockerfile + healthcheck (compose hoje só sobe a infra — postgres/mongo/redis/qdrant —, não a
       própria API)
-- [ ] `GET /v1/chats/{chat_id}/messages` (listar histórico) — não existe rota nenhuma pra isso hoje.
-      `chat.service.get_history(session_id)` já existe e nunca é chamado, e
-      `interfaces/api/schemas/chat.py:MessageResponse` (role/content/created_at) já está desenhado
-      pra esse retorno e também nunca é usado — os dois só fazem sentido juntos nesse endpoint
+- [x] `GET /v1/chats/{chat_id}/messages` (listar histórico) — `routes/chats.py:get_messages`, mesma
+      checagem de ownership dos outros endpoints do recurso, mapeando `chat/models.py:Role`
+      (`human`/`ai`) pro `Role` da API (`user`/`assistant`). **Achado:** `MessageResponse` tinha um
+      campo `created_at` que nada no storage preenche — nem `chat/models.py:ChatMessage` nem
+      `tools/mongo/chats/schemas.py:Mensagem` guardam timestamp por mensagem (só o chat como um
+      todo tem `created_at`/`updated_at`). Removido o campo do schema em vez de inventar um
+      timestamp que não existe nos dados
 - [x] Tratamento de erro nas rotas de `routes/chats.py` — `create_chat`/`send_message` agora têm
       `try/except` com log (`config/logging.py:get_logger`) e retornam `500` com corpo padronizado
       do FastAPI (`{"detail": ...}` via `HTTPException`) em vez de traceback cru

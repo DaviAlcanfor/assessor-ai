@@ -1,4 +1,3 @@
-from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -16,7 +15,6 @@ class MessageCreate(BaseModel):
 class MessageResponse(BaseModel):
     role: Role
     content: str
-    created_at: datetime
 
 
 class ChatCreateResponse(BaseModel):

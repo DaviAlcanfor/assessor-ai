@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from assessor_ai.chat import service as chat_service
+from assessor_ai.chat.models import Role as DomainRole
 from config.logging import get_logger
 from interfaces.api.auth import get_current_user
 from interfaces.api.rate_limiting import limiter
@@ -8,7 +9,14 @@ from interfaces.api.schemas.chat import (
     ChatCreateResponse,
     ChatMessageResponse,
     MessageCreate,
+    MessageResponse,
+    Role,
 )
+
+_ROLE_MAP = {
+    DomainRole.HUMAN: Role.USER,
+    DomainRole.AI: Role.ASSISTANT,
+}
 
 logger = get_logger(__name__)
 
@@ -58,3 +66,16 @@ def send_message(
         )
 
     return ChatMessageResponse(chat_id=chat_id, content=resposta)
+
+
+@router.get("/{chat_id}/messages", response_model=list[MessageResponse])
+@limiter.limit("20/minute")
+def get_messages(request: Request, chat_id: str, user_id: str = Depends(get_current_user)):
+    _validar_ownership(chat_id, user_id)
+
+    historico = chat_service.get_history(chat_id) or []
+
+    return [
+        MessageResponse(role=_ROLE_MAP[m.role], content=m.content)
+        for m in historico
+    ]

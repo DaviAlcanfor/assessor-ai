@@ -13,6 +13,10 @@ def garantir_usuario(user_id: str, nome: str, email: str) -> None:
     repositories.garantir_usuario(user_id, nome=nome, email=email)
 
 
+def buscar_usuario_existente() -> dict | None:
+    return repositories.buscar_usuario_existente()
+
+
 def send_message(user_id: str, session_id: str, content: str) -> str:
     mensagem = ChatMessage(role=Role.HUMAN, content=content)
     perfil = repositories.buscar_perfil(user_id)
@@ -41,6 +45,7 @@ def encerrar_sessao(session_id: str, user_id: str) -> None:
 
 
 __all__ = [
+    "buscar_usuario_existente",
     "create_chat",
     "encerrar_sessao",
     "garantir_usuario",

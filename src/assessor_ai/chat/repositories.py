@@ -24,6 +24,10 @@ def buscar_perfil(user_id: str) -> str:
     return usuario.get("profile", "") if usuario else ""
 
 
+def buscar_usuario_existente() -> dict | None:
+    return mongo_users.buscar_algum()
+
+
 def buscar_historico(session_id: str) -> list[ChatMessage] | None:
     doc = chats.buscar(session_id)
     if not doc:
@@ -47,6 +51,7 @@ def encerrar_sessao(session_id: str, user_id: str) -> None:
 __all__ = [
     "buscar_historico",
     "buscar_perfil",
+    "buscar_usuario_existente",
     "encerrar_sessao",
     "garantir_usuario",
     "salvar_mensagens",

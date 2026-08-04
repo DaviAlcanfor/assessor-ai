@@ -17,15 +17,22 @@ def run(local: bool = False) -> None:
 
     exibir_titulo()
 
-    user_id = str(uuid4())
-    session_id = service.create_chat(user_id)
+    usuario_existente = service.buscar_usuario_existente()
+    
+    if usuario_existente:
+        user_id = usuario_existente["user_id"]
+    
+    else:
+        user_id = str(uuid4())
+        novo_usuario = generate_user()
+    
+        service.garantir_usuario(
+            user_id,
+            nome=novo_usuario["name"],
+            email=novo_usuario["email"]
+        )
 
-    user = generate_user()
-    service.garantir_usuario(
-        user_id,
-        nome=user["name"],
-        email=user["email"]
-    )
+    session_id = service.create_chat(user_id)
 
     while True:
         try:

@@ -242,21 +242,21 @@ dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta l
       create_type=False)` sobre os tipos `transaction_type`/`payment_type` já criados via migration
       (`..._transaction_type_and_payment_type_as_...py`); `resolve_type_id` virou
       `resolve_transaction_type`, puramente em Python (`tools/postgres/helpers.py`)
-- [x] `ruff` (lint + format) adicionado e aplicado no repo (`dd09c43`, `c95365c`) — ver
-      `ruff check` pendente: `PLE0604` em `agents/prompts/__init__.py` (bug real, `__all__` com
-      classes em vez de strings) e alguns `BLE001`/`PLW1510` que ficaram de fora do `--fix` por
-      exigirem decisão manual
+- [x] `ruff` (lint + format) adicionado e aplicado no repo (`dd09c43`, `c95365c`) — `ruff check .`
+      hoje passa limpo (`All checks passed!`, só `BLE001` ignorado deliberadamente, ver comentário
+      em `pyproject.toml`)
 - [x] `[project.scripts]` no `pyproject.toml` — `assessor-ai = 'main:main'`
-- [ ] `interfaces/terminal/app.py:21` sempre gera um `user_id` novo (`uuid4()`) a cada execução do
-      terminal, em vez de buscar um usuário já existente no banco — cada sessão vira um usuário
-      "descartável" que nunca reaproveita histórico/perfil de um usuário real. `service.garantir_usuario`
-      já existe e é chamado logo em seguida, mas cria de novo em vez de checar se já tem alguém salvo
-      (comentário `# TODO -> buscar usuário no banco de dados` movido daqui pra este item)
+- [x] `interfaces/terminal/app.py` reaproveita usuário existente — `tools/mongo/users/core.py:buscar_algum`
+      (novo, `collection.find_one()` sem filtro) exposto via `chat/repositories.py` e
+      `chat/service.py:buscar_usuario_existente`. Terminal chama isso primeiro; só cria usuário
+      mock novo (`generate_user` + `garantir_usuario`) se o Mongo ainda não tiver nenhum.
+      **Simplificação deliberada:** `buscar_algum` pega "qualquer" usuário, sem filtro por
+      identidade — ok porque o terminal é uma ferramenta pessoal de um usuário só (diferente da
+      API, que já resolve `user_id` real via API key). Se o Mongo acumular mais de um usuário por
+      outro motivo, isso passa a pegar um arbitrário — não é um problema hoje.
 - [ ] Adicionar checagem de tipagem estática com **mypy** (ruff cobre lint/format mas não faz type
       checking; mypy é o que de fato valida as anotações de tipo) — avaliar `strict` vs. modo
       incremental dado que o projeto ainda não tem nenhuma tipagem checada
-- [ ] Corrigir `PLE0604` em `agents/prompts/__init__.py` — `__all__` referencia as classes
-      (`RouterPrompts`, `FinanceiroPrompts`, ...) em vez dos nomes como string
 - [x] `config/settings.py` dessincronizado do `.env.example` — alinhado nos dois lados em torno do
       padrão `<SISTEMA>_URL` (`POSTGRES_URL`, `MONGO_URL`, `REDIS_URL`, `QDRANT_URL`); removido
       `MONGO_USER`/`MONGO_PASSWORD` (não usados, a URI já carrega credenciais); `QDRANT_CLUSTER_ENDPOINT`

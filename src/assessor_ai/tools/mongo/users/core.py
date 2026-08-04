@@ -36,6 +36,12 @@ def buscar_por_email(email: str) -> dict | None:
     return collection.find_one({"email": email})
 
 
+def buscar_algum() -> dict | None:
+    logger.info("Buscando algum usuário existente")
+
+    return collection.find_one()
+
+
 def atualizar_perfil(user_id: str, perfil: str) -> None:
     logger.info(f"Atualizando perfil para user_id: {user_id}")
 

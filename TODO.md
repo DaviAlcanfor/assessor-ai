@@ -131,8 +131,8 @@ Continua valendo o follow-up de propagar `user_id` real, registrado na seção A
 
 ## Redis — estrutura concluída, integrações pendentes
 
-Split em `tools/redis/{connection.py,api_key.py,chat.py,schemas.py}` feito, seguindo o mesmo corte
-de `tools/postgres` e `tools/mongo`.
+Split em `tools/redis/{connection.py,api_key.py,chat.py,perfil.py,schemas.py}` feito, seguindo o
+mesmo corte de `tools/postgres` e `tools/mongo`.
 
 - [x] Client lazy (`tools/redis/connection.py:get_client`) — **achado:** faltava o `_client: Redis |
       None = None` no module scope, então `get_client()` quebrava com `NameError` na primeira
@@ -153,7 +153,10 @@ de `tools/postgres` e `tools/mongo`.
       seção API acima)
 - [ ] Cache de sessão: mover/duplicar o histórico curto de mensagens (hoje via `$slice: -5` no
       Mongo) para Redis, com TTL, reduzindo round-trip ao Mongo em cada turno
-- [x] Cache de `perfil_usuario` (hoje lido do Mongo a cada invocação em `main.py:executar_fluxo_assessor`)
+- [x] Cache de `perfil_usuario` — `tools/redis/perfil.py` (`buscar_perfil_cache`/`salvar_perfil_cache`/
+      `invalidar_perfil_cache`, TTL de 1h) chamado em `chat/repositories.py:buscar_perfil`, que só
+      cai no Mongo em cache miss. Cache invalidado em `encerrar_sessao` (`/exit`), quando o perfil
+      pode ter sido atualizado a partir do resumo da sessão
 
 ## Qdrant — conexão criada, tools ainda não
 
@@ -260,8 +263,16 @@ Hoje não existe nenhuma instrumentação de tracing sobre o grafo — os único
 nó do LangGraph (guardrail, router, financeiro, agenda, faq, orquestrador). `langsmith` já é
 dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta ligar.
 
-- [ ] Variáveis `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, `LANGCHAIN_PROJECT` em
-      `config/settings.py` + `.env.example`
+- [x] Variáveis em `config/settings.py` + `.env.example` — usados os nomes atuais do SDK
+      (`LANGSMITH_TRACING`/`LANGSMITH_API_KEY`/`LANGSMITH_PROJECT`; `LANGCHAIN_*` do LangChain
+      antigo virou alias legado dentro do próprio `langsmith` client). `LANGSMITH_TRACING=false` por
+      padrão. **Ainda não ativa nada sozinho:** o SDK do LangSmith lê `os.environ` diretamente
+      (dentro do `langchain-core`/`langsmith`), e este projeto não chama `load_dotenv()` em lugar
+      nenhum — `config/settings.py` só popula o objeto `Settings`, não exporta pro `os.environ`. Pra
+      tracing funcionar de fato falta decidir onde propagar isso (`os.environ[...] = ...` a partir de
+      `settings` no bootstrap do `main.py`, ou confiar no `infisical run --` já injetar direto no
+      processo — ver `justfile:dev`) — decisão adiada de propósito até resolver o item de guardrail
+      abaixo
 - [ ] Decidir escopo do projeto no LangSmith (um projeto por ambiente — dev/prod — ou um só)
 - [ ] Confirmar que o trace não vaza dado sensível — checar se passa pelo guardrail de entrada
       (`agents/nodes/guardrail/entrada.py`) antes de ligar tracing em produção

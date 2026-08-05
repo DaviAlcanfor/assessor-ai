@@ -15,7 +15,11 @@ class Settings(BaseSettings):
     QDRANT_URL: str
     QDRANT_API_KEY: str
     QDRANT_COLLECTION_NAME: str
-    
+
+    LANGSMITH_TRACING: bool
+    LANGSMITH_API_KEY: str
+    LANGSMITH_PROJECT: str
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

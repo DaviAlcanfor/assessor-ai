@@ -1,0 +1,27 @@
+# Segredos locais — nunca sobem pro build; env vars reais vêm da config do FastAPI Cloud
+.env
+.infisical.json
+
+# Ambiente virtual / cache — reconstruídos no build a partir de pyproject.toml + uv.lock
+.venv
+__pycache__/
+mocks/__pycache__/
+*.py[codz]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Controle de versão e ferramentas de dev locais
+.git
+.gitignore
+.claude/
+.python-version
+justfile
+
+# Documentação — não é usada em runtime pela API
+README.md
+AGENTS.md
+CLAUDE.md
+TODO.md
+LICENSE
+assets/

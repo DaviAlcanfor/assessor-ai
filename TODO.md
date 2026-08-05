@@ -252,24 +252,42 @@ do Textual em vez de CSS como string Python).
 - [x] Bootstrap de usuário/sessão extraído pra `chat/service.py:iniciar_sessao()` — antes
       duplicado em `interfaces/terminal/app.py`, agora reaproveitado por terminal e TUI
 
-## Testes
+## Testes — suíte iniciada, só funções puras por enquanto
 
-Hoje não existe suíte de testes (ver AGENTS.md). Criar pasta `tests/` espelhando a estrutura de
-`tools/`, `chat/`, `agents/`, `graph/` (package by feature, mesmo corte usado no resto do repo).
+Pasta `tests/` criada espelhando a estrutura de `tools/` (package by feature, mesmo corte usado no
+resto do repo) — `chat/`, `agents/`, `graph/` ainda não têm testes (ver bullet abaixo).
 
-- [ ] Adicionar `pytest` (e `pytest-mock`/`pytest-asyncio` se necessário) como dev dependency
-      (`uv add --dev pytest`)
+- [x] `pytest` como dev dependency (`uv add --dev pytest`, ficou `pytest>=9.1.1`) — `pytest-mock`/
+      `pytest-asyncio` adiados até surgir necessidade real (nada async ou precisando de mock pesado
+      nos testes de hoje)
+- [x] `tests/tools/` — os três módulos sem I/O que o TODO já apontava como ponto de partida:
+      `test_response.py` (`Response.ok`/`Response.error`), `postgres/test_helpers.py`
+      (`resolve_transaction_type` com todos os aliases PT-BR, e `local_date`/`local_date_filter`/
+      `local_date_range_filter` — testados compilando a expressão SQLAlchemy pra string via
+      `.compile(compile_kwargs={"literal_binds": True})`, sem precisar de banco real),
+      `redis/test_schemas.py` (`_hash_api_key`, `_chave_mensagem`, `_chave_api_key`,
+      `_chave_api_key_lookup`, `_chave_perfil`). 29 testes, todos passando (`just test` ou
+      `pytest`, roda em ~3s). `get_category_id` (`tools/postgres/helpers.py`) ficou de fora — precisa
+      de uma `Session` de verdade (ou SQLite in-memory), é teste de integração, não unitário puro
+- [x] Comando `just test` no `justfile`
 - [ ] `tests/conftest.py` com fixtures compartilhadas — provavelmente mocks de
       `tools/postgres/connection.py:get_session` e `tools/mongo/connection.py` pra não depender de
       banco real nos testes unitários
-- [ ] `tests/tools/` — começar pelo mais isolado e sem I/O: `tools/response.py` (`Response.ok`/`Response.error`),
-      `tools/postgres/helpers.py` (resolve_transaction_type, local_date/local_date_filter), `tools/redis/schemas.py`
-      (`_chave_mensagem`/`_chave_api_key`)
 - [ ] `tests/chat/` — `chat/service.py` e `chat/runner.py` com o grafo mockado (não deve chamar
       LLM de verdade em teste unitário)
 - [ ] Decidir separação `tests/unit/` vs. `tests/integration/` (integration = sobe Postgres/Mongo
       via `config/docker.py`) antes de crescer demais, ou manter achatado enquanto a suíte for pequena
-- [ ] CI (GitHub Actions) rodando `pytest` no PR, uma vez que exista massa crítica de testes
+- [x] CI (GitHub Actions) — `.github/workflows/ci.yml`, roda em push pra `main` e em PR: `uv sync
+      --locked` → `ruff check .` → `pytest`. **Achado:** `assessor_ai/__init__.py` importa
+      `graph/builder.py`, que puxa a cadeia inteira até `config/settings.py:Settings()` — ou seja,
+      até um teste de função pura (`tools/response.py`, sem nenhum import próprio) dispara a
+      validação de *todas* as env vars obrigatórias só por importar qualquer coisa de dentro de
+      `assessor_ai`. Sem `.env` (caso do CI, que não tem o arquivo — é gitignored), a coleta dos
+      testes quebra com `ValidationError`. Resolvido com valores dummy direto no `env:` do job
+      (não precisa de secret nenhum, já que os testes de hoje não fazem I/O real) — mas é sinal de
+      acoplamento a revisar se a suíte crescer pra módulos que hoje não tocam `Settings`
+- [x] Corrigido de passagem: `interfaces/tui/app.py:BINDINGS` sem `ClassVar` (RUF012) — única
+      pendência do `ruff check .` no repo; corrigido antes de ligar o CI pra não nascer vermelho
 
 ## LangSmith — observabilidade / auditoria dos agentes
 

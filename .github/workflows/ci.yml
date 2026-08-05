@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Settings exige todas as vars, mas os testes hoje só cobrem funções puras
+      # (sem I/O real) — valores dummy bastam pra `Settings()` não quebrar na coleta.
+      GEMINI_API_KEY: dummy
+      GROQ_API_KEY: dummy
+      POSTGRES_URL: postgresql://user:pass@localhost:5432/db
+      MONGO_URL: mongodb://localhost:27017/
+      MONGO_COLLECTION_NAME: assessor
+      REDIS_URL: redis://localhost:6379/0
+      QDRANT_URL: http://localhost:6333
+      QDRANT_API_KEY: dummy
+      QDRANT_COLLECTION_NAME: faq
+      LANGSMITH_TRACING: "false"
+      LANGSMITH_API_KEY: dummy
+      LANGSMITH_PROJECT: assessor-ai
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Run tests
+        run: uv run pytest

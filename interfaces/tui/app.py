@@ -1,4 +1,5 @@
 import logging
+from typing import ClassVar
 
 import pyfiglet
 from rich.text import Text
@@ -24,7 +25,7 @@ class _LogWidgetHandler(logging.Handler):
 
 class AssessorTUI(App):
     CSS_PATH = "app.tcss"
-    BINDINGS = [("ctrl+c", "sair", "Sair")]
+    BINDINGS: ClassVar = [("ctrl+c", "sair", "Sair")]
 
     def __init__(self) -> None:
         super().__init__()

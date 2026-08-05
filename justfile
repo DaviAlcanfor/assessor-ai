@@ -21,3 +21,7 @@ check:
 fix:
     @echo "Running pre-commit fixes"
     ruff check --fix
+
+test:
+    @echo "Running tests"
+    {{python}} -m pytest

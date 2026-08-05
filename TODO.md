@@ -153,7 +153,7 @@ de `tools/postgres` e `tools/mongo`.
       seção API acima)
 - [ ] Cache de sessão: mover/duplicar o histórico curto de mensagens (hoje via `$slice: -5` no
       Mongo) para Redis, com TTL, reduzindo round-trip ao Mongo em cada turno
-- [ ] Cache de `perfil_usuario` (hoje lido do Mongo a cada invocação em `main.py:executar_fluxo_assessor`)
+- [x] Cache de `perfil_usuario` (hoje lido do Mongo a cada invocação em `main.py:executar_fluxo_assessor`)
 
 ## Qdrant — conexão criada, tools ainda não
 

@@ -4,6 +4,11 @@ import assessor_ai.tools.postgres.users.core as pg_users
 from assessor_ai.chat.models import ChatMessage, Role
 from assessor_ai.tools.mongo.chats.schemas import Mensagem
 from assessor_ai.tools.mongo.chats.schemas import Role as MongoRole
+from assessor_ai.tools.redis.perfil import (
+    buscar_perfil_cache,
+    invalidar_perfil_cache,
+    salvar_perfil_cache,
+)
 
 
 def _para_mensagem(msg: ChatMessage) -> Mensagem:
@@ -20,8 +25,16 @@ def garantir_usuario(user_id: str, nome: str, email: str) -> None:
 
 
 def buscar_perfil(user_id: str) -> str:
+    perfil_cache = buscar_perfil_cache(user_id)
+    
+    if perfil_cache is not None:
+        return perfil_cache
+
     usuario = mongo_users.buscar(user_id)
-    return usuario.get("profile", "") if usuario else ""
+    perfil = usuario.get("profile", "") if usuario else ""
+
+    salvar_perfil_cache(user_id, perfil)
+    return perfil
 
 
 def buscar_usuario_existente() -> dict | None:
@@ -61,6 +74,7 @@ def salvar_mensagens(user_id: str, session_id: str, mensagens: list[ChatMessage]
 
 def encerrar_sessao(session_id: str, user_id: str) -> None:
     chats.encerrar_sessao(session_id, user_id)
+    invalidar_perfil_cache(user_id)
 
 
 __all__ = [

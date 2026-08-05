@@ -1,4 +1,4 @@
-set positional-arguments := true
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 cmd := "assessor-ai"
 python := if os() == "windows" { ".venv/Scripts/python" } else { ".venv/bin/python" }
 

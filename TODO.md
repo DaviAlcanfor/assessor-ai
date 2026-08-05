@@ -38,8 +38,9 @@ interfaces/
 - [x] `main.py` reescrito como dispatcher puro — `terminal` funcional, `tui`/`api` imprimem
       "ainda não implementado" e saem (os arquivos `interfaces/{tui,api}/app.py` ficam vazios até
       as seções abaixo saírem do papel)
-- [ ] `interfaces/tui/app.py` — ver checklist da seção "TUI com Textual" abaixo
-- [ ] `interfaces/api/app.py` — ver checklist da seção "API" abaixo
+- [x] `interfaces/tui/app.py` — ver checklist da seção "TUI com Textual" abaixo
+- [x] `interfaces/api/app.py` (na prática virou `interfaces/api/main.py`) — ver checklist da seção
+      "API" abaixo
 
 Verificado: `python main.py terminal` ponta a ponta via stdin (mensagem real → guardrail → router →
 financeiro → resposta → resumo de sessão + atualização de perfil no `/exit`), comportamento
@@ -202,20 +203,26 @@ por IP (`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` já sobe es
       `try/except` com log (`config/logging.py:get_logger`) e retornam `500` com corpo padronizado
       do FastAPI (`{"detail": ...}` via `HTTPException`) em vez de traceback cru
 
-## TUI com Textual
+## TUI com Textual — concluída (painel de agente ativo fica pendente)
 
-Substituir/complementar a interface atual (`ui/terminal.py`, Rich + pyfiglet) por uma TUI de
-verdade com [Textual](https://github.com/Textualize/textual).
+Substituiu/complementa a interface atual (Rich + pyfiglet) por uma TUI de verdade com
+[Textual](https://github.com/Textualize/textual). Estrutura espelha `interfaces/terminal/`
+(`app.py` = lógica, `display.py` = apresentação), mais `app.tcss` pro styling (stylesheet externo
+do Textual em vez de CSS como string Python).
 
-- [ ] Adicionar `textual` às dependências (`uv add textual`)
-- [ ] `interfaces/tui/app.py` — `AssessorTUI`, App Textual com tela de chat (input fixo embaixo,
-      histórico rolável), chamando `chat.service.send_message(...)` — nunca `graph/builder.py` direto
-- [ ] Widget de histórico com bolhas usuário/assistente reaproveitando a lógica de
-      `exibir_usuario`/`exibir_assistente` de `ui/terminal.py`
-- [ ] Indicador de "pensando..." enquanto o agente processa (rodar `chat.service.send_message` em
-      thread/worker do Textual para não travar a UI)
-- [ ] Tela/painel lateral opcional mostrando qual agente está ativo (`agentes_chamados` do estado)
-- [ ] Comando `/exit` e `Ctrl+C` encerrando a sessão via `chat.service`
+- [x] Adicionar `textual` às dependências (`uv add textual`)
+- [x] `interfaces/tui/app.py` — `AssessorTUI`, tela de chat (input fixo embaixo, histórico
+      rolável), chamando `chat.service.send_message(...)` — nunca `graph/builder.py` direto
+- [x] Widget de histórico com bolhas usuário/assistente — `interfaces/tui/display.py:Bubble`
+      (classes CSS `usuario`/`assistente`/`pensando` em vez da lógica Rich de `exibir_usuario`/
+      `exibir_assistente`, que não se aplica a widgets Textual)
+- [x] Indicador de "pensando..." — `Bubble` com classe `pensando`, `_processar` roda
+      `chat.service.send_message` num `@work(thread=True)` pra não travar a UI
+- [ ] Tela/painel lateral opcional mostrando qual agente está ativo (`agentes_chamados` do
+      estado) — adiado deliberadamente, fora do escopo da primeira versão
+- [x] Comando `/exit` e `Ctrl+C` encerrando a sessão via `chat.service.encerrar_sessao`
+- [x] Bootstrap de usuário/sessão extraído pra `chat/service.py:iniciar_sessao()` — antes
+      duplicado em `interfaces/terminal/app.py`, agora reaproveitado por terminal e TUI
 
 ## Testes
 

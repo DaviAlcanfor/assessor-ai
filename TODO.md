@@ -162,8 +162,8 @@ precisar de mais de um documento/coleção ou busca persistente fora de memória
 
 Saiu do esqueleto: `interfaces/api/main.py` registra `health_router`, `chats_router` e `keys_router`
 de verdade, com autenticação por API key (`X-API-Key` via `interfaces/api/auth.py`) e rate limiting
-por IP (`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` (o dispatcher do CLI) ainda não
-sobe esse app — continua imprimindo "ainda não implementado"; hoje a API roda direto via uvicorn.
+por IP (`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` já sobe esse app via
+`uvicorn.run("interfaces.api.main:app", ...)`.
 
 - [x] Escolher framework — FastAPI
 - [x] Esqueleto de pastas — virou `interfaces/api/{main,auth,gen_key,rate_limiting}.py` +
@@ -187,7 +187,8 @@ sobe esse app — continua imprimindo "ainda não implementado"; hoje a API roda
       `uuid4()` em memória e não gravava nada, então não tinha contra o que validar ownership até a
       primeira mensagem ser enviada
 - [ ] Endpoint de streaming (SSE ou WS) para respostas incrementais do LangGraph
-- [ ] Ligar `main.py api` ao app de `interfaces/api/main.py` (hoje é só um stub que imprime e sai)
+- [x] Ligar `main.py api` ao app de `interfaces/api/main.py` — `run_api()` chama
+      `uvicorn.run("interfaces.api.main:app", host="0.0.0.0", port=8000, reload=True)`
 - [ ] Dockerfile + healthcheck (compose hoje só sobe a infra — postgres/mongo/redis/qdrant —, não a
       própria API)
 - [x] `GET /v1/chats/{chat_id}/messages` (listar histórico) — `routes/chats.py:get_messages`, mesma

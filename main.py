@@ -1,33 +1,31 @@
 import sys
 import warnings
 
+import uvicorn
 from langchain_core._api.deprecation import LangChainPendingDeprecationWarning
 
-# langgraph-checkpoint 4.0.2 instancia `Reviver()` sem `allowed_objects` ao ser
-# importado, disparando esse warning só por causa da import — não é algo que
-# nosso código controla. Suprime até a lib fixar isso ou atualizarmos a versão.
 warnings.filterwarnings(
     "ignore",
     category=LangChainPendingDeprecationWarning,
     message=r".*allowed_objects.*",
 )
 
-from interfaces.terminal import app
-
-
-def run_tui() -> None:
-    print("TUI ainda não implementada — ver TODO.md.")
-    sys.exit(1)
+from interfaces.terminal import app as terminal_app
+from interfaces.tui import app as tui_app
 
 
 def run_api() -> None:
-    print("API ainda não implementada — ver TODO.md.")
-    sys.exit(1)
+    uvicorn.run(
+        "interfaces.api.main:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True
+    )
 
 
 OPTIONS = {
-    "terminal": app.run,
-    "tui":      run_tui,
+    "terminal": terminal_app.run,
+    "tui":      tui_app.run,
     "api":      run_api,
 }
 

@@ -4,6 +4,7 @@ from assessor_ai.agents.nodes.guardrail.entrada import anonimizar_entrada
 from assessor_ai.chat import repositories, runner
 from assessor_ai.chat.models import ChatMessage, Role
 from assessor_ai.tools.redis.chat import can_send_message
+from mocks.generate_user import generate_user
 
 
 class LimiteDeMensagensExcedido(Exception):
@@ -38,6 +39,25 @@ def obter_ou_criar_usuario(nome: str, email: str) -> str:
     garantir_usuario(user_id, nome=nome, email=email)
     
     return user_id
+
+
+def iniciar_sessao() -> tuple[str, str]:
+    usuario_existente = buscar_usuario_existente()
+
+    if usuario_existente:
+        user_id = usuario_existente["user_id"]
+    else:
+        user_id = str(uuid4())
+        novo_usuario = generate_user()
+        garantir_usuario(
+            user_id, 
+            nome=novo_usuario["name"],
+            email=novo_usuario["email"]
+        )
+
+    session_id = create_chat(user_id)
+
+    return user_id, session_id
 
 
 def send_message(user_id: str, session_id: str, content: str) -> str:
@@ -79,6 +99,7 @@ __all__ = [
     "encerrar_sessao",
     "garantir_usuario",
     "get_history",
+    "iniciar_sessao",
     "obter_dono_chat",
     "obter_ou_criar_usuario",
     "send_message",

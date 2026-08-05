@@ -1,38 +1,16 @@
-from uuid import uuid4
-
 from assessor_ai.chat import service
-from config.docker import garantir_ambiente
 from interfaces.terminal.display import (
     console,
     exibir_assistente,
     exibir_titulo,
     exibir_usuario,
 )
-from mocks.generate_user import generate_user
 
 
-def run(local: bool = False) -> None:
-    if local:
-        garantir_ambiente()
-
+def run() -> None:
     exibir_titulo()
 
-    usuario_existente = service.buscar_usuario_existente()
-    
-    if usuario_existente:
-        user_id = usuario_existente["user_id"]
-    
-    else:
-        user_id = str(uuid4())
-        novo_usuario = generate_user()
-    
-        service.garantir_usuario(
-            user_id,
-            nome=novo_usuario["name"],
-            email=novo_usuario["email"]
-        )
-
-    session_id = service.create_chat(user_id)
+    user_id, session_id = service.iniciar_sessao()
 
     while True:
         try:

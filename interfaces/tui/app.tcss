@@ -1,0 +1,23 @@
+#historico {
+    padding: 1 2;
+}
+
+Bubble {
+    width: 100%;
+    margin-bottom: 1;
+    padding: 0 1;
+    border: round $primary;
+}
+
+Bubble.usuario {
+    border: round green;
+}
+
+Bubble.assistente {
+    border: round cyan;
+}
+
+Bubble.pensando {
+    border: round $text-muted;
+    color: $text-muted;
+}

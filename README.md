@@ -81,73 +81,89 @@ assessor-ai/
 ├── main.py                          # Dispatcher — `python main.py terminal|tui|api`
 ├── pyproject.toml                   # Dependências do projeto
 │
-├── chat/                            # Camada de serviço compartilhada entre as interfaces
-│   ├── models.py                    # ChatMessage, Role — contrato interno, independente de Mongo/tool
-│   ├── repositories.py              # Acesso a tools/mongo/chats, tools/mongo/users e tools/postgres/users
-│   ├── runner.py                    # Invoca fluxo_agentes (graph/builder.py) e extrai a resposta
-│   └── service.py                   # create_chat, send_message, get_history, encerrar_sessao — API pública
+├── src/assessor_ai/
+│   ├── chat/                        # Camada de serviço compartilhada entre as interfaces
+│   │   ├── models.py                # ChatMessage, Role — contrato interno, independente de Mongo/tool
+│   │   ├── repositories.py          # Acesso a tools/mongo/{chats,users}, tools/postgres/users e cache de perfil (tools/redis/perfil)
+│   │   ├── runner.py                # Invoca fluxo_agentes (graph/builder.py), propaga tags/metadata pro LangSmith e extrai a resposta
+│   │   └── service.py               # create_chat, send_message, get_history, encerrar_sessao, obter_ou_criar_usuario, obter_dono_chat — API pública
+│   │
+│   ├── agents/
+│   │   ├── prompts/                 # Prompts de cada agente
+│   │   │   ├── base.py              # GenericAgent: persona, contexto temporal e montagem de shots
+│   │   │   ├── router.py            # RouterPrompts
+│   │   │   ├── financeiro.py        # FinanceiroPrompts
+│   │   │   ├── agenda.py            # AgendaPrompts
+│   │   │   ├── orquestrador.py      # OrquestradorPrompts
+│   │   │   ├── faq.py               # FaqPrompts
+│   │   │   ├── guardrail.py         # GuardrailPrompts
+│   │   │   └── resumidor.py         # ResumidorPrompt, PerfilPrompt
+│   │   └── nodes/                   # Funções de nó do grafo LangGraph
+│   │       ├── names.py             # NodeName StrEnum
+│   │       ├── router.py            # no_roteador
+│   │       ├── financeiro.py        # no_financeiro
+│   │       ├── agenda.py            # no_agenda
+│   │       ├── faq.py               # no_faq
+│   │       ├── orquestrador.py      # no_orquestrador
+│   │       └── guardrail/
+│   │           ├── entrada.py       # no_guardrail_entrada — anonimização PII + classificação LLM
+│   │           ├── saida.py         # no_guardrail_saida — redação PII + revisão compliance
+│   │           └── schemas.py       # ResultadoGuardrail, Categoria, PII, padrões e keywords
+│   │
+│   ├── graph/
+│   │   ├── state.py                 # Estado e Route StrEnum
+│   │   ├── llm.py                   # build_llm e instâncias de LLM
+│   │   ├── agents.py                # Agentes compilados (router_app, financeiro_app, etc.)
+│   │   └── builder.py               # Construção e compilação do grafo LangGraph
+│   │
+│   └── tools/
+│       ├── postgres/
+│       │   ├── models.py            # Models declarativos SQLAlchemy (User, Transaction, Event, ...)
+│       │   ├── financeiro/
+│       │   │   ├── schemas.py       # Schemas Pydantic das tools financeiras
+│       │   │   └── core.py          # Tools: add_transaction, query_transactions, update_transaction, total_balance, daily_balance
+│       │   ├── agenda/
+│       │   │   ├── schemas.py       # Schemas Pydantic das tools de agenda
+│       │   │   └── core.py          # Tools: add_event, query_events, query_daily_events, update_event
+│       │   ├── users/
+│       │   │   └── core.py          # garantir_usuario — mesmo user_id do Mongo, tabela enxuta
+│       │   ├── connection.py        # Engine/Session SQLAlchemy (lazy init) + ContextVar current_user_id
+│       │   └── helpers.py           # resolve_transaction_type, get_category_id, local_date, local_date_filter, local_date_range_filter
+│       ├── mongo/
+│       │   ├── connection.py        # MongoClient lazy — conecta só na primeira operação
+│       │   ├── helpers.py           # _gerar_resumo, _gerar_perfil
+│       │   ├── chats/
+│       │   │   ├── schemas.py       # ChatDocument, Role, Mensagem
+│       │   │   └── core.py          # criar, buscar, atualizar_mensagens, inserir_resumo, encerrar_sessao
+│       │   └── users/
+│       │       ├── schemas.py       # UserDocument
+│       │       └── core.py          # inserir, buscar, buscar_algum, buscar_por_email, atualizar_perfil, garantir_usuario
+│       ├── redis/
+│       │   ├── connection.py        # Client lazy (redis-py)
+│       │   ├── schemas.py           # Chaves e TTLs (_chave_mensagem, _chave_api_key, _chave_perfil, ...)
+│       │   ├── chat.py              # can_send_message — rate limit de mensagens por user_id
+│       │   ├── api_key.py           # allocate_api_key, get_user_id_by_api_key — auth da API
+│       │   └── perfil.py            # buscar/salvar/invalidar_perfil_cache — cache do perfil_usuario (TTL 1h)
+│       ├── qdrant/
+│       │   └── connection.py        # Client assíncrono lazy — conexão provisionada, tools ainda não (ver TODO.md)
+│       ├── faq_tools.py             # Tool de RAG sobre o PDF de FAQ via FAISS (lazy init)
+│       └── response.py              # Classe Response para padronizar retornos
 │
 ├── interfaces/                      # Um pacote por forma de uso, todos consumindo chat/service.py
 │   ├── terminal/
 │   │   ├── app.py                   # run() — loop de input() do terminal
 │   │   └── display.py               # Interface Rich + pyfiglet (exibir_titulo, exibir_usuario, ...)
 │   ├── tui/
-│   │   └── app.py                   # (vazio — ver TODO.md "TUI com Textual")
+│   │   ├── app.py                   # AssessorTUI — tela de chat com Textual
+│   │   ├── display.py               # Bubble (Rich Panel), MessageRow, Pensando (LoadingIndicator)
+│   │   └── app.tcss                 # Stylesheet do Textual
 │   └── api/
-│       └── app.py                   # (vazio — ver TODO.md "API")
-│
-├── agents/
-│   ├── prompts/                     # Prompts de cada agente
-│   │   ├── base.py                  # GenericAgent: persona, contexto temporal e montagem de shots
-│   │   ├── router.py                # RouterPrompts
-│   │   ├── financeiro.py            # FinanceiroPrompts
-│   │   ├── agenda.py                # AgendaPrompts
-│   │   ├── orquestrador.py          # OrquestradorPrompts
-│   │   ├── faq.py                   # FaqPrompts
-│   │   ├── guardrail.py             # GuardrailPrompts
-│   │   └── resumidor.py             # ResumidorPrompt, PerfilPrompt
-│   └── nodes/                       # Funções de nó do grafo LangGraph
-│       ├── names.py                 # NodeName StrEnum
-│       ├── router.py                # no_roteador
-│       ├── financeiro.py            # no_financeiro
-│       ├── agenda.py                # no_agenda
-│       ├── faq.py                   # no_faq
-│       ├── orquestrador.py          # no_orquestrador
-│       └── guardrail/
-│           ├── entrada.py           # no_guardrail_entrada — anonimização PII + classificação LLM
-│           ├── saida.py             # no_guardrail_saida — redação PII + revisão compliance
-│           └── schemas.py           # ResultadoGuardrail, Categoria, PII, padrões e keywords
-│
-├── graph/
-│   ├── state.py                     # Estado e Route StrEnum
-│   ├── llm.py                       # build_llm e instâncias de LLM
-│   ├── agents.py                    # Agentes compilados (router_app, financeiro_app, etc.)
-│   └── builder.py                   # Construção e compilação do grafo LangGraph
-│
-├── tools/
-│   ├── postgres/
-│   │   ├── models.py                # Models declarativos SQLAlchemy (User, Transaction, Event, ...)
-│   │   ├── financeiro/
-│   │   │   ├── schemas.py           # Schemas Pydantic das tools financeiras
-│   │   │   └── core.py              # Tools: add_transaction, query_transactions, update_transaction, total_balance, daily_balance
-│   │   ├── agenda/
-│   │   │   ├── schemas.py           # Schemas Pydantic das tools de agenda
-│   │   │   └── core.py              # Tools: add_event, query_events, query_daily_events, update_event
-│   │   ├── users/
-│   │   │   └── core.py              # garantir_usuario — mesmo user_id do Mongo, tabela enxuta
-│   │   ├── connection.py            # Engine/Session SQLAlchemy (lazy init)
-│   │   └── helpers.py               # resolve_type_id, get_category_id, local_date_filter, local_date_range_filter
-│   ├── mongo/
-│   │   ├── connection.py            # MongoClient lazy — conecta só na primeira operação
-│   │   ├── helpers.py               # _gerar_resumo, _gerar_perfil
-│   │   ├── chats/
-│   │   │   ├── schemas.py           # ChatDocument, Role, Mensagem
-│   │   │   └── core.py              # criar, buscar, atualizar_mensagens, inserir_resumo, encerrar_sessao
-│   │   └── users/
-│   │       ├── schemas.py           # UserDocument
-│   │       └── core.py              # inserir, buscar, buscar_por_email, atualizar_perfil, garantir_usuario
-│   ├── faq_tools.py                 # Tool de RAG sobre o PDF de FAQ (lazy init)
-│   └── response.py                  # Classe Response para padronizar retornos
+│       ├── main.py                  # App FastAPI — registra health/chats/keys routers
+│       ├── auth.py                  # get_current_user via X-API-Key
+│       ├── gen_key.py                # generate_api_key
+│       ├── rate_limiting.py          # slowapi, limite por IP
+│       ├── routes/                   # chats.py, health.py, keys.py
+│       └── schemas/                  # chat.py, health.py, key.py
 │
 ├── config/
 │   ├── settings.py                  # Carrega e valida variáveis de ambiente
@@ -155,6 +171,8 @@ assessor-ai/
 │   ├── logging.py                   # ColorFormatter e get_logger
 │   ├── decorators.py                # log_tool decorator
 │   └── docker.py                    # Auto start/stop do container PostgreSQL
+│
+├── alembic/                          # Migrations versionadas do schema PostgreSQL
 │
 └── data/
     └── documents/                   # PDFs para RAG
@@ -268,10 +286,13 @@ Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, 
 | **Transações e eventos** | PostgreSQL (Docker) | Dados financeiros e de agenda do usuário |
 | **Histórico de conversa** | MongoDB | Mensagens por sessão (últimas 5 por consulta) |
 | **Checkpointing de grafo** | LangGraph MemorySaver | Estado interno do grafo entre turnos |
+| **Cache de perfil, rate limit, API keys** | Redis | Cache do `perfil_usuario` (TTL 1h), limite de mensagens por `user_id` na janela de 60s, hash de API keys da API |
 
 O MongoDB armazena duas coleções: `users` (cadastro e perfil comportamental) e `chats` (histórico de mensagens por sessão). O histórico é limitado via projeção `$slice: -5` para evitar contextos longos demais.
 
-O campo `perfil_usuario` — gerado a partir do histórico acumulado e armazenado em `users` — é carregado no estado do grafo antes de cada invocação, servindo como contexto cross-session do usuário.
+O campo `perfil_usuario` — gerado a partir do histórico acumulado e armazenado em `users` — é carregado no estado do grafo antes de cada invocação, servindo como contexto cross-session do usuário. É lido do Redis primeiro (`tools/redis/perfil.py`); só cai no Mongo em cache miss, e o cache é invalidado ao encerrar a sessão (quando o perfil pode ter sido atualizado a partir do resumo).
+
+O Qdrant já tem conexão provisionada (`tools/qdrant/connection.py`), mas ainda não há nenhuma tool usando-o — o RAG do FAQ continua sobre FAISS local (ver TODO.md).
 
 ---
 
@@ -288,9 +309,12 @@ MONGO_COLLECTION_NAME=assessor
 REDIS_URL=redis://host:6379/0
 QDRANT_URL=http://host:6333
 QDRANT_COLLECTION_NAME=faq
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=...
+LANGSMITH_PROJECT=assessor-ai
 ```
 
-Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant).
+Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo).
 
 ### Instalação
 
@@ -302,16 +326,16 @@ uv sync
 ### Execução
 
 ```bash
-python main.py terminal
+python main.py terminal   # loop de input() no terminal (Rich + pyfiglet)
+python main.py tui        # interface Textual (mesmas cores/arte ASCII do terminal)
+python main.py api        # sobe a API FastAPI via uvicorn em 0.0.0.0:8000
 ```
 
-`tui` ainda não tem implementação (`interfaces/tui/app.py` — ver TODO.md). `api` já tem o app
-FastAPI funcional em `interfaces/api/main.py`, mas o dispatcher do `main.py` ainda não o invoca —
-hoje a API roda direto via uvicorn (ver TODO.md).
+O sistema sobe automaticamente o container Docker do PostgreSQL ao iniciar e o encerra ao fechar
+(`terminal`/`tui`). Digite `/exit` (ou `Ctrl+C`) pra encerrar a sessão.
 
-O sistema sobe automaticamente o container Docker do PostgreSQL ao iniciar e o encerra ao fechar.
-
-Digite `/exit` para encerrar.
+Também dá pra rodar via `justfile`: `just venv` (cria `.venv`), `just run [modo]` (default
+`terminal`) e `just dev [modo]` (mesma coisa, injetando env vars via `infisical run --`).
 
 ### Migrations (Alembic)
 
@@ -334,14 +358,41 @@ vez em quando pra garantir que os models continuam batendo exatamente com o sche
 
 ---
 
+## Observabilidade
+
+Tracing dos agentes via [LangSmith](https://smith.langchain.com/) — opcional, desligado por padrão
+(`LANGSMITH_TRACING=false`). Quando ligado, `graph.invoke()` (`chat/runner.py:executar`) é
+rastreado automaticamente pelo LangChain/LangGraph, incluindo cada nó (guardrail, router,
+financeiro, agenda, faq, orquestrador) e cada chamada de LLM — sem precisar instrumentar nada à
+mão. `runner.py` também passa `tags=["chat"]` e `metadata={"user_id", "session_id"}` no `config`
+do `invoke()`, propagados automaticamente pra todo run filho, permitindo filtrar/auditar traces por
+usuário ou sessão no painel do LangSmith.
+
+Pontos de I/O que o LangChain não rastreia sozinho (`chat/repositories.py:buscar_perfil`,
+`buscar_historico`, `salvar_mensagens`) usam `@traceable` manual, com `process_inputs`/
+`process_outputs` redigindo PII (reaproveitando `anonimizar_entrada` do guardrail) antes de subir
+pro LangSmith Cloud.
+
+**Limitação conhecida:** essa redação cobre só os pontos com `@traceable` manual — o run raiz do
+LangGraph e o próprio nó de guardrail de entrada (auto-rastreados) ainda logam a mensagem crua do
+usuário como input, já que a anonimização só acontece no *output* desse nó. Ver TODO.md pra mais
+contexto antes de ligar tracing em produção com dado real.
+
+---
+
 ## Dependências principais
 
 - [LangChain](https://github.com/langchain-ai/langchain) — framework de agentes e tools
 - [LangGraph](https://github.com/langchain-ai/langgraph) — orquestração stateful e checkpointing
+- [LangSmith](https://smith.langchain.com/) — tracing/observabilidade opcional do grafo (ver [Observabilidade](#observabilidade))
+- [FastAPI](https://fastapi.tiangolo.com/) — API HTTP (`interfaces/api/`), com [slowapi](https://github.com/laurentS/slowapi) pro rate limit por IP
+- [Textual](https://github.com/Textualize/textual) — TUI (`interfaces/tui/`)
 - [SQLAlchemy](https://www.sqlalchemy.org/) — ORM sobre o PostgreSQL (`tools/postgres/models.py`), com `psycopg2` como driver
 - [Alembic](https://alembic.sqlalchemy.org/) — migrations versionadas do schema PostgreSQL
 - [pymongo](https://pymongo.readthedocs.io/) — driver MongoDB para histórico de conversa
+- [redis-py](https://github.com/redis/redis-py) — cache de perfil, rate limit de mensagens e API keys (`tools/redis/`)
+- [qdrant-client](https://github.com/qdrant/qdrant-client) — conexão provisionada (`tools/qdrant/`), ainda sem tool usando (ver TODO.md)
 - [FAISS](https://github.com/facebookresearch/faiss) — busca vetorial para RAG do FAQ
-- [Rich](https://github.com/Textualize/rich) + [pyfiglet](https://github.com/pwaller/pyfiglet) — interface de terminal
+- [Rich](https://github.com/Textualize/rich) + [pyfiglet](https://github.com/pwaller/pyfiglet) — interface de terminal e arte ASCII da TUI
 - [Pydantic](https://docs.pydantic.dev/) — validação de schemas das tools
 - `langchain-anthropic`, `langchain-google-genai`, `langchain-groq` — integrações com providers

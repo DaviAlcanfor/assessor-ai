@@ -69,7 +69,7 @@ def send_message(user_id: str, session_id: str, content: str) -> str:
     mensagem = ChatMessage(role=Role.HUMAN, content=content)
     perfil = repositories.buscar_perfil(user_id)
 
-    resposta = runner.executar(mensagem, session_id, perfil)
+    resposta = runner.executar(mensagem, session_id, perfil, user_id)
 
     if not resposta:
         return "Sem resposta."

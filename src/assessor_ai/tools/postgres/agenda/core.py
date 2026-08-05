@@ -8,7 +8,7 @@ from assessor_ai.tools.postgres.agenda.schemas import (
     QueryEventArgs,
     UpdateEventArgs,
 )
-from assessor_ai.tools.postgres.connection import get_session
+from assessor_ai.tools.postgres.connection import current_user_id, get_session
 from assessor_ai.tools.postgres.helpers import (
     local_date_filter,
     local_date_range_filter,
@@ -48,6 +48,7 @@ def add_event(
                 notes=notes,
                 source_text=source_text,
                 recorded_at=datetime.now(UTC),
+                user_id=current_user_id(),
             )
             session.add(event)
             session.flush()
@@ -74,7 +75,10 @@ def query_daily_events(date_local: str) -> dict:
         try:
             stmt = (
                 select(Event)
-                .where(local_date_filter(Event.start_time, date_local))
+                .where(
+                    local_date_filter(Event.start_time, date_local),
+                    Event.user_id == current_user_id(),
+                )
                 .order_by(Event.start_time.asc())
             )
             rows = session.scalars(stmt).all()
@@ -117,7 +121,7 @@ def query_events(
 
     with get_session() as session:
         try:
-            stmt = select(Event)
+            stmt = select(Event).where(Event.user_id == current_user_id())
 
             if date_from_local and date_to_local:
                 stmt = stmt.where(local_date_range_filter(Event.start_time, date_from_local, date_to_local))
@@ -190,6 +194,7 @@ def update_event(
                     .where(
                         or_(Event.title.ilike(like), Event.notes.ilike(like)),
                         local_date_filter(Event.start_time, date_local),
+                        Event.user_id == current_user_id(),
                     )
                     .order_by(Event.start_time.desc())
                     .limit(1)
@@ -198,7 +203,7 @@ def update_event(
                     return Response.error("Nenhum evento encontrado para os filtros fornecidos.")
 
             event = session.get(Event, target_id)
-            if event is None:
+            if event is None or event.user_id != current_user_id():
                 return Response.ok(rows_affected=0, id=target_id, updated=None)
 
             if title      is not None: event.title = title

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from langchain.tools import tool
 from sqlalchemy import case, func, or_, select
 
-from assessor_ai.tools.postgres.connection import get_session
+from assessor_ai.tools.postgres.connection import current_user_id, get_session
 from assessor_ai.tools.postgres.financeiro.schemas import (
     AddTransactionArgs,
     QueryTransactionArgs,
@@ -61,6 +61,7 @@ def add_transaction(
                 payment_method=payment_method,
                 occurred_at=datetime.fromisoformat(occurred_at) if occurred_at else datetime.now(UTC),
                 source_text=source_text,
+                user_id=current_user_id(),
             )
             session.add(tx)
             session.flush()
@@ -86,6 +87,7 @@ def total_balance() -> dict:
                     func.sum(case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0))
                     - func.sum(case((Transaction.type == TransactionType.EXPENSES, Transaction.amount), else_=0))
                 )
+                .where(Transaction.user_id == current_user_id())
             )
             balance = float(result) if result is not None else 0.0
 
@@ -114,7 +116,10 @@ def daily_balance(date_local: str) -> dict:
                     func.sum(case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0))
                     - func.sum(case((Transaction.type == TransactionType.EXPENSES, Transaction.amount), else_=0))
                 )
-                .where(func.date(Transaction.occurred_at) == func.date(date_local))
+                .where(
+                    func.date(Transaction.occurred_at) == func.date(date_local),
+                    Transaction.user_id == current_user_id(),
+                )
             )
             balance = float(result) if result is not None else 0.0
 
@@ -145,7 +150,7 @@ def query_transactions(
 
     with get_session() as session:
         try:
-            stmt = select(Transaction)
+            stmt = select(Transaction).where(Transaction.user_id == current_user_id())
 
             if date_from_local and date_to_local:
                 stmt = stmt.where(func.date(Transaction.occurred_at).between(date_from_local, date_to_local))
@@ -226,6 +231,7 @@ def update_transaction(
                             func.unaccent(Transaction.description).ilike(func.unaccent(f"%{match_text}%")),
                         ),
                         local_date_filter(Transaction.occurred_at, date_local),
+                        Transaction.user_id == current_user_id(),
                     )
                     .order_by(Transaction.occurred_at.desc())
                     .limit(1)
@@ -234,7 +240,7 @@ def update_transaction(
                     return Response.error("Nenhuma transação encontrada para os filtros fornecidos.")
 
             tx = session.get(Transaction, target_id)
-            if tx is None:
+            if tx is None or tx.user_id != current_user_id():
                 return Response.ok(rows_affected=0, id=target_id, updated=None)
 
             resolved_type         = resolve_transaction_type(type_name) if type_name else None

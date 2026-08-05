@@ -84,10 +84,20 @@ Sem uma tabela de usuário no Postgres, transações e eventos (`tools/postgres/
       em `main.py` com o mesmo `user_id`
 - [x] Documentar o comando de migration no README (`alembic upgrade head`)
 
-**Follow-up (fora do escopo do que foi feito acima):** `add_transaction`, `query_transactions`,
-`update_transaction`, `add_event`, `query_daily_events`, `query_events`, `update_event` ainda não
-gravam nem filtram por `user_id` real — todo INSERT novo cai no usuário legado via `DEFAULT` da
-coluna. Propagar o `user_id` do agente por essas tools e então remover o `DEFAULT` da coluna.
+- [x] **Follow-up:** `add_transaction`, `query_transactions`, `update_transaction`, `add_event`,
+      `query_daily_events`, `query_events`, `update_event` passaram a gravar e filtrar pelo `user_id`
+      real. Como as tools são invocadas pelo LLM via tool-calling (args escolhidos por ele) e o
+      `Estado` do LangGraph não carrega `user_id`, a propagação usa um `contextvars.ContextVar`
+      (`tools/postgres/connection.py:current_user_id`/`set_current_user`/`reset_current_user`),
+      setado uma vez por request em `chat/runner.py:executar` (a partir do `user_id` já conhecido em
+      `chat/service.py:send_message`) e lido dentro de cada tool — nunca exposto como argumento pro
+      LLM. `update_transaction`/`update_event` por `id` direto agora checam ownership (`tx.user_id ==
+      current_user_id()`), tratando registro de outro usuário como "não encontrado" (mesma resposta
+      de id inexistente, não vaza a existência do registro).
+
+**Segue pendente (fora do escopo acima):** a coluna `user_id` continua com `DEFAULT`/
+`LEGACY_USER_ID` como rede de segurança — remover o `DEFAULT` via migration é um passo separado,
+só depois de garantir que todo caminho de insert sempre tem `user_id` do contexto.
 
 ## ORM (SQLAlchemy) — concluído
 

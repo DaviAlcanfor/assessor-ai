@@ -13,7 +13,7 @@ logging.getLogger("langgraph").setLevel(logging.ERROR)
 
 _PARA_LANGCHAIN = {
     Role.HUMAN: HumanMessage,
-    Role.AI:    AIMessage,
+    Role.AI: AIMessage,
 }
 
 
@@ -24,18 +24,24 @@ def _extrair_resposta(estado_final: dict) -> str | None:
     return None
 
 
-def executar(mensagem: ChatMessage, session_id: str, perfil_usuario: str, user_id: str) -> str | None:
+def executar(
+    mensagem: ChatMessage, session_id: str, perfil_usuario: str, user_id: str
+) -> str | None:
     estado_inicial = {
-        "messages":         [_PARA_LANGCHAIN[mensagem.role](content=mensagem.content)],
+        "messages": [_PARA_LANGCHAIN[mensagem.role](content=mensagem.content)],
         "agentes_chamados": [],
-        "perfil_usuario":   perfil_usuario,
+        "perfil_usuario": perfil_usuario,
     }
 
     token = set_current_user(user_id)
     try:
         estado_final = fluxo_agentes.invoke(
             estado_inicial,
-            config={"configurable": {"thread_id": session_id}},
+            config={
+                "configurable": {"thread_id": session_id},
+                "tags": ["chat"],
+                "metadata": {"user_id": user_id, "session_id": session_id},
+            },
         )
     finally:
         reset_current_user(token)

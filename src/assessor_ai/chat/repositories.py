@@ -1,6 +1,9 @@
+from langsmith import traceable
+
 import assessor_ai.tools.mongo.chats.core as chats
 import assessor_ai.tools.mongo.users.core as mongo_users
 import assessor_ai.tools.postgres.users.core as pg_users
+from assessor_ai.agents.nodes.guardrail.entrada import anonimizar_entrada
 from assessor_ai.chat.models import ChatMessage, Role
 from assessor_ai.tools.mongo.chats.schemas import Mensagem
 from assessor_ai.tools.mongo.chats.schemas import Role as MongoRole
@@ -19,14 +22,48 @@ def _de_mensagem(msg: Mensagem) -> ChatMessage:
     return ChatMessage(role=Role(msg.role), content=msg.content)
 
 
+def _mensagens_redigidas(mensagens: list[ChatMessage]) -> list[dict]:
+    return [
+        {
+            "role": m.role.value, 
+            "content": anonimizar_entrada(m.content)[0]
+        }
+        for m in mensagens
+    ]
+
+
+def _redigir_saida_perfil(perfil: str | None) -> dict:
+    texto, _ = anonimizar_entrada(perfil or "")
+    return {"perfil": texto}
+
+
+def _redigir_entrada_mensagens(inputs: dict) -> dict:
+    redigido = dict(inputs)
+
+    if "mensagens" in redigido:
+        redigido["mensagens"] = _mensagens_redigidas(redigido["mensagens"])
+
+    return redigido
+
+
+def _redigir_saida_historico(historico: list[ChatMessage] | None) -> dict:
+    return {"mensagens": _mensagens_redigidas(historico) if historico else []}
+
+
 def garantir_usuario(user_id: str, nome: str, email: str) -> None:
     mongo_users.garantir_usuario(user_id, nome=nome, email=email)
     pg_users.garantir_usuario(user_id)
 
 
+@traceable(run_type="tool", name="buscar_perfil", process_outputs=_redigir_saida_perfil)
 def buscar_perfil(user_id: str) -> str:
+    """
+    Busca o perfil do usuário no cache Redis.
+    Se não estiver no cache, busca no MongoDB e salva no cache.
+    """
+
     perfil_cache = buscar_perfil_cache(user_id)
-    
+
     if perfil_cache is not None:
         return perfil_cache
 
@@ -51,19 +88,37 @@ def criar_chat(user_id: str, session_id: str) -> None:
 
 def buscar_dono_chat(session_id: str) -> str | None:
     doc = chats.buscar(session_id)
-    
+
     return doc["user_id"] if doc else None
 
 
+@traceable(
+    run_type="tool", name="buscar_historico", process_outputs=_redigir_saida_historico
+)
 def buscar_historico(session_id: str) -> list[ChatMessage] | None:
+    """
+    Busca o histórico de mensagens do chat no MongoDB.
+    Retorna uma lista de mensagens, ou None se o chat não existir.
+    """
     doc = chats.buscar(session_id)
+
     if not doc:
         return None
-    
+
     return [_de_mensagem(m) for m in Mensagem.de_dict(doc["messages"])]
 
 
-def salvar_mensagens(user_id: str, session_id: str, mensagens: list[ChatMessage]) -> None:
+@traceable(
+    run_type="tool", name="salvar_mensagens", process_inputs=_redigir_entrada_mensagens
+)
+def salvar_mensagens(
+    user_id: str, session_id: str, mensagens: list[ChatMessage]
+) -> None:
+    """
+    Salva as mensagens do chat no MongoDB.
+    Se o chat não existir, cria um novo chat com as mensagens fornecidas.
+    """
+
     mensagens_mongo = [_para_mensagem(m) for m in mensagens]
 
     if not chats.buscar(session_id):

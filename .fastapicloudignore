@@ -5,7 +5,6 @@
 # Ambiente virtual / cache — reconstruídos no build a partir de pyproject.toml + uv.lock
 .venv
 __pycache__/
-mocks/__pycache__/
 *.py[codz]
 .ruff_cache/
 .pytest_cache/

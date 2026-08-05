@@ -1,14 +1,21 @@
 from uuid import uuid4
 
+from faker import Faker
+
 from assessor_ai.agents.nodes.guardrail.entrada import anonimizar_entrada
 from assessor_ai.chat import repositories, runner
 from assessor_ai.chat.models import ChatMessage, Role
 from assessor_ai.tools.redis.chat import can_send_message
-from mocks.generate_user import generate_user
+
+_fake = Faker()
 
 
 class LimiteDeMensagensExcedido(Exception):
     pass
+
+
+def _gerar_usuario_mock() -> dict:
+    return {"name": _fake.name(), "email": _fake.email()}
 
 
 def create_chat(user_id: str) -> str:
@@ -31,13 +38,13 @@ def buscar_usuario_existente() -> dict | None:
 
 def obter_ou_criar_usuario(nome: str, email: str) -> str:
     usuario = repositories.buscar_usuario_por_email(email)
-    
+
     if usuario:
         return usuario["user_id"]
 
     user_id = str(uuid4())
     garantir_usuario(user_id, nome=nome, email=email)
-    
+
     return user_id
 
 
@@ -48,11 +55,9 @@ def iniciar_sessao() -> tuple[str, str]:
         user_id = usuario_existente["user_id"]
     else:
         user_id = str(uuid4())
-        novo_usuario = generate_user()
+        novo_usuario = _gerar_usuario_mock()
         garantir_usuario(
-            user_id, 
-            nome=novo_usuario["name"],
-            email=novo_usuario["email"]
+            user_id, nome=novo_usuario["name"], email=novo_usuario["email"]
         )
 
     session_id = create_chat(user_id)
@@ -61,6 +66,10 @@ def iniciar_sessao() -> tuple[str, str]:
 
 
 def send_message(user_id: str, session_id: str, content: str) -> str:
+    """
+    Envia mensagem do usuário para o chat e obtém a resposta do modelo de IA.
+    """
+
     if not can_send_message(user_id):
         raise LimiteDeMensagensExcedido(
             "Você atingiu o limite de mensagens. Tente novamente em alguns instantes."
@@ -76,8 +85,8 @@ def send_message(user_id: str, session_id: str, content: str) -> str:
 
     conteudo_redigido, _ = anonimizar_entrada(content)
     novas = [
-        ChatMessage(role=Role.HUMAN, content=conteudo_redigido), 
-        ChatMessage(role=Role.AI, content=resposta)
+        ChatMessage(role=Role.HUMAN, content=conteudo_redigido),
+        ChatMessage(role=Role.AI, content=resposta),
     ]
     repositories.salvar_mensagens(user_id, session_id, novas)
 

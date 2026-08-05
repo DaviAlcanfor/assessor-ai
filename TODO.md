@@ -265,19 +265,44 @@ dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta l
 
 - [x] Variáveis em `config/settings.py` + `.env.example` — usados os nomes atuais do SDK
       (`LANGSMITH_TRACING`/`LANGSMITH_API_KEY`/`LANGSMITH_PROJECT`; `LANGCHAIN_*` do LangChain
-      antigo virou alias legado dentro do próprio `langsmith` client). `LANGSMITH_TRACING=false` por
-      padrão. **Ainda não ativa nada sozinho:** o SDK do LangSmith lê `os.environ` diretamente
-      (dentro do `langchain-core`/`langsmith`), e este projeto não chama `load_dotenv()` em lugar
-      nenhum — `config/settings.py` só popula o objeto `Settings`, não exporta pro `os.environ`. Pra
-      tracing funcionar de fato falta decidir onde propagar isso (`os.environ[...] = ...` a partir de
-      `settings` no bootstrap do `main.py`, ou confiar no `infisical run --` já injetar direto no
-      processo — ver `justfile:dev`) — decisão adiada de propósito até resolver o item de guardrail
-      abaixo
+      antigo virou alias legado dentro do próprio `langsmith` client)
+- [x] Propagate pro `os.environ` — `config/settings.py`, logo após `settings = Settings()`: se
+      `LANGSMITH_TRACING` estiver true, exporta as 3 vars pro `os.environ` do processo. Necessário
+      porque o SDK do LangSmith lê `os.environ` direto (dentro do `langchain-core`), e
+      `pydantic-settings` só popula o objeto `Settings` — sem isso, tracing não ativava rodando
+      `python main.py terminal` puro (sem `infisical run --`, que já injeta no processo por conta
+      própria). Verificado ponta a ponta: mensagem de teste no terminal gerou 10 runs no projeto
+      `assessor-ai` (LangGraph root, cada nó, cada LLM call), confirmado via `POST
+      /api/v1/runs/query` da API do LangSmith
+- [x] Tag/metadata por run (`user_id`, `session_id`) — `chat/runner.py:executar` passa
+      `config={"tags": ["chat"], "metadata": {"user_id": ..., "session_id": ...}}` pro
+      `fluxo_agentes.invoke(...)`. Propaga automaticamente pra todo run filho (nós do grafo, LLM
+      calls) — confirmado via API, `user_id`/`session_id` aparecem em todos os spans do turno.
+      **Achado:** a primeira tentativa foi embrulhar `chat/service.py:send_message` inteiro num
+      `@traceable` — quebrou com `TracerException('No indexed run ID ...')` em toda chamada de LLM,
+      porque `send_message` chama `runner.executar` → `fluxo_agentes.invoke(...)`, que já tem tracer
+      próprio auto-anexado pelo LangGraph; os dois mecanismos (`@traceable` manual +
+      auto-instrumentação via env var) colidem quando aninhados. Resolvido passando tags/metadata
+      direto no `config` do `invoke()` (mecanismo nativo do LangChain) em vez de decorator por fora
+- [x] `@traceable` nos pontos de I/O que o LangChain não rastreia sozinho — `chat/repositories.py`
+      (`buscar_perfil`, `buscar_historico`, `salvar_mensagens`, `run_type="tool"`), dando visibilidade
+      de latência Mongo/Redis separada da latência do LLM (sem isso só aparecia o `graph.invoke()`
+      isolado). Aparecem como runs raiz próprios (não aninhados sob o turno do chat), já que não dá
+      pra embrulhar `send_message` sem reintroduzir o bug acima — trade-off aceito
+- [x] Redação de dado sensível nos pontos acima — `process_outputs`/`process_inputs` em
+      `buscar_perfil`/`buscar_historico`/`salvar_mensagens` reaproveitam
+      `agents/nodes/guardrail/entrada.py:anonimizar_entrada` (mesmo regex de PII do guardrail) antes
+      de mandar pro LangSmith Cloud
+- [ ] **Gap que ainda falta:** a redação acima cobre só os pontos com `@traceable` manual. O
+      `LangGraph chain` raiz e o `guardrail_entrada_node` em si (auto-rastreados pelo LangChain) ainda
+      logam a mensagem **crua** do usuário como input — a anonimização só existe no *output* do nó de
+      guardrail (`no_guardrail_entrada`, que substitui a mensagem no estado por
+      `texto_anonimizado`), não afeta o que o LangChain já capturou como input do run antes disso.
+      Resolver de verdade exige um `anonymizer=`/`hide_inputs=` no `Client` global do LangSmith que o
+      LangChain usa pra auto-tracing (não dá pra fazer só com `@traceable` local) — falta decidir se
+      vale a complexidade nesse estágio do projeto ou se basta não rodar tracing em produção com dado
+      real sem isso
 - [ ] Decidir escopo do projeto no LangSmith (um projeto por ambiente — dev/prod — ou um só)
-- [ ] Confirmar que o trace não vaza dado sensível — checar se passa pelo guardrail de entrada
-      (`agents/nodes/guardrail/entrada.py`) antes de ligar tracing em produção
-- [ ] Tag/metadata por run (ex. `user_id`, nó ativo) pra permitir auditoria por usuário/sessão, não só
-      por chamada de LLM solta
 
 ## Débitos técnicos / melhorias soltas
 

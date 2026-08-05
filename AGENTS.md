@@ -52,6 +52,11 @@ Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools 
 - Conexões com banco (Postgres, Mongo) são **lazy** — inicializadas só na primeira operação, nunca
   no import do módulo. Mantenha esse padrão para novas integrações (Redis, Qdrant).
 - Tools retornam a classe `Response` (`tools/response.py`) para padronizar sucesso/erro.
+- **Tools do LLM nunca recebem `user_id` como argumento.** Args de tool são escolhidos pelo LLM via
+  tool-calling — qualquer dado de escopo/permissão (ex. `user_id`) não pode vir por ali. O padrão é
+  um `contextvars.ContextVar` setado uma vez por request (`chat/runner.py:executar`, a partir do
+  `user_id` já conhecido em `chat/service.py`) e lido dentro da tool
+  (`tools/postgres/connection.py:current_user_id()`). Ver uso em `tools/postgres/{financeiro,agenda}/core.py`.
 - Não commitar `.env`; usar `.env.example` como referência de variáveis novas.
 - **Simplicidade acima de tudo.** Projeto pessoal em estágio inicial — prefira a solução direta à
   abstração "flexível para o futuro". Sem camada genérica, sem config plugável, sem interface para
@@ -125,8 +130,10 @@ Não há suíte de testes no projeto ainda.
 1. Criar `tools/<sistema>/schemas.py` com os modelos Pydantic de entrada/saída.
 2. Criar `tools/<sistema>/core.py` com as funções decoradas como tool (ver `config/decorators.py:log_tool`).
 3. Se for um serviço externo com estado de conexão, criar `connection.py` com init lazy.
-4. Registrar a tool no agente correspondente em `agents/nodes/`.
-5. Atualizar a tabela de tools no README.md.
+4. Se a tool precisa ser escopada por usuário, usar `current_user_id()`
+   (`tools/postgres/connection.py`) — nunca adicionar `user_id` ao `args_schema` da tool.
+5. Registrar a tool no agente correspondente em `agents/nodes/`.
+6. Atualizar a tabela de tools no README.md.
 
 ## Claude Code
 

@@ -227,12 +227,27 @@ do Textual em vez de CSS como string Python).
 - [x] `interfaces/tui/app.py` — `AssessorTUI`, tela de chat (input fixo embaixo, histórico
       rolável), chamando `chat.service.send_message(...)` — nunca `graph/builder.py` direto
 - [x] Widget de histórico com bolhas usuário/assistente — `interfaces/tui/display.py:Bubble`
-      (classes CSS `usuario`/`assistente`/`pensando` em vez da lógica Rich de `exibir_usuario`/
-      `exibir_assistente`, que não se aplica a widgets Textual)
-- [x] Indicador de "pensando..." — `Bubble` com classe `pensando`, `_processar` roda
+      renderiza o mesmo `rich.panel.Panel` de `interfaces/terminal/display.py` (título "Você"/
+      "Assessor" embutido na borda, verde/cyan), em vez de reinventar o visual só com CSS do
+      Textual. `MessageRow` (novo, `Horizontal`) alinha a bolha à direita (usuário) ou esquerda
+      (assistente) via `align-horizontal`, mantendo a coluna do chat centralizada
+- [x] Indicador de "pensando..." — `Pensando` (novo, `Horizontal` com `LoadingIndicator` nativo do
+      Textual, spinner animado) substitui o texto estático; `_processar` roda
       `chat.service.send_message` num `@work(thread=True)` pra não travar a UI
+- [x] Arte ASCII (pyfiglet, mesma fonte `doom` do terminal) no topo da TUI, cyan
+- [x] Layout responsivo — `#historico`/`Input`/`#logs`/`#banner` usam `width: 90%; max-width: 120`
+      em vez de largura fixa em células; testado em 80/120/180 colunas, sempre centralizado
+      (`Screen { align: center top }`). **Achado:** o `align` do Textual centraliza a *pilha* de
+      filhos pela largura do mais largo entre eles, não cada um individualmente — o banner (largura
+      fixa, menor que os outros) colava na borda esquerda em vez de centralizar sozinho até trocar
+      `width: auto` por `width: 90%` + `content-align: center middle` nele também
+- [x] Painel de logs (`RichLog`, `#logs`) abaixo do input, fora da área de scroll do chat —
+      `AssessorTUI._redirecionar_logs()` limpa os `StreamHandler`s (stderr) que `config/logging.py:
+      get_logger` anexa por módulo e centraliza tudo num handler único escrevendo no widget (stderr
+      cru durante a tela alternativa do Textual corrompia a UI)
 - [ ] Tela/painel lateral opcional mostrando qual agente está ativo (`agentes_chamados` do
-      estado) — adiado deliberadamente, fora do escopo da primeira versão
+      estado) — adiado deliberadamente, fora do escopo da primeira versão. **Único item
+      funcionalmente pendente da TUI** neste momento
 - [x] Comando `/exit` e `Ctrl+C` encerrando a sessão via `chat.service.encerrar_sessao`
 - [x] Bootstrap de usuário/sessão extraído pra `chat/service.py:iniciar_sessao()` — antes
       duplicado em `interfaces/terminal/app.py`, agora reaproveitado por terminal e TUI

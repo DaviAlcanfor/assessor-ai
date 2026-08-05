@@ -37,7 +37,7 @@ def get_user_id_by_api_key(api_key: str) -> str | None:
     user_id = r.get(_chave_api_key_lookup(hashed))
 
     if user_id is not None:
-        return user_id.decode("utf-8")
+        return user_id
 
     logger.warning("API key not found.")
     return None

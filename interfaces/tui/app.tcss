@@ -1,23 +1,69 @@
+Screen {
+    align: center top;
+}
+
+#banner {
+    width: 90%;
+    max-width: 120;
+    height: auto;
+    margin: 1 0 0 0;
+    content-align: center middle;
+}
+
 #historico {
+    width: 90%;
+    max-width: 120;
     padding: 1 2;
 }
 
-Bubble {
-    width: 100%;
-    margin-bottom: 1;
-    padding: 0 1;
-    border: round $primary;
-}
-
-Bubble.usuario {
-    border: round green;
-}
-
-Bubble.assistente {
+Input {
+    width: 90%;
+    max-width: 120;
+    margin: 0 0 1 0;
     border: round cyan;
 }
 
-Bubble.pensando {
-    border: round $text-muted;
+Input:focus {
+    border: round cyan;
+}
+
+MessageRow {
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+MessageRow.usuario {
+    align-horizontal: right;
+}
+
+MessageRow.assistente {
+    align-horizontal: left;
+}
+
+Bubble {
+    width: auto;
+    max-width: 70%;
+}
+
+Pensando {
+    width: 20;
+    height: 3;
+    margin-bottom: 1;
+    border: round grey;
+}
+
+Pensando LoadingIndicator {
+    height: 1;
+    color: grey;
+}
+
+#logs {
+    width: 90%;
+    max-width: 120;
+    height: 8;
+    border: round grey;
     color: $text-muted;
+    background: $surface;
+    padding: 0 1;
 }

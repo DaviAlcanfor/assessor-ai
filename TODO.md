@@ -404,7 +404,12 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
 - [ ] `asynccontextmanager` pro lifespan do banco (Postgres) — engine/pool não tem ciclo de vida
       explícito hoje via FastAPI lifespan
 - [ ] Vazamento de PII: trocar `MemorySaver` por `AsyncMongodbSaver` como checkpointer do LangGraph
-- [ ] Guardrail de entrada logando a mensagem original (não a anonimizada) em algum ponto do erro
+- [x] Guardrail de entrada logando a mensagem original (não a anonimizada) em algum ponto do erro —
+      `no_guardrail_entrada` (`agents/nodes/guardrail/entrada.py`) já rodava `anonimizar_entrada`
+      antes de checar bloqueio, mas o `logger.warning` no caminho de bloqueio usava
+      `ultima_msg.content` (cru) em vez de `texto_anonimizado`. Único ponto do módulo com esse
+      padrão (conferido: `saida.py` não loga conteúdo de mensagem). Trocado para logar o texto já
+      anonimizado.
 - [ ] Decorator de logging de tool (`log_tool`) registrando o resultado completo da tool, sem redação
 - [ ] Guardrail de entrada falha aberto: usa só regex, então input não capturado pelo regex passa como
       aprovado — precisa de mecanismo mais robusto (não só regex)

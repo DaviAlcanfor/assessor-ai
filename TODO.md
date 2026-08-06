@@ -474,9 +474,20 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       `Settings`, então `Settings()` falha ao importar sem ele. Quem seguisse só o bloco do README
       (sem abrir `.env.example` também) ficaria travado num erro de import sem saber por quê.
       Adicionado ao bloco + uma linha explicando o que é
-- [ ] Hash de API key sem salt e sem rotação — mudança maior, precisa de estratégia de migração pras
-      keys já emitidas (hoje ficam invalidadas se trocar o esquema de hash sem plano de transição)
-- [ ] Indirect prompt injection via PDF (ingestão de documentos)
+- [x] Hash de API key sem salt e sem rotação — **avaliado.** Salt não se aplica aqui: a key
+      (`secrets.token_urlsafe(32)`, `interfaces/api/gen_key.py`) já tem 256 bits de entropia
+      aleatória, então rainbow table é inviável independente de salt — mesmo padrão usado por
+      GitHub/Stripe pra token de alta entropia (`sha256` puro). Rotação: hoje já existe de forma
+      implícita via TTL (`API_KEY_TTL_TIME`, 24h) — a key expira sozinha e `POST /v1/keys` libera de
+      novo. Endpoint explícito de revogar/rotacionar antes da expiração (útil se a key vazar)
+      ficou decidido como não prioritário por ora — decisão consciente, revisar se o projeto sair do
+      estágio pessoal/experimental
+- [x] Indirect prompt injection via PDF (ingestão de documentos) — **avaliado, sem ação necessária
+      por ora.** `tools/faq_tools.py` indexa um único PDF fixo commitado no repo
+      (`data/documents/FAQ_assessor_v1.1.pdf`), sem nenhum endpoint de upload em `interfaces/api/` —
+      não existe pipeline de ingestão de documento de terceiro não confiável hoje. A ameaça descrita
+      pressupõe esse pipeline; construir defesa agora seria especulativo (YAGNI). Revisitar se/quando
+      existir upload de documento por usuário
 - [x] IDOR e isolamento entre usuários (revisar todos os endpoints, não só chats) — **verificado,
       já coberto.** Superfície completa da API hoje: `health` (sem dado de usuário), `POST /v1/keys`
       (signup público atrás de `X-Signup-Secret`, sem ownership pra checar) e `chats` (já reforçado

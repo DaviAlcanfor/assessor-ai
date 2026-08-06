@@ -93,8 +93,8 @@ def send_message(user_id: str, session_id: str, content: str) -> str:
     return resposta
 
 
-def get_history(session_id: str) -> list[ChatMessage] | None:
-    return repositories.buscar_historico(session_id)
+def get_history(session_id: str, user_id: str) -> list[ChatMessage] | None:
+    return repositories.buscar_historico(session_id, user_id)
 
 
 def encerrar_sessao(session_id: str, user_id: str) -> None:

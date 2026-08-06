@@ -95,12 +95,12 @@ def buscar_dono_chat(session_id: str) -> str | None:
 @traceable(
     run_type="tool", name="buscar_historico", process_outputs=_redigir_saida_historico
 )
-def buscar_historico(session_id: str) -> list[ChatMessage] | None:
+def buscar_historico(session_id: str, user_id: str) -> list[ChatMessage] | None:
     """
     Busca o histórico de mensagens do chat no MongoDB.
-    Retorna uma lista de mensagens, ou None se o chat não existir.
+    Retorna uma lista de mensagens, ou None se o chat não existir ou não pertencer a user_id.
     """
-    doc = chats.buscar(session_id)
+    doc = chats.buscar(session_id, user_id=user_id)
 
     if not doc:
         return None

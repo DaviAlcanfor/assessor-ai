@@ -371,30 +371,54 @@ dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta l
 
 ## Segurança — achados pendentes
 
-Lista de achados de uma revisão de segurança, ainda não triados por prioridade.
+Lista de achados de uma revisão de segurança, triados por prioridade (risco de vazamento/alteração
+de dado entre usuários primeiro, robustez/infra por último) após o 500 em produção no `POST
+/v1/keys` (Mongo Atlas com TLS handshake incompatível no Python 3.14 — resolvido travando
+`requires-python` no `pyproject.toml`).
 
+- [x] Race condition na criação de API key (`allocate_api_key`) — `exists()` + `pipeline.set()` não
+      era atômico (duas requests simultâneas furavam o "1 key por usuário"); trocado por `SET ... NX`
+      do Redis, atômico de verdade (`tools/redis/api_key.py`)
+- [x] `POST /v1/keys` é público e cria usuário/key só com nome + email — adicionado gate por secret
+      compartilhado (`X-Signup-Secret`, `SIGNUP_SECRET` no `Settings`, `interfaces/api/auth.py:
+      verify_signup_secret`, comparação com `secrets.compare_digest`). Precisa configurar
+      `SIGNUP_SECRET` no painel do FastAPI Cloud antes do próximo deploy, senão o endpoint quebra
+      (`Settings()` exige a var)
+- [x] Ownership não é protegido na camada de persistência (só nas rotas) — `GET
+      /v1/chats/{id}/messages` era o caminho mais sensível (lê histórico inteiro); `user_id` agora
+      passa até o filtro do Mongo (`chat/service.py:get_history` → `chat/repositories.py:
+      buscar_historico` → `tools/mongo/chats/core.py:buscar`), então mesmo que uma rota futura
+      esqueça `_validar_ownership`, a query não devolve chat de outro usuário. `buscar_dono_chat` e
+      `salvar_mensagens` continuam só por `session_id` de propósito (são os pontos que decidem
+      ownership/criam o documento, não podem filtrar por um `user_id` ainda não confirmado)
+- [x] SQL injection via `ILIKE` — **verificado, falso positivo.** Todos os usos (`financeiro/core.py`,
+      `agenda/core.py`) são `Column.ilike(f"%{texto}%")` via SQLAlchemy ORM, que sempre bind-parametriza
+      o argumento (nunca concatena na string SQL). Não tem `text()` nem SQL cru com f-string em
+      lugar nenhum. Sem ação necessária
+- [x] Exposição de secrets (revisar logs, configs, respostas de erro) — **verificado, já mitigado.**
+      `.env` nunca foi commitado (conferido via `git log --all -- .env`, vazio); `FastAPI()` roda sem
+      `debug=True`, então exceptions não tratadas caem no handler padrão (`Internal Server Error`
+      genérico, sem stack trace pro cliente — confirmado no 500 real do `POST /v1/keys`);
+      `routes/chats.py` já captura e retorna mensagem própria em vez de `str(e)`. Fica só o gap de PII
+      nos logs de tool (`log_tool`, item abaixo), que é sobre dado sensível, não credencial
 - [ ] `asynccontextmanager` pro lifespan do banco (Postgres) — engine/pool não tem ciclo de vida
       explícito hoje via FastAPI lifespan
 - [ ] Vazamento de PII: trocar `MemorySaver` por `AsyncMongodbSaver` como checkpointer do LangGraph
 - [ ] Guardrail de entrada logando a mensagem original (não a anonimizada) em algum ponto do erro
 - [ ] Decorator de logging de tool (`log_tool`) registrando o resultado completo da tool, sem redação
-- [ ] `POST /v1/keys` é público e cria usuário/key só com nome + email — precisa de proteção melhor
-      (hoje é decisão consciente documentada acima, mas foi reapontado como achado de segurança)
-- [ ] Race condition na criação de API key (`allocate_api_key`)
 - [ ] Guardrail de entrada falha aberto: usa só regex, então input não capturado pelo regex passa como
       aprovado — precisa de mecanismo mais robusto (não só regex)
-- [ ] Ownership não é protegido na camada de persistência (só nas rotas) — falta reforçar no
-      repository/query em vez de só validar antes de chamar
 - [ ] Datas financeiras usando timezone errado
 - [ ] Avaliar `fastapi-guard` pra refinamento de segurança da API
 - [ ] `.env.example` com valores/nomes errados (revisar de novo, além do ajuste já feito na seção
       "Débitos técnicos" acima)
-- [ ] Hash de API key sem salt e sem rotação
+- [ ] Hash de API key sem salt e sem rotação — mudança maior, precisa de estratégia de migração pras
+      keys já emitidas (hoje ficam invalidadas se trocar o esquema de hash sem plano de transição)
 - [ ] Indirect prompt injection via PDF (ingestão de documentos)
-- [ ] IDOR e isolamento entre usuários (revisar todos os endpoints, não só chats)
+- [ ] IDOR e isolamento entre usuários (revisar todos os endpoints, não só chats) — chats já
+      reforçado acima; falta revisar `financeiro`/`agenda` (hoje dependem só do `ContextVar`
+      `current_user_id`, ver seção Alembic) e qualquer endpoint futuro
 - [ ] Rate limiting (slowapi, por IP) é bypassable
-- [ ] SQL injection via `ILIKE` (provavelmente em algum filtro de busca textual do Postgres)
-- [ ] Exposição de secrets (revisar logs, configs, respostas de erro)
 - [ ] Observabilidade e data leakage no chat runner + repositories (além do gap de PII já registrado
       na seção LangSmith acima)
 - [ ] Guardrail de saída: fallback de compliance é bypassável

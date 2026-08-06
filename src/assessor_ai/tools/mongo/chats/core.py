@@ -23,11 +23,15 @@ def criar(user_id: str, session_id: str, mensagens: list[Mensagem]) -> None:
     collection.insert_one(asdict(document))
 
 
-def buscar(session_id: str, limit: int = 5) -> dict | None:
+def buscar(session_id: str, limit: int = 5, user_id: str | None = None) -> dict | None:
     logger.info(f"Buscando histórico de mensagens para session_id: {session_id} (limit={limit})")
 
+    filtro = {"session_id": session_id}
+    if user_id is not None:
+        filtro["user_id"] = user_id
+
     return collection.find_one(
-        {"session_id": session_id},
+        filtro,
         {"messages": {"$slice": -limit}}
     )
 

@@ -11,6 +11,8 @@ class Settings(BaseSettings):
 
     REDIS_URL: str
 
+    SIGNUP_SECRET: str
+
     MONGO_URL: str
     MONGO_COLLECTION_NAME: str
 

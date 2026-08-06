@@ -112,7 +112,7 @@ def get_messages(request: Request, chat_id: str, user_id: str = Depends(get_curr
     
     _validar_ownership(chat_id, user_id)
 
-    historico = chat_service.get_history(chat_id) or []
+    historico = chat_service.get_history(chat_id, user_id) or []
 
     return [
         MessageResponse(role=_ROLE_MAP[m.role], content=m.content)

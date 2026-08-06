@@ -17,14 +17,11 @@ def allocate_api_key(user_id: str, api_key: str) -> bool:
     user_key = _chave_api_key(user_id)
     lookup_key = _chave_api_key_lookup(hashed)
 
-    if r.exists(user_key):
+    if not r.set(user_key, hashed, ex=API_KEY_TTL_TIME, nx=True):
         logger.warning(f"API key already allocated for user {user_id}.")
         return False
 
-    pipeline = r.pipeline()
-    pipeline.set(user_key, hashed, ex=API_KEY_TTL_TIME)
-    pipeline.set(lookup_key, user_id, ex=API_KEY_TTL_TIME)
-    pipeline.execute()
+    r.set(lookup_key, user_id, ex=API_KEY_TTL_TIME)
 
     logger.info(f"Allocated API key for user {user_id}.")
     return True

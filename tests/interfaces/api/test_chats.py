@@ -139,7 +139,7 @@ def test_get_messages_retorna_historico_convertido(client, monkeypatch):
     monkeypatch.setattr(
         chat_service,
         "get_history",
-        lambda chat_id: [
+        lambda chat_id, user_id: [
             ChatMessage(role=DomainRole.HUMAN, content="quanto eu gastei?"),
             ChatMessage(role=DomainRole.AI, content="R$ 500 esse mês."),
         ],
@@ -157,7 +157,7 @@ def test_get_messages_retorna_historico_convertido(client, monkeypatch):
 def test_get_messages_sem_historico_retorna_lista_vazia(client, monkeypatch):
     _autenticar_como("user-1")
     monkeypatch.setattr(chat_service, "obter_dono_chat", lambda chat_id: "user-1")
-    monkeypatch.setattr(chat_service, "get_history", lambda chat_id: None)
+    monkeypatch.setattr(chat_service, "get_history", lambda chat_id, user_id: None)
 
     resposta = client.get("/v1/chats/chat-123/messages", headers=HEADERS)
 

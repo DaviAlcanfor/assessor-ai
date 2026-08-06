@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from assessor_ai.chat import service as chat_service
 from assessor_ai.tools.redis.api_key import allocate_api_key
+from interfaces.api.auth import verify_signup_secret
 from interfaces.api.gen_key import generate_api_key
 from interfaces.api.rate_limiting import limiter
 from interfaces.api.schemas.key import KeyCreate, KeyCreateResponse
@@ -9,7 +10,12 @@ from interfaces.api.schemas.key import KeyCreate, KeyCreateResponse
 router = APIRouter(prefix="/v1/keys", tags=["keys"])
 
 
-@router.post("", response_model=KeyCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=KeyCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_signup_secret)],
+)
 @limiter.limit("5/minute")
 def create_key(request: Request, payload: KeyCreate):
     user_id = chat_service.obter_ou_criar_usuario(payload.nome, payload.email)

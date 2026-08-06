@@ -74,12 +74,31 @@ grafo.add_edge(NodeName.FAQ,          NodeName.GUARDRAIL_SAIDA)
 grafo.add_edge(NodeName.GUARDRAIL_SAIDA, END)
 
 
-checkpointer = MongoDBSaver(
-    banco.client,
-    db_name=banco.name,
-    checkpoint_collection_name="graph_checkpoints",
-    writes_collection_name="graph_checkpoint_writes",
-)
-fluxo_agentes = grafo.compile(checkpointer=checkpointer)
+class _GrafoLazy:
+    """
+    Adia a conexão com o Mongo (MongoDBSaver cria índices no __init__) para o
+    primeiro uso real, em vez de acontecer no import do pacote.
+    """
+
+    _instancia = None
+
+    def _compilar(self):
+        
+        if self._instancia is None:
+            checkpointer = MongoDBSaver(
+                banco.client,
+                db_name=banco.name,
+                checkpoint_collection_name="graph_checkpoints",
+                writes_collection_name="graph_checkpoint_writes",
+            )
+            self._instancia = grafo.compile(checkpointer=checkpointer)
+            
+        return self._instancia
+
+    def invoke(self, *args, **kwargs):
+        return self._compilar().invoke(*args, **kwargs)
+
+
+fluxo_agentes = _GrafoLazy()
 
 __all__ = ["fluxo_agentes"]

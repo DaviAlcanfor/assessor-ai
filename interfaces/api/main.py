@@ -26,9 +26,6 @@ app = FastAPI(
 
 config = SecurityConfig(
     redis_url=settings.REDIS_URL,
-    enable_rate_limiting=True,
-    rate_limit=100,
-    auto_ban_duration=86400,
     enable_cors=True,
     cors_allow_origins=["*"],
     cors_allow_methods=["GET", "POST"],

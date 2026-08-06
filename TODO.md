@@ -273,8 +273,13 @@ resto do repo) — `chat/`, `agents/`, `graph/` ainda não têm testes (ver bull
 - [ ] `tests/conftest.py` com fixtures compartilhadas — provavelmente mocks de
       `tools/postgres/connection.py:get_session` e `tools/mongo/connection.py` pra não depender de
       banco real nos testes unitários
-- [ ] `tests/chat/` — `chat/service.py` e `chat/runner.py` com o grafo mockado (não deve chamar
-      LLM de verdade em teste unitário)
+- [x] `tests/chat/` — `chat/service.py` e `chat/runner.py` com o grafo mockado (`monkeypatch` no
+      `fluxo_agentes`/`repositories`/`runner.executar`, mesmo padrão de
+      `tests/agents/nodes/guardrail/test_entrada.py`, sem chamar LLM real). Cobre: extração da
+      última `AIMessage`, propagação de `thread_id`/`tags`/`metadata` pro `invoke()`, isolamento do
+      `current_user_id()` (setado durante o `invoke`, restaurado depois), bloqueio por
+      `LimiteDeMensagensExcedido`, redação de PII antes de persistir e o caminho "sem resposta" não
+      persistindo mensagem. 7 testes novos, 110/110 no total
 - [ ] Decidir separação `tests/unit/` vs. `tests/integration/` (integration = sobe Postgres/Mongo
       via `config/docker.py`) antes de crescer demais, ou manter achatado enquanto a suíte for pequena
 - [x] CI (GitHub Actions) — `.github/workflows/ci.yml`, roda em push pra `main` e em PR: `uv sync

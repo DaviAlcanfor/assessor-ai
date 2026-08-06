@@ -309,12 +309,13 @@ MONGO_COLLECTION_NAME=assessor
 REDIS_URL=redis://host:6379/0
 QDRANT_URL=http://host:6333
 QDRANT_COLLECTION_NAME=faq
+SIGNUP_SECRET=...
 LANGSMITH_TRACING=false
 LANGSMITH_API_KEY=...
 LANGSMITH_PROJECT=assessor-ai
 ```
 
-Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo).
+Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `SIGNUP_SECRET` é obrigatório — sem ele `Settings()` falha ao importar; é o valor exigido no header `X-Signup-Secret` do `POST /v1/keys`. `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo).
 
 ### Instalação
 

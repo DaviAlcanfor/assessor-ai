@@ -1,11 +1,8 @@
-from dataclasses import dataclass, field
+from pydantic import BaseModel, EmailStr
 
 
-@dataclass
-class UserDocument:
+class UserDocument(BaseModel):
     user_id: str
     nome:    str
-    email:   str
-    profile: str = field(default="")
-
-
+    email:   EmailStr
+    profile: str = ""

@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from uuid import uuid4
 
 from assessor_ai.tools.mongo.connection import banco
@@ -19,7 +18,7 @@ def inserir(nome: str, email: str) -> str:
         nome=nome,
         email=email,
     )
-    collection.insert_one(asdict(document))
+    collection.insert_one(document.model_dump())
 
     return user_id
 

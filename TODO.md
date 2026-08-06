@@ -449,8 +449,15 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       `ip_security` rejeita o host fake do `TestClient` ("testclient" não é IP). Resultado: 3
       camadas de rate limit hoje coexistem (slowapi/Redis por IP, fastapi-guard por IP, Redis por
       user_id em `chat/service.py`) — redundante mas não quebrado; simplificar é decisão em aberto
-- [ ] `.env.example` com valores/nomes errados (revisar de novo, além do ajuste já feito na seção
-      "Débitos técnicos" acima)
+- [x] `.env.example` com valores/nomes errados (revisar de novo, além do ajuste já feito na seção
+      "Débitos técnicos" acima) — `.env.example` em si já batia 1:1 com todo campo obrigatório de
+      `config/settings.py:Settings` (conferido campo a campo, nenhum nome antigo tipo
+      `DATABASE_URI`/`MONGODB_URI`/`MONGO_USER`/`MONGO_PASSWORD`/`QDRANT_CLUSTER_ENDPOINT` sobrou em
+      lugar nenhum do repo). O gap real estava no README: a lista de variáveis de ambiente (seção
+      "Configuração") não incluía `SIGNUP_SECRET` — que é campo obrigatório sem default em
+      `Settings`, então `Settings()` falha ao importar sem ele. Quem seguisse só o bloco do README
+      (sem abrir `.env.example` também) ficaria travado num erro de import sem saber por quê.
+      Adicionado ao bloco + uma linha explicando o que é
 - [ ] Hash de API key sem salt e sem rotação — mudança maior, precisa de estratégia de migração pras
       keys já emitidas (hoje ficam invalidadas se trocar o esquema de hash sem plano de transição)
 - [ ] Indirect prompt injection via PDF (ingestão de documentos)

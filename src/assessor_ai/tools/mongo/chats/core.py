@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from datetime import UTC, datetime
 
 import assessor_ai.tools.mongo.users.core as users
@@ -20,7 +19,7 @@ def criar(user_id: str, session_id: str, mensagens: list[Mensagem]) -> None:
         session_id=session_id,
         messages=[m.para_dict() for m in mensagens],
     )
-    collection.insert_one(asdict(document))
+    collection.insert_one(document.model_dump())
 
 
 def buscar(session_id: str, limit: int = 5, user_id: str | None = None) -> dict | None:

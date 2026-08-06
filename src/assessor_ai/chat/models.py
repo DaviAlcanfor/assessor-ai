@@ -1,5 +1,6 @@
-from dataclasses import dataclass
 from enum import StrEnum
+
+from pydantic import BaseModel
 
 
 class Role(StrEnum):
@@ -7,8 +8,7 @@ class Role(StrEnum):
     AI    = "ai"
 
 
-@dataclass
-class ChatMessage:
+class ChatMessage(BaseModel):
     role:    Role
     content: str
 

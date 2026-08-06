@@ -460,7 +460,15 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       threadpool do Starlette (`anyio.to_thread.run_sync`), que copia o `contextvars.Context` por
       chamada — `set_current_user`/`reset_current_user` (`chat/runner.py:executar`) operam sobre uma
       cópia isolada por request, sem vazar entre requisições concorrentes no mesmo processo
-- [ ] Rate limiting (slowapi, por IP) é bypassable
+- [x] Rate limiting (slowapi, por IP) é bypassable — `Limiter` (`interfaces/api/rate_limiting.py`) não
+      tinha `storage_uri`, então usava o backend padrão do `slowapi`/`limits`: contagem em memória
+      *por processo*. Com mais de um worker/instância (esperado em prod), cada um mantém seu próprio
+      contador — o limite efetivo vira N× o configurado, só por tráfego cair em workers diferentes.
+      Corrigido apontando `storage_uri=settings.REDIS_URL` — Redis já é infra compartilhada do
+      projeto (`tools/redis`), `redis`/`limits` já instalados (dependência do `slowapi`), sem
+      dependência nova. Verificado isoladamente que o `Limiter` conecta no Redis configurado
+      (`interfaces/api/main.py` está com WIP não relacionado e sem importar no momento, então os
+      testes de `tests/interfaces/api` não rodaram nessa verificação — só o resto da suíte, 80/80)
 - [ ] Observabilidade e data leakage no chat runner + repositories (além do gap de PII já registrado
       na seção LangSmith acima)
 - [x] Guardrail de saída: fallback de compliance é bypassável — `guardrail_saida`

@@ -1,8 +1,7 @@
 from fastapi import FastAPI
+from guard import SecurityConfig, SecurityMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-
-from guard import SecurityConfig, SecurityMiddleware
 
 from config.settings import settings
 from interfaces.api.rate_limiting import limiter

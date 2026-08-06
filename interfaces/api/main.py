@@ -1,16 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from guard import SecurityConfig, SecurityMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from assessor_ai.tools.postgres.connection import dispose_engine
 from config.settings import settings
 from interfaces.api.rate_limiting import limiter
 from interfaces.api.routes import chats_router, health_router, keys_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    dispose_engine()
+
+
 app = FastAPI(
-    title="Assessor AI", 
-    description="API para o Assessor AI", 
-    version="0.5.0"
+    title="Assessor AI",
+    description="API para o Assessor AI",
+    version="0.5.0",
+    lifespan=lifespan,
 )
 
 config = SecurityConfig(

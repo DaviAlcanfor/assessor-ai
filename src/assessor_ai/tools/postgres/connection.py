@@ -42,6 +42,16 @@ def _get_session_factory() -> sessionmaker:
     return _SessionFactory
 
 
+def dispose_engine() -> None:
+    global _engine, _SessionFactory
+
+    if _engine is not None:
+        _engine.dispose()
+
+    _engine = None
+    _SessionFactory = None
+
+
 @contextmanager
 def get_session():
 

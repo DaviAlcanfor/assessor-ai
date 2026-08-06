@@ -401,8 +401,10 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       genérico, sem stack trace pro cliente — confirmado no 500 real do `POST /v1/keys`);
       `routes/chats.py` já captura e retorna mensagem própria em vez de `str(e)`. Fica só o gap de PII
       nos logs de tool (`log_tool`, item abaixo), que é sobre dado sensível, não credencial
-- [ ] `asynccontextmanager` pro lifespan do banco (Postgres) — engine/pool não tem ciclo de vida
-      explícito hoje via FastAPI lifespan
+- [x] `asynccontextmanager` pro lifespan do banco (Postgres) — `tools/postgres/connection.py:
+      dispose_engine()` (novo) descarta o pool de conexões; `interfaces/api/main.py` chama no
+      `lifespan` do FastAPI, no shutdown. Engine continua lazy (recriado sob demanda no próximo
+      `get_session()`), só ganhou um jeito explícito de fechar em vez de depender do GC
 - [x] Vazamento de PII: trocar `MemorySaver` por `MongoDBSaver` como checkpointer do LangGraph
       (`graph/builder.py`) — estado do grafo agora sobrevive a restart, em vez de morrer em memória.
       **Achado:** `langgraph-checkpoint-mongodb` não tem mais uma classe `AsyncMongoDBSaver`

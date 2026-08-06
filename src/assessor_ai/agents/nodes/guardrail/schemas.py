@@ -16,6 +16,8 @@ class Categoria(StrEnum):
     ILICITO          = "ILICITO"
     POLITICO         = "POLITICO"
     INDICACAO_INVEST = "INDICACAO_INVEST"
+    INJECAO_PROMPT   = "INJECAO_PROMPT"
+    ACESSO_INTERNO   = "ACESSO_INTERNO"
 
 
 
@@ -65,4 +67,6 @@ _RESPOSTAS_BLOQUEIO = {
     "ILICITO":          ("pedido_ilicito",           "Não posso auxiliar com atividades ilegais ou irregulares."),
     "POLITICO":         ("pergunta_politica",        "Não me envolvo em temas políticos. Posso ajudar com finanças ou sua agenda."),
     "INDICACAO_INVEST": ("indicacao_investimento",   "Por regulação, não forneço indicações diretas de ativos. Posso explicar classes de investimento ou agendar uma reunião com seu assessor."),
+    "INJECAO_PROMPT":   ("prompt_injection",          "Não consigo processar essa solicitação."),
+    "ACESSO_INTERNO":   ("acesso_dados_internos",      "Não tenho como compartilhar informações internas do sistema."),
 }

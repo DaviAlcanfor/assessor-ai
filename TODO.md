@@ -417,8 +417,17 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       feito dentro da função (lazy) pra não puxar `graph/llm.py` (client LLM) na hora que
       `config/decorators.py` é importado, que é cedo (postgres tools). Teste novo:
       `tests/test_decorators.py`
-- [ ] Guardrail de entrada falha aberto: usa só regex, então input não capturado pelo regex passa como
-      aprovado — precisa de mecanismo mais robusto (não só regex)
+- [x] Guardrail de entrada falha aberto: usa só regex, então input não capturado pelo regex passa como
+      aprovado — precisa de mecanismo mais robusto (não só regex). O bypass real: `_detectar_injecao`/
+      `_detectar_acesso_interno` (regex) bloqueiam ANTES do classificador LLM, mas quem passa por eles
+      caía direto no LLM que só classificava OFENSIVO/PERIGOSO/ILICITO/POLITICO/INDICACAO_INVEST —
+      nunca tentativa de injeção/exfiltração fora do regex. Corrigido reaproveitando o mesmo classificador
+      LLM (`GuardrailPrompts.CLASSIFICADOR`) em vez de adicionar uma segunda chamada: duas categorias
+      novas (`INJECAO_PROMPT`, `ACESSO_INTERNO`, `agents/nodes/guardrail/schemas.py`) descritas no
+      prompt e mapeadas em `_RESPOSTAS_BLOQUEIO` com o mesmo motivo/mensagem do bloqueio regex. Regex
+      continua como camada barata que bloqueia sem custo de LLM; agora o que escapa dela ainda é pego
+      semanticamente. Teste novo cobrindo o bypass real (frase fora do regex, LLM mockado retornando
+      `INJECAO_PROMPT`): `tests/agents/nodes/guardrail/test_entrada.py`
 - [ ] Datas financeiras usando timezone errado
 - [ ] Avaliar `fastapi-guard` pra refinamento de segurança da API
 - [ ] `.env.example` com valores/nomes errados (revisar de novo, além do ajuste já feito na seção

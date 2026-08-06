@@ -35,7 +35,7 @@ def executar(
 
     token = set_current_user(user_id)
     try:
-        estado_final = fluxo_agentes.invoke(
+        estado_final = fluxo_agentes().invoke(
             estado_inicial,
             config={
                 "configurable": {"thread_id": session_id},

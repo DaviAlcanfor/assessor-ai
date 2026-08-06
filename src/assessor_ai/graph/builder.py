@@ -1,4 +1,5 @@
 import os
+from functools import cache
 
 os.environ["LANGGRAPH_ALLOWED_MSGPACK_MODULES"] = (
     "agents.nodes.names,graph.state"
@@ -74,31 +75,20 @@ grafo.add_edge(NodeName.FAQ,          NodeName.GUARDRAIL_SAIDA)
 grafo.add_edge(NodeName.GUARDRAIL_SAIDA, END)
 
 
-class _GrafoLazy:
+@cache
+def fluxo_agentes():
     """
     Adia a conexão com o Mongo (MongoDBSaver cria índices no __init__) para o
-    primeiro uso real, em vez de acontecer no import do pacote.
+    primeiro uso real, em vez de acontecer no import do pacote. @cache garante
+    que só compila uma vez (mesma coisa que o singleton manual fazia).
     """
+    checkpointer = MongoDBSaver(
+        banco.client,
+        db_name=banco.name,
+        checkpoint_collection_name="graph_checkpoints",
+        writes_collection_name="graph_checkpoint_writes",
+    )
+    return grafo.compile(checkpointer=checkpointer)
 
-    _instancia = None
-
-    def _compilar(self):
-        
-        if self._instancia is None:
-            checkpointer = MongoDBSaver(
-                banco.client,
-                db_name=banco.name,
-                checkpoint_collection_name="graph_checkpoints",
-                writes_collection_name="graph_checkpoint_writes",
-            )
-            self._instancia = grafo.compile(checkpointer=checkpointer)
-            
-        return self._instancia
-
-    def invoke(self, *args, **kwargs):
-        return self._compilar().invoke(*args, **kwargs)
-
-
-fluxo_agentes = _GrafoLazy()
 
 __all__ = ["fluxo_agentes"]

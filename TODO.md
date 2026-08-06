@@ -368,3 +368,33 @@ dependência transitiva do `langchain` (pinned no `pyproject.toml`), só falta l
       e um `interfaces/api/app.py` que não existe (é `main.py`) — corrigidos.
       **Atenção:** isso não toca `.env` local (gitignored) — se o seu `.env` ainda tiver os nomes
       antigos, precisa atualizar manualmente pra bater com o novo `.env.example`.
+
+## Segurança — achados pendentes
+
+Lista de achados de uma revisão de segurança, ainda não triados por prioridade.
+
+- [ ] `asynccontextmanager` pro lifespan do banco (Postgres) — engine/pool não tem ciclo de vida
+      explícito hoje via FastAPI lifespan
+- [ ] Vazamento de PII: trocar `MemorySaver` por `AsyncMongodbSaver` como checkpointer do LangGraph
+- [ ] Guardrail de entrada logando a mensagem original (não a anonimizada) em algum ponto do erro
+- [ ] Decorator de logging de tool (`log_tool`) registrando o resultado completo da tool, sem redação
+- [ ] `POST /v1/keys` é público e cria usuário/key só com nome + email — precisa de proteção melhor
+      (hoje é decisão consciente documentada acima, mas foi reapontado como achado de segurança)
+- [ ] Race condition na criação de API key (`allocate_api_key`)
+- [ ] Guardrail de entrada falha aberto: usa só regex, então input não capturado pelo regex passa como
+      aprovado — precisa de mecanismo mais robusto (não só regex)
+- [ ] Ownership não é protegido na camada de persistência (só nas rotas) — falta reforçar no
+      repository/query em vez de só validar antes de chamar
+- [ ] Datas financeiras usando timezone errado
+- [ ] Avaliar `fastapi-guard` pra refinamento de segurança da API
+- [ ] `.env.example` com valores/nomes errados (revisar de novo, além do ajuste já feito na seção
+      "Débitos técnicos" acima)
+- [ ] Hash de API key sem salt e sem rotação
+- [ ] Indirect prompt injection via PDF (ingestão de documentos)
+- [ ] IDOR e isolamento entre usuários (revisar todos os endpoints, não só chats)
+- [ ] Rate limiting (slowapi, por IP) é bypassable
+- [ ] SQL injection via `ILIKE` (provavelmente em algum filtro de busca textual do Postgres)
+- [ ] Exposição de secrets (revisar logs, configs, respostas de erro)
+- [ ] Observabilidade e data leakage no chat runner + repositories (além do gap de PII já registrado
+      na seção LangSmith acima)
+- [ ] Guardrail de saída: fallback de compliance é bypassável

@@ -437,7 +437,18 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       já testados em `tests/tools/postgres/test_helpers.py`) corretamente — só essas duas queries de
       `financeiro/core.py` tinham ficado pra trás nessa migração. Trocado pra reusar os mesmos
       helpers, sem introduzir lógica nova
-- [ ] Avaliar `fastapi-guard` pra refinamento de segurança da API
+- [x] Avaliar `fastapi-guard` pra refinamento de segurança da API — integrado em
+      `interfaces/api/main.py` (`SecurityMiddleware` + `SecurityConfig`: rate limit próprio, CORS,
+      IP banning, detecção de atividade suspeita). Achados corrigidos durante a integração: kwarg
+      `rate_limit` duplicado (`SyntaxError`), `cors_allow_credentials=True` com
+      `cors_allow_origins=["*"]` (combinação que o CORS spec rejeita — e a API nem usa cookie, é
+      `X-API-Key`), `redis_url` faltando (`SecurityConfig` aponta pro Redis local por padrão, não
+      pro Redis real do projeto — com `redis_fail_open=False`, isso derrubava toda request com
+      `GuardRedisError`). `tests/interfaces/api/conftest.py` desliga o `SecurityMiddleware` no
+      fixture `client` (mesmo padrão do `limiter.enabled = False` do slowapi) porque o check
+      `ip_security` rejeita o host fake do `TestClient` ("testclient" não é IP). Resultado: 3
+      camadas de rate limit hoje coexistem (slowapi/Redis por IP, fastapi-guard por IP, Redis por
+      user_id em `chat/service.py`) — redundante mas não quebrado; simplificar é decisão em aberto
 - [ ] `.env.example` com valores/nomes errados (revisar de novo, além do ajuste já feito na seção
       "Débitos técnicos" acima)
 - [ ] Hash de API key sem salt e sem rotação — mudança maior, precisa de estratégia de migração pras

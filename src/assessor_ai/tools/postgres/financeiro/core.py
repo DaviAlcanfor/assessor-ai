@@ -12,6 +12,7 @@ from assessor_ai.tools.postgres.financeiro.schemas import (
 from assessor_ai.tools.postgres.helpers import (
     get_category_id,
     local_date_filter,
+    local_date_range_filter,
     resolve_transaction_type,
 )
 from assessor_ai.tools.postgres.models import PaymentType, Transaction, TransactionType
@@ -117,7 +118,7 @@ def daily_balance(date_local: str) -> dict:
                     - func.sum(case((Transaction.type == TransactionType.EXPENSES, Transaction.amount), else_=0))
                 )
                 .where(
-                    func.date(Transaction.occurred_at) == func.date(date_local),
+                    local_date_filter(Transaction.occurred_at, date_local),
                     Transaction.user_id == current_user_id(),
                 )
             )
@@ -153,7 +154,7 @@ def query_transactions(
             stmt = select(Transaction).where(Transaction.user_id == current_user_id())
 
             if date_from_local and date_to_local:
-                stmt = stmt.where(func.date(Transaction.occurred_at).between(date_from_local, date_to_local))
+                stmt = stmt.where(local_date_range_filter(Transaction.occurred_at, date_from_local, date_to_local))
                 stmt = stmt.order_by(Transaction.occurred_at.asc())
             else:
                 stmt = stmt.order_by(Transaction.occurred_at.desc())

@@ -428,7 +428,15 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       continua como camada barata que bloqueia sem custo de LLM; agora o que escapa dela ainda é pego
       semanticamente. Teste novo cobrindo o bypass real (frase fora do regex, LLM mockado retornando
       `INJECAO_PROMPT`): `tests/agents/nodes/guardrail/test_entrada.py`
-- [ ] Datas financeiras usando timezone errado
+- [x] Datas financeiras usando timezone errado — `daily_balance` e `query_transactions`
+      (`tools/postgres/financeiro/core.py`) filtravam com `func.date(Transaction.occurred_at)` cru
+      (converte pro fuso da sessão do Postgres/UTC, não America/Sao_Paulo), apesar do docstring das
+      duas dizer explicitamente "interpretado no fuso America/Sao_Paulo". Uma transação às 22h em
+      São Paulo (01h UTC do dia seguinte) caía no dia errado. `update_transaction` e todo `agenda/
+      core.py` já usavam `local_date_filter`/`local_date_range_filter` (`tools/postgres/helpers.py`,
+      já testados em `tests/tools/postgres/test_helpers.py`) corretamente — só essas duas queries de
+      `financeiro/core.py` tinham ficado pra trás nessa migração. Trocado pra reusar os mesmos
+      helpers, sem introduzir lógica nova
 - [ ] Avaliar `fastapi-guard` pra refinamento de segurança da API
 - [ ] `.env.example` com valores/nomes errados (revisar de novo, além do ajuste já feito na seção
       "Débitos técnicos" acima)

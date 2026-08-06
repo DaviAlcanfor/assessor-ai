@@ -403,7 +403,21 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       nos logs de tool (`log_tool`, item abaixo), que é sobre dado sensível, não credencial
 - [ ] `asynccontextmanager` pro lifespan do banco (Postgres) — engine/pool não tem ciclo de vida
       explícito hoje via FastAPI lifespan
-- [ ] Vazamento de PII: trocar `MemorySaver` por `AsyncMongodbSaver` como checkpointer do LangGraph
+- [x] Vazamento de PII: trocar `MemorySaver` por `MongoDBSaver` como checkpointer do LangGraph
+      (`graph/builder.py`) — estado do grafo agora sobrevive a restart, em vez de morrer em memória.
+      **Achado:** `langgraph-checkpoint-mongodb` não tem mais uma classe `AsyncMongoDBSaver`
+      separada (o nome do TODO era de uma versão antiga da lib) — a `MongoDBSaver` atual (0.4.0) já
+      implementa os métodos síncronos (`get_tuple`/`put`, usados por `.invoke()`) e assíncronos
+      (`aget_tuple`/`aput`) na mesma classe; como todo o resto da stack (`chat/runner.py`,
+      `chat/service.py`, rotas da API) é síncrono hoje, ficou no lado síncrono — trocar pra
+      `.ainvoke()` de verdade é reescrita maior, fora do escopo daqui. **Achado 2:** a versão
+      estável da lib trava `pymongo<4.17`, incompatível com o `pymongo>=4.17.0` pinado no
+      `pyproject.toml` — relaxado para `>=4.12,<4.17` (`pymongo==4.16.0` instalado); o pin em
+      `>=4.17.0` não tinha relação com o bug de TLS handshake do Mongo Atlas mencionado na seção de
+      Segurança abaixo (esse já foi resolvido travando `requires-python<3.14`). Verificado
+      ponta a ponta: grafo de teste com o `checkpointer` real gravou e recuperou estado via Mongo
+      (`graph_checkpoints`/`graph_checkpoint_writes`, nomeadas à parte pra não colidir com os
+      defaults da lib), suíte completa (103 testes) e `ruff check` seguem passando
 - [x] Guardrail de entrada logando a mensagem original (não a anonimizada) em algum ponto do erro —
       `no_guardrail_entrada` (`agents/nodes/guardrail/entrada.py`) já rodava `anonimizar_entrada`
       antes de checar bloqueio, mas o `logger.warning` no caminho de bloqueio usava

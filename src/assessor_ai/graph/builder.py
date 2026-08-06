@@ -4,7 +4,7 @@ os.environ["LANGGRAPH_ALLOWED_MSGPACK_MODULES"] = (
     "agents.nodes.names,graph.state"
 )
 
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.mongodb import MongoDBSaver
 from langgraph.graph import END, StateGraph
 
 from assessor_ai.agents.nodes import (
@@ -18,6 +18,7 @@ from assessor_ai.agents.nodes import (
 )
 from assessor_ai.agents.nodes.names import NodeName
 from assessor_ai.graph.state import Estado, Route
+from assessor_ai.tools.mongo.connection import banco
 
 
 def decidir_apos_guardrail_entrada(estado: Estado) -> str:
@@ -73,7 +74,12 @@ grafo.add_edge(NodeName.FAQ,          NodeName.GUARDRAIL_SAIDA)
 grafo.add_edge(NodeName.GUARDRAIL_SAIDA, END)
 
 
-memory = MemorySaver()
-fluxo_agentes = grafo.compile(checkpointer=memory)
+checkpointer = MongoDBSaver(
+    banco.client,
+    db_name=banco.name,
+    checkpoint_collection_name="graph_checkpoints",
+    writes_collection_name="graph_checkpoint_writes",
+)
+fluxo_agentes = grafo.compile(checkpointer=checkpointer)
 
 __all__ = ["fluxo_agentes"]

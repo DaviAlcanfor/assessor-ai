@@ -285,10 +285,10 @@ Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, 
 |---|---|---|
 | **Transações e eventos** | PostgreSQL (Docker) | Dados financeiros e de agenda do usuário |
 | **Histórico de conversa** | MongoDB | Mensagens por sessão (últimas 5 por consulta) |
-| **Checkpointing de grafo** | LangGraph MemorySaver | Estado interno do grafo entre turnos |
+| **Checkpointing de grafo** | LangGraph MongoDBSaver | Estado interno do grafo entre turnos, persistido no Mongo (`graph_checkpoints`/`graph_checkpoint_writes`) |
 | **Cache de perfil, rate limit, API keys** | Redis | Cache do `perfil_usuario` (TTL 1h), limite de mensagens por `user_id` na janela de 60s, hash de API keys da API |
 
-O MongoDB armazena duas coleções: `users` (cadastro e perfil comportamental) e `chats` (histórico de mensagens por sessão). O histórico é limitado via projeção `$slice: -5` para evitar contextos longos demais.
+O MongoDB armazena `users` (cadastro e perfil comportamental), `chats` (histórico de mensagens por sessão) e `graph_checkpoints`/`graph_checkpoint_writes` (estado do LangGraph, via `MongoDBSaver`). O histórico de mensagens é limitado via projeção `$slice: -5` para evitar contextos longos demais.
 
 O campo `perfil_usuario` — gerado a partir do histórico acumulado e armazenado em `users` — é carregado no estado do grafo antes de cada invocação, servindo como contexto cross-session do usuário. É lido do Redis primeiro (`tools/redis/perfil.py`); só cai no Mongo em cache miss, e o cache é invalidado ao encerrar a sessão (quando o perfil pode ter sido atualizado a partir do resumo).
 

@@ -97,7 +97,7 @@ dependencies = [
 assessor-ai = 'main:main'
 
 [tool.fastapi]
-entrypoint = "interfaces.api.main.py"
+entrypoint = "interfaces.api.main:app"
 
 [build-system]
 requires = ["hatchling"]

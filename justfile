@@ -25,3 +25,7 @@ fix:
 test:
     @echo "Running tests"
     {{python}} -m pytest
+
+deploy:
+    @echo "Deploying the application"
+    fastapi deploy

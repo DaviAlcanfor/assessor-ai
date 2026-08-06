@@ -435,10 +435,33 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
 - [ ] Hash de API key sem salt e sem rotação — mudança maior, precisa de estratégia de migração pras
       keys já emitidas (hoje ficam invalidadas se trocar o esquema de hash sem plano de transição)
 - [ ] Indirect prompt injection via PDF (ingestão de documentos)
-- [ ] IDOR e isolamento entre usuários (revisar todos os endpoints, não só chats) — chats já
-      reforçado acima; falta revisar `financeiro`/`agenda` (hoje dependem só do `ContextVar`
-      `current_user_id`, ver seção Alembic) e qualquer endpoint futuro
+- [x] IDOR e isolamento entre usuários (revisar todos os endpoints, não só chats) — **verificado,
+      já coberto.** Superfície completa da API hoje: `health` (sem dado de usuário), `POST /v1/keys`
+      (signup público atrás de `X-Signup-Secret`, sem ownership pra checar) e `chats` (já reforçado
+      acima). `financeiro`/`agenda` — as duas preocupações levantadas por essa entrada — checadas:
+      (1) todo tool schema (`financeiro/schemas.py`, `agenda/schemas.py`) grepado, nenhum expõe
+      `user_id` como argumento — o LLM nunca escolhe de quem é o dado, é sempre o `current_user_id()`
+      do `ContextVar`; (2) toda query de leitura já filtra por `Transaction.user_id ==
+      current_user_id()`/`Event.user_id == current_user_id()` na cláusula `WHERE` (não é checagem
+      pós-fetch), e `update_transaction`/`update_event` por id direto comparam `tx.user_id`/
+      `event.user_id` contra `current_user_id()` antes de aplicar mudanças; (3) `Category`
+      (`tools/postgres/models.py`) não tem `user_id` — é taxonomia compartilhada, não dado privado,
+      então atribuir `category_id` de outro registro não vaza nada entre usuários; (4) `user_id` em si
+      vem só de `interfaces/api/auth.py:get_current_user` (API key → Redis → user_id), nunca aceito
+      como parâmetro do cliente; (5) `send_message`/demais rotas são `def` síncrona rodando via
+      threadpool do Starlette (`anyio.to_thread.run_sync`), que copia o `contextvars.Context` por
+      chamada — `set_current_user`/`reset_current_user` (`chat/runner.py:executar`) operam sobre uma
+      cópia isolada por request, sem vazar entre requisições concorrentes no mesmo processo
 - [ ] Rate limiting (slowapi, por IP) é bypassable
 - [ ] Observabilidade e data leakage no chat runner + repositories (além do gap de PII já registrado
       na seção LangSmith acima)
-- [ ] Guardrail de saída: fallback de compliance é bypassável
+- [x] Guardrail de saída: fallback de compliance é bypassável — `guardrail_saida`
+      (`agents/nodes/guardrail/saida.py`) chamava o LLM de compliance e, se ele não devolvesse o
+      formato `RESPOSTA:` esperado, caía direto na resposta original **sem revisão nenhuma** —
+      justamente o texto que o guardrail existe pra revisar (garantia de rentabilidade, indicação
+      de ativo sem disclaimer, certeza sobre mercado futuro). Corrigido: 1 retry na mesma chamada
+      (`_revisar_compliance`, temperatura 0 então falha de formato tende a ser transiente) e, se
+      ainda assim falhar, cai num texto seguro genérico (`_FALLBACK_COMPLIANCE`) em vez de repassar
+      o conteúdo não revisado — mantém o design "nunca bloqueia" (sempre responde algo), mas fecha o
+      bypass. Teste cobrindo o caso de bypass real (LLM nunca segue o formato, resposta arriscada
+      não pode vazar) e o caminho feliz: `tests/agents/nodes/guardrail/test_saida.py`

@@ -48,28 +48,48 @@ def _redigir_pii(texto: str, pii_list: list = PII) -> str:
 
 
 
-def guardrail_saida(
-    resposta: str, 
-    mapa_pii: dict,
-    restaurar_pii: bool = False
-) -> ResultadoGuardrail:
-    """
-    Nunca bloqueia — sempre retorna o texto revisado. Fallback para a resposta original 
-    se o LLM não seguir o formato esperado.
-    """
-    
-    resposta = _redigir_pii(resposta, pii_list=PII_USUARIO)  
-    resposta = desanonimizar_saida(resposta, mapa_pii, restaurar=restaurar_pii)
+_FALLBACK_COMPLIANCE = (
+    "Não posso confirmar esses detalhes com segurança agora — recomendo conferir com seu "
+    "assessor antes de decidir. Investimentos envolvem risco e resultados passados não "
+    "garantem retornos futuros."
+)
 
+
+def _revisar_compliance(resposta: str) -> str | None:
     saida = llm_rapido.invoke(
         GuardrailPrompts.COMPLIANCE.format(resposta=resposta)
     ).content.strip()
 
     if "RESPOSTA:" not in saida:
-        return _saida_ok(resposta)
+        return None
 
     revisada = saida.split("RESPOSTA:", 1)[1].strip()
-    return _saida_ok(revisada or resposta)
+    return revisada or None
+
+
+def guardrail_saida(
+    resposta: str,
+    mapa_pii: dict,
+    restaurar_pii: bool = False
+) -> ResultadoGuardrail:
+    """
+    Nunca bloqueia — sempre retorna algum texto. Mas nunca repassa a resposta original
+    sem revisão de compliance: se o LLM não seguir o formato esperado (2 tentativas),
+    cai num texto seguro genérico em vez de confiar cegamente no que não foi revisado.
+    """
+
+    resposta = _redigir_pii(resposta, pii_list=PII_USUARIO)
+    resposta = desanonimizar_saida(resposta, mapa_pii, restaurar=restaurar_pii)
+
+    # ponytail: 1 retry fixo, depois fallback seguro — troque por backoff/mais tentativas
+    # se o parsing falhar com frequência em produção (hoje é raro, LLM segue o formato quase sempre)
+    revisada = _revisar_compliance(resposta) or _revisar_compliance(resposta)
+
+    if revisada is None:
+        logger.warning("Guardrail de saída: compliance não retornou formato esperado em 2 tentativas")
+        revisada = _FALLBACK_COMPLIANCE
+
+    return _saida_ok(revisada)
 
 
 def no_guardrail_saida(estado: Estado) -> dict:

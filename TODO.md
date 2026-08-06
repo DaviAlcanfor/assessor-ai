@@ -185,7 +185,9 @@ por IP (`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` já sobe es
 - [x] `auth.py` — `get_current_user` via `APIKeyHeader` + `tools/redis/api_key.py:get_user_id_by_api_key`
 - [x] `routes/chats.py` — `POST /v1/chats` (cria chat) e `POST /v1/chats/{chat_id}/messages`
       chamando `chat.service.send_message(...)`
-- [x] `routes/health.py` — `/health/live` e `/health/ready` (ping no Redis)
+- [x] `routes/health.py` — `/health/live` e `/health/ready` (ping no Redis e no Mongo — adicionado
+      depois de um deploy real falhar por indisponibilidade do Mongo Atlas sem o readiness pegar,
+      ver achado na seção Segurança abaixo)
 - [x] Rate limiting por IP nas rotas de chat (`slowapi`, 5/min criar chat, 10/min mensagem)
 - [x] `gen_key.py:generate_api_key` ligado à API — `POST /v1/keys` (`interfaces/api/routes/keys.py`),
       corpo `{nome, email}`, resolve o usuário por email (`chat/service.py:obter_ou_criar_usuario`,
@@ -531,3 +533,16 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       o conteúdo não revisado — mantém o design "nunca bloqueia" (sempre responde algo), mas fecha o
       bypass. Teste cobrindo o caso de bypass real (LLM nunca segue o formato, resposta arriscada
       não pode vazar) e o caminho feliz: `tests/agents/nodes/guardrail/test_saida.py`
+- [x] **Correção de achado anterior:** o item de `MongoDBSaver`/pymongo acima registrava o
+      `TLSV1_ALERT_INTERNAL_ERROR` do Mongo Atlas como "resolvido travando `requires-python<3.14`".
+      Estava errado — o mesmo erro voltou a derrubar um deploy (`ServerSelectionTimeoutError` nos 3
+      shards do cluster) rodando `python3.13` de verdade (confirmado no log de produção,
+      `.venv/lib/python3.13/site-packages/pymongo`), então não tinha relação com a versão do Python.
+      Causa real: Network Access do Atlas (IP allowlist) não cobria os IPs de egress dinâmicos da
+      FastAPI Cloud — corrigido liberando acesso no painel do Atlas, não no código. O pin
+      `requires-python<3.14` continua válido pelo motivo original (era necessário por outro motivo),
+      só não era a causa desse incidente
+- [x] `graph/builder.py:_GrafoLazy` — classe reimplementando memoização manual (`_instancia is
+      None`) só pra adiar a criação do `MongoDBSaver`/compilação do grafo pro primeiro uso. Trocado
+      por uma função `fluxo_agentes()` com `@functools.cache` (stdlib), mesmo comportamento de
+      singleton lazy sem a classe. Call site (`chat/runner.py`) virou `fluxo_agentes().invoke(...)`

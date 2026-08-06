@@ -1,6 +1,7 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
+from assessor_ai.tools.mongo.connection import banco
 from assessor_ai.tools.redis.connection import get_client
 from interfaces.api.schemas.health import HealthCheckResponse
 
@@ -14,12 +15,14 @@ def liveness():
 
 @router.get("/ready", status_code=status.HTTP_200_OK, response_model=HealthCheckResponse)
 def readiness():
-    checks = {"redis": False}
+    checks = {"redis": False, "mongo": False}
 
     try:
-        client = get_client()
-        client.ping()
+        get_client().ping()
         checks["redis"] = True
+
+        banco.client.admin.command("ping")
+        checks["mongo"] = True
 
     except Exception:
         return JSONResponse(

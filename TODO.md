@@ -410,7 +410,13 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       `ultima_msg.content` (cru) em vez de `texto_anonimizado`. Único ponto do módulo com esse
       padrão (conferido: `saida.py` não loga conteúdo de mensagem). Trocado para logar o texto já
       anonimizado.
-- [ ] Decorator de logging de tool (`log_tool`) registrando o resultado completo da tool, sem redação
+- [x] Decorator de logging de tool (`log_tool`) registrando o resultado completo da tool, sem redação
+      — `config/decorators.py:log_tool` reaproveita `anonimizar_entrada` (mesmo regex de PII do
+      guardrail, já usado em `chat/repositories.py` pra redigir antes do LangSmith) sobre
+      `args`/`kwargs`/`result` antes de logar. Import de `assessor_ai.agents.nodes.guardrail.entrada`
+      feito dentro da função (lazy) pra não puxar `graph/llm.py` (client LLM) na hora que
+      `config/decorators.py` é importado, que é cedo (postgres tools). Teste novo:
+      `tests/test_decorators.py`
 - [ ] Guardrail de entrada falha aberto: usa só regex, então input não capturado pelo regex passa como
       aprovado — precisa de mecanismo mais robusto (não só regex)
 - [ ] Datas financeiras usando timezone errado

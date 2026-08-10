@@ -1,19 +1,17 @@
-from uuid import uuid5, NAMESPACE_DNS
 from pathlib import Path
+from uuid import NAMESPACE_DNS, uuid5
 
-from langchain.tools import tool
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-from .connection import get_qdrant_client
-from .schemas import SearchResponse
-from config.logging import get_logger
 from config import settings
 from config.models import Model
 
+from .connection import get_qdrant_client
+from .schemas import SearchResponse
 
 _PDF_PATH = Path("data/documents/FAQ_assessor_v1.1.pdf")
 

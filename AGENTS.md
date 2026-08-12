@@ -7,9 +7,9 @@ Contexto do projeto **Assessor.AI** para agentes de IA (Claude Code, Copilot, et
 Assistente pessoal de **finanças** e **agenda** construído com LangChain + LangGraph. Arquitetura
 multi-agente: um grafo de nós onde cada nó tem responsabilidade única (guardrail, roteamento,
 especialista de domínio, orquestração de resposta). `main.py` é um dispatcher (`python main.py
-terminal|tui|api`); hoje só `terminal` tem implementação — `tui` e `api` são stubs vazios (ver
-TODO.md). Detalhes completos de arquitetura, fluxo de agentes e tools estão no
-[README.md](README.md) — leia-o antes de mexer em `agents/` ou `graph/`.
+terminal|tui|api`) — as três interfaces têm implementação real hoje (ver TODO.md pra pendências
+específicas de cada uma, ex. streaming na API). Detalhes completos de arquitetura, fluxo de agentes
+e tools estão no [README.md](README.md) — leia-o antes de mexer em `agents/` ou `graph/`.
 
 ## Stack
 
@@ -19,20 +19,24 @@ TODO.md). Detalhes completos de arquitetura, fluxo de agentes e tools estão no
   `config/models.py` mas ainda não usados por nenhum agente
 - PostgreSQL (via Docker, auto start/stop em `config/docker.py`) para transações e eventos, acessado
   via SQLAlchemy ORM (`tools/postgres/models.py`) + Alembic pra migrations
-- MongoDB para histórico de conversa e perfil de usuário
-- FAISS + Gemini Embeddings para RAG do FAQ
-- Redis está em `pyproject.toml` como dependência mas **ainda não tem nenhuma tool implementada**
-  (ver TODO.md)
+- MongoDB para histórico de conversa, perfil de usuário e checkpoint do LangGraph (`MongoDBSaver`)
+- Qdrant para RAG do FAQ (`tools/qdrant/faq/`) — substituiu o FAISS local
+- Redis para rate limit por usuário, alocação de API key e cache de perfil (`tools/redis/`)
+- FastAPI (`interfaces/api/`) com auth por API key, rate limiting (`slowapi` por IP + Redis por
+  `user_id`) e `fastapi-guard`; Textual (`interfaces/tui/`) pra TUI
+- `pytest` (`tests/`, espelhando a estrutura de `tools/`) + `ruff` (lint/format) + CI no GitHub
+  Actions
 
 ## Estrutura
 
 ```
 chat/       service.py (API pública), runner.py (invoca o grafo), repositories.py (Mongo/Postgres), models.py
-interfaces/ um pacote por forma de uso: terminal/{app.py,display.py} (implementado), tui/app.py e api/app.py (vazios)
+interfaces/ um pacote por forma de uso: terminal/{app.py,display.py}, tui/{app.py,display.py,app.tcss}, api/{main.py,auth.py,routes/,schemas/}
 agents/     prompts (agents/prompts) e nós de grafo (agents/nodes) — um arquivo por agente
 graph/      state.py (estado + Route), llm.py (builders), agents.py (apps compilados), builder.py (grafo)
-tools/      integrações externas: tools/postgres/{financeiro,agenda}, tools/mongo/{chats,users}, faq_tools.py
+tools/      integrações externas: tools/postgres/{financeiro,agenda,users}, tools/mongo/{chats,users}, tools/qdrant/faq, tools/redis
 config/     settings.py (env vars via pydantic-settings), models.py (Model enum + providers), docker.py, logging.py
+tests/      espelha tools/ e demais pacotes — só funções puras e serviços com grafo/I/O mockado (ver TODO.md)
 data/       documents/ — PDFs para RAG
 ```
 
@@ -89,7 +93,7 @@ Padrões já em uso no repo — mantenha-os ao adicionar código novo:
   como funções de módulo, não classes — é o repository pattern sem cerimônia de classe/interface.
   `schemas.py` ao lado define o contrato de dados (Pydantic) separado da lógica.
 - **Infra isolada e lazy.** Toda conexão externa (`tools/postgres/connection.py`,
-  `tools/mongo/connection.py`, `tools/faq_tools.py`) inicializa só no primeiro uso — nunca há
+  `tools/mongo/connection.py`, `tools/qdrant/faq/connection.py`) inicializa só no primeiro uso — nunca há
   side effect de I/O no import de um módulo. Isso é o que torna o projeto testável sem mockar tudo
   na importação.
 - **ORM sobre Postgres, mas cada tool continua com seu próprio `try/except`.**
@@ -121,9 +125,9 @@ Padrões já em uso no repo — mantenha-os ao adicionar código novo:
 ```bash
 uv venv && uv sync       # instalar dependências
 python main.py terminal # rodar o assistente no terminal (sobe o container Postgres automaticamente)
+just test                # roda a suíte pytest (ou `pytest` direto)
+ruff check .             # lint (roda no CI em push/PR pra main)
 ```
-
-Não há suíte de testes no projeto ainda.
 
 ## Ao adicionar uma tool nova
 
@@ -134,6 +138,14 @@ Não há suíte de testes no projeto ainda.
    (`tools/postgres/connection.py`) — nunca adicionar `user_id` ao `args_schema` da tool.
 5. Registrar a tool no agente correspondente em `agents/nodes/`.
 6. Atualizar a tabela de tools no README.md.
+
+## Skills por biblioteca
+
+`.agents/skills/` guarda convenções e pegadinhas específicas de cada lib usada no projeto
+(pydantic, fastapi, langchain, sqlalchemy, redis — um arquivo por lib, regra + exemplo do que fazer
+e do que não fazer). São achados reais do repo (muitos vêm de bugs já corrigidos, ver TODO.md),
+não tutorial genérico. Consulte antes de escrever código novo que toque uma dessas libs; adicione
+uma entrada nova quando encontrar uma pegadinha não óbvia que provavelmente vai se repetir.
 
 ## Claude Code
 

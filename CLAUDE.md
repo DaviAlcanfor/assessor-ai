@@ -15,3 +15,6 @@ conteúdo do AGENTS.md aqui.
   planejado.
 - Não rodar `docker stop`/`docker start` fora do fluxo de `config/docker.py` sem avisar o usuário —
   o container Postgres é compartilhado com outras execuções locais.
+- Antes de escrever código que use pydantic, FastAPI, LangChain/LangGraph, SQLAlchemy ou Redis,
+  confira `.agents/skills/<lib>.md` — são pegadinhas reais já encontradas neste repo (ver seção
+  "Skills por biblioteca" do AGENTS.md).

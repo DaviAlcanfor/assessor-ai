@@ -1,4 +1,3 @@
-from .faq_tools import faq_retriever
 from .postgres.agenda.core import (
     add_event,
     query_daily_events,
@@ -12,6 +11,7 @@ from .postgres.financeiro.core import (
     total_balance,
     update_transaction,
 )
+from .qdrant.faq.core import faq_retriever
 from .redis.api_key import get_user_id_by_api_key
 from .redis.chat import can_send_message
 

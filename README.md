@@ -145,8 +145,11 @@ assessor-ai/
 │       │   ├── api_key.py           # allocate_api_key, get_user_id_by_api_key — auth da API
 │       │   └── perfil.py            # buscar/salvar/invalidar_perfil_cache — cache do perfil_usuario (TTL 1h)
 │       ├── qdrant/
-│       │   └── connection.py        # Client assíncrono lazy — conexão provisionada, tools ainda não (ver TODO.md)
-│       ├── faq_tools.py             # Tool de RAG sobre o PDF de FAQ via FAISS (lazy init)
+│       │   └── faq/
+│       │       ├── connection.py    # Client lazy (qdrant-client)
+│       │       ├── schemas.py       # FaqRetrieverArgs, SearchResponse
+│       │       ├── core.py          # Tool: faq_retriever — busca semântica na collection do FAQ
+│       │       └── ingest.py        # Script (`python -m ...faq.ingest`) que indexa o PDF de FAQ
 │       └── response.py              # Classe Response para padronizar retornos
 │
 ├── interfaces/                      # Um pacote por forma de uso, todos consumindo chat/service.py
@@ -275,7 +278,9 @@ Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, 
 
 | Tool | Descrição |
 |---|---|
-| `faq_retriever` | Busca semântica no PDF de FAQ via FAISS + Gemini Embeddings (lazy init) |
+| `faq_retriever` | Busca semântica no PDF de FAQ via Qdrant + Gemini Embeddings (`tools/qdrant/faq/`) |
+
+Indexação: `python -m assessor_ai.tools.qdrant.faq.ingest` (script separado da tool, roda sob demanda).
 
 ---
 
@@ -292,7 +297,7 @@ O MongoDB armazena `users` (cadastro e perfil comportamental), `chats` (históri
 
 O campo `perfil_usuario` — gerado a partir do histórico acumulado e armazenado em `users` — é carregado no estado do grafo antes de cada invocação, servindo como contexto cross-session do usuário. É lido do Redis primeiro (`tools/redis/perfil.py`); só cai no Mongo em cache miss, e o cache é invalidado ao encerrar a sessão (quando o perfil pode ter sido atualizado a partir do resumo).
 
-O Qdrant já tem conexão provisionada (`tools/qdrant/connection.py`), mas ainda não há nenhuma tool usando-o — o RAG do FAQ continua sobre FAISS local (ver TODO.md).
+O RAG do FAQ roda sobre o Qdrant (`tools/qdrant/faq/`) — substituiu o índice FAISS local.
 
 ---
 
@@ -392,8 +397,7 @@ contexto antes de ligar tracing em produção com dado real.
 - [Alembic](https://alembic.sqlalchemy.org/) — migrations versionadas do schema PostgreSQL
 - [pymongo](https://pymongo.readthedocs.io/) — driver MongoDB para histórico de conversa
 - [redis-py](https://github.com/redis/redis-py) — cache de perfil, rate limit de mensagens e API keys (`tools/redis/`)
-- [qdrant-client](https://github.com/qdrant/qdrant-client) — conexão provisionada (`tools/qdrant/`), ainda sem tool usando (ver TODO.md)
-- [FAISS](https://github.com/facebookresearch/faiss) — busca vetorial para RAG do FAQ
+- [qdrant-client](https://github.com/qdrant/qdrant-client) — busca vetorial para RAG do FAQ (`tools/qdrant/faq/`)
 - [Rich](https://github.com/Textualize/rich) + [pyfiglet](https://github.com/pwaller/pyfiglet) — interface de terminal e arte ASCII da TUI
 - [Pydantic](https://docs.pydantic.dev/) — validação de schemas das tools
 - `langchain-anthropic`, `langchain-google-genai`, `langchain-groq` — integrações com providers

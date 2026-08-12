@@ -158,19 +158,26 @@ mesmo corte de `tools/postgres` e `tools/mongo`.
       cai no Mongo em cache miss. Cache invalidado em `encerrar_sessao` (`/exit`), quando o perfil
       pode ter sido atualizado a partir do resumo da sessão
 
-## Qdrant — conexão criada, tools ainda não
+## Qdrant — FAQ migrado de FAISS
 
-Hoje o RAG do FAQ usa FAISS local (`tools/faq_tools.py`). Avaliar migração para Qdrant quando
-precisar de mais de um documento/coleção ou busca persistente fora de memória.
+RAG do FAQ agora roda sobre Qdrant (`tools/qdrant/faq/`), substituindo o FAISS local.
 
-- [x] `tools/qdrant/connection.py` — client assíncrono lazy (`get_qdrant_client`, generator
-      `yield`/`close` pra uso como dependency do FastAPI)
+- [x] `tools/qdrant/faq/connection.py` — client lazy (`get_qdrant_client`), mesmo padrão sync
+      lazy-singleton de `tools/postgres/connection.py`/`tools/mongo/connection.py` (o `connection.py`
+      assíncrono citado antes aqui foi substituído por esse, mais simples e consistente com o resto
+      do repo)
 - [x] Variáveis `QDRANT_URL` / `QDRANT_API_KEY` no `.env.example`
-- [ ] `tools/qdrant/faq/core.py` — reimplementar `faq_retriever` sobre Qdrant (collection por domínio,
-      ex. `faq`, e futuramente `financeiro`/`agenda` para busca semântica sobre histórico)
-- [ ] Script de ingestão dos PDFs de `data/documents/` para a collection do Qdrant
+- [x] `tools/qdrant/faq/core.py` — `faq_retriever` reimplementado sobre Qdrant: `@tool` +
+      `@log_tool`, `args_schema=FaqRetrieverArgs`, retorna `Response.ok(results=[...])`, collection
+      lida de `settings.QDRANT_COLLECTION_NAME` (antes hardcoded). `tools/faq_tools.py` (FAISS)
+      removido; `tools/__init__.py` aponta pro novo módulo
+- [x] Script de ingestão dos PDFs de `data/documents/` para a collection do Qdrant —
+      `tools/qdrant/faq/ingest.py` (`python -m assessor_ai.tools.qdrant.faq.ingest`), separado do
+      módulo da tool (que só faz busca)
 - [ ] Decidir: Qdrant local (Docker, mesmo padrão do `docker-compose.yml`) vs. Qdrant Cloud — hoje
       o compose já sobe `qdrant/qdrant:latest` local
+- [ ] Futuramente: collections separadas para `financeiro`/`agenda` (busca semântica sobre
+      histórico), fora do escopo desta migração
 
 ## API — endpoints de chat funcionando, faltam streaming e infra
 
@@ -490,7 +497,7 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       ficou decidido como não prioritário por ora — decisão consciente, revisar se o projeto sair do
       estágio pessoal/experimental
 - [x] Indirect prompt injection via PDF (ingestão de documentos) — **avaliado, sem ação necessária
-      por ora.** `tools/faq_tools.py` indexa um único PDF fixo commitado no repo
+      por ora.** `tools/qdrant/faq/ingest.py` indexa um único PDF fixo commitado no repo
       (`data/documents/FAQ_assessor_v1.1.pdf`), sem nenhum endpoint de upload em `interfaces/api/` —
       não existe pipeline de ingestão de documento de terceiro não confiável hoje. A ameaça descrita
       pressupõe esse pipeline; construir defesa agora seria especulativo (YAGNI). Revisitar se/quando

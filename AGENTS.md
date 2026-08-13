@@ -17,11 +17,14 @@ e tools estão no [README.md](README.md) — leia-o antes de mexer em `agents/` 
 - LangChain 1.2 / LangGraph 1.1 para orquestração de agentes
 - LLMs: Gemini (`gemini-2.5-flash`), Groq (`llama-3.3-70b-versatile`), com Claude e Qwen mapeados em
   `config/models.py` mas ainda não usados por nenhum agente
-- PostgreSQL (via Docker, auto start/stop em `config/docker.py`) para transações e eventos, acessado
-  via SQLAlchemy ORM (`tools/postgres/models.py`) + Alembic pra migrations
+- PostgreSQL para transações e eventos, acessado via SQLAlchemy ORM (`tools/postgres/models.py`) +
+  Alembic pra migrations
 - MongoDB para histórico de conversa, perfil de usuário e checkpoint do LangGraph (`MongoDBSaver`)
 - Qdrant para RAG do FAQ (`tools/qdrant/faq/`) — substituiu o FAISS local
 - Redis para rate limit por usuário, alocação de API key e cache de perfil (`tools/redis/`)
+- Postgres/Mongo/Redis/Qdrant são todos serviços em nuvem — não há infra local via Docker
+  (`config/docker.py` e `docker-compose.yml` foram removidos no commit `16479fa`); `.env` aponta
+  direto para os serviços hospedados
 - FastAPI (`interfaces/api/`) com auth por API key, rate limiting (`slowapi` por IP + Redis por
   `user_id`) e `fastapi-guard`; Textual (`interfaces/tui/`) pra TUI
 - `pytest` (`tests/`, espelhando a estrutura de `tools/`) + `ruff` (lint/format) + CI no GitHub
@@ -35,7 +38,7 @@ interfaces/ um pacote por forma de uso: terminal/{app.py,display.py}, tui/{app.p
 agents/     prompts (agents/prompts) e nós de grafo (agents/nodes) — um arquivo por agente
 graph/      state.py (estado + Route), llm.py (builders), agents.py (apps compilados), builder.py (grafo)
 tools/      integrações externas: tools/postgres/{financeiro,agenda,users}, tools/mongo/{chats,users}, tools/qdrant/faq, tools/redis
-config/     settings.py (env vars via pydantic-settings), models.py (Model enum + providers), docker.py, logging.py
+config/     settings.py (env vars via pydantic-settings), models.py (Model enum + providers), logging.py
 tests/      espelha tools/ e demais pacotes — só funções puras e serviços com grafo/I/O mockado (ver TODO.md)
 data/       documents/ — PDFs para RAG
 ```
@@ -124,7 +127,7 @@ Padrões já em uso no repo — mantenha-os ao adicionar código novo:
 
 ```bash
 uv venv && uv sync       # instalar dependências
-python main.py terminal # rodar o assistente no terminal (sobe o container Postgres automaticamente)
+python main.py terminal # rodar o assistente no terminal
 just test                # roda a suíte pytest (ou `pytest` direto)
 ruff check .             # lint (roda no CI em push/PR pra main)
 ```

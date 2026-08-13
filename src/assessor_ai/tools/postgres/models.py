@@ -3,7 +3,16 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric, Text, text
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    Text,
+    text,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -66,7 +75,11 @@ class Transaction(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # with_variant: SQLite só trata a PK como rowid alias (autoincrement) se o tipo
+    # declarado for exatamente Integer — BigInteger puro quebra o insert sem id explícito
+    # em teste (SQLite in-memory, ver tests/tools/postgres/conftest.py). Sem efeito no
+    # Postgres real (continua BIGINT).
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     type: Mapped[TransactionType] = mapped_column(_transaction_type_enum, default=TransactionType.EXPENSES)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
@@ -82,7 +95,7 @@ class Transaction(Base):
 class Event(Base):
     __tablename__ = "events"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     title: Mapped[str] = mapped_column(Text)
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

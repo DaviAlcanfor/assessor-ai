@@ -225,6 +225,28 @@ por IP (`slowapi`, `interfaces/api/rate_limiting.py`). `main.py api` já sobe es
       `try/except` com log (`config/logging.py:get_logger`) e retornam `500` com corpo padronizado
       do FastAPI (`{"detail": ...}` via `HTTPException`) em vez de traceback cru
 
+## CD — deploy automático (FastAPI Cloud) — avaliado, ainda manual
+
+Hoje `just deploy` roda `fastapi deploy` (fastapi-cloud-cli) na mão, depois do merge. CI
+(`.github/workflows/ci.yml`) já roda lint+testes em todo push/PR pra `main`, então encadear um job
+de deploy depois do `test` passar é tecnicamente simples — mas dois pontos em aberto antes de
+automatizar:
+
+- [ ] Confirmar na doc do FastAPI Cloud se `fastapi deploy` aceita um token não-interativo (secret
+      do GitHub Actions) — o fluxo local hoje é `fastapi login` interativo; sem um modo não-interativo
+      documentado, não dá pra rodar em CI
+- [ ] Decidir se o deploy dispara direto após merge em `main` ou atrás de um gate manual (ex.:
+      GitHub Environment com required reviewer) — os dois incidentes de produção já registrados na
+      seção Segurança (TLS do Mongo Atlas, IP allowlist do Atlas) não teriam sido pegos pelo CI atual
+      (só lint + testes sem I/O real), então merge verde não é garantia de deploy seguro hoje
+- [ ] Se aprovado, um job novo em `ci.yml` (ou `cd.yml` separado), rodando só em push pra `main`
+      (não em PR), depois do `test` passar
+
+**Achado:** `.fastapicloudignore` mostra que o build da FastAPI Cloud lê `pyproject.toml`/`uv.lock`
+direto (ignora `.venv`, `justfile`, etc.) — não depende de Dockerfile. O item pendente "Dockerfile +
+healthcheck" na seção API acima é só sobre paridade do `docker-compose` local (subir a própria API
+junto da infra), não bloqueia esse deploy automático.
+
 ## TUI com Textual — concluída (painel de agente ativo fica pendente)
 
 Substituiu/complementa a interface atual (Rich + pyfiglet) por uma TUI de verdade com
@@ -257,6 +279,11 @@ do Textual em vez de CSS como string Python).
 - [ ] Tela/painel lateral opcional mostrando qual agente está ativo (`agentes_chamados` do
       estado) — adiado deliberadamente, fora do escopo da primeira versão. **Único item
       funcionalmente pendente da TUI** neste momento
+- [ ] Avaliar `textual-serve` pra servir a TUI atual (`interfaces/tui/app.py`) no navegador em vez
+      de um frontend React/JS — reaproveita `Bubble`/`MessageRow`/`Pensando` sem código novo de
+      frontend; trade-off é ficar preso à estética/interação de terminal (sem componentes HTML
+      ricos, layout mobile limitado). Suficiente pro estágio pessoal do projeto; revisitar se um dia
+      precisar de UX além de TUI
 - [x] Comando `/exit` e `Ctrl+C` encerrando a sessão via `chat.service.encerrar_sessao`
 - [x] Bootstrap de usuário/sessão extraído pra `chat/service.py:iniciar_sessao()` — antes
       duplicado em `interfaces/terminal/app.py`, agora reaproveitado por terminal e TUI
@@ -264,7 +291,8 @@ do Textual em vez de CSS como string Python).
 ## Testes — suíte iniciada, só funções puras por enquanto
 
 Pasta `tests/` criada espelhando a estrutura de `tools/` (package by feature, mesmo corte usado no
-resto do repo) — `chat/`, `agents/`, `graph/` ainda não têm testes (ver bullet abaixo).
+resto do repo). `chat/` e `agents/nodes/{guardrail,router}` já têm teste; `tools/qdrant`, `tools/mongo`
+e o resto de `agents/nodes`/`graph` ainda não (ver bullets abaixo).
 
 - [x] `pytest` como dev dependency (`uv add --dev pytest`, ficou `pytest>=9.1.1`) — `pytest-mock`/
       `pytest-asyncio` adiados até surgir necessidade real (nada async ou precisando de mock pesado
@@ -290,7 +318,20 @@ resto do repo) — `chat/`, `agents/`, `graph/` ainda não têm testes (ver bull
       `LimiteDeMensagensExcedido`, redação de PII antes de persistir e o caminho "sem resposta" não
       persistindo mensagem. 7 testes novos, 110/110 no total
 - [ ] Decidir separação `tests/unit/` vs. `tests/integration/` (integration = sobe Postgres/Mongo
-      via `config/docker.py`) antes de crescer demais, ou manter achatado enquanto a suíte for pequena
+      via infra real de Postgres/Mongo) antes de crescer demais, ou manter achatado enquanto a suíte
+      for pequena. **Achado:** o `config/docker.py` que subia essa infra localmente foi removido no
+      commit `16479fa` — não existe mais no repo (nem em `CLAUDE.md`, que ainda instrui "não rodar
+      `docker stop`/`start` fora do fluxo de `config/docker.py`"); confirmar com o usuário como a
+      infra local sobe hoje antes de escrever testes de integração, e atualizar essa instrução em
+      `CLAUDE.md`
+- [ ] `tests/tools/qdrant/` — `faq_retriever` (`tools/qdrant/faq/core.py`) sem nenhum teste hoje.
+      Precisa mockar o client do Qdrant (`query_points`) e `GoogleGenerativeAIEmbeddings.embed_query`
+      via `monkeypatch`, mesmo padrão de fake usado em `tests/tools/redis/fakes.py` (não bate
+      diretamente porque aqui as duas dependências são clientes externos, não um `Redis` só)
+- [ ] Outros módulos ainda sem teste nenhum: `tools/mongo/` (chats, users), `tools/postgres/agenda/
+      core.py` e `financeiro/core.py` (só `helpers.py` tem teste), e os nós do grafo além de
+      guardrail/router (`agents/nodes/{agenda,faq,financeiro,orquestrador}.py`, `graph/builder.py`) —
+      avaliar prioridade quando a suíte crescer, não é urgente pro estágio atual
 - [x] CI (GitHub Actions) — `.github/workflows/ci.yml`, roda em push pra `main` e em PR: `uv sync
       --locked` → `ruff check .` → `pytest`. **Achado:** `assessor_ai/__init__.py` importa
       `graph/builder.py`, que puxa a cadeia inteira até `config/settings.py:Settings()` — ou seja,

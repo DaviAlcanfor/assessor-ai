@@ -1,3 +1,4 @@
+from assessor_ai.agents.nodes.contexto import mensagens_com_contexto
 from assessor_ai.agents.nodes.names import NodeName
 from assessor_ai.graph.agents import orquestrador_app
 from assessor_ai.graph.state import Estado
@@ -5,7 +6,7 @@ from assessor_ai.graph.state import Estado
 
 def no_orquestrador(estado: Estado) -> dict:
 
-    mensagens = list(estado["messages"]) + [
+    mensagens = mensagens_com_contexto(estado, incluir_pergunta=False) + [
         {"role": "human", "content": estado["resposta_especialista"]}
     ]
 

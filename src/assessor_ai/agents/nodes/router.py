@@ -1,5 +1,6 @@
 import re
 
+from assessor_ai.agents.nodes.contexto import mensagens_com_contexto
 from assessor_ai.agents.nodes.names import NodeName
 from assessor_ai.graph.agents import router_app
 from assessor_ai.graph.state import Estado, Route
@@ -31,7 +32,7 @@ def _extrair_pergunta(texto: str) -> str:
 
 def no_roteador(estado: Estado) -> dict:
 
-    saida = router_app.invoke({"messages": list(estado["messages"])})
+    saida = router_app.invoke({"messages": mensagens_com_contexto(estado, incluir_pergunta=False)})
     texto = saida["messages"][-1].content
     rota  = _extrair_rota(texto)
     pergunta = _extrair_pergunta(texto)

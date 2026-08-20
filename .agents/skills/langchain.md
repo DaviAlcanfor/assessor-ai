@@ -69,3 +69,39 @@ Instead of:
 class Estado(MessagesState):
     agentes_chamados: list[str]  # cada nó que retorna isso PISA no valor anterior, não acumula
 ```
+## `system_prompt` de `create_agent` congela no import — contexto dinâmico vai por mensagem
+
+`create_agent(..., system_prompt=X.system_prompt())` avalia a string **uma vez**, quando o módulo é
+importado (`graph/agents.py` roda no import). Qualquer coisa que mude com o tempo embutida ali fica
+congelada pelo tempo de vida do processo: data/hora, perfil do usuário, contexto do turno. No
+terminal e na TUI passa despercebido porque reiniciam a cada uso — a API fica dias com o mesmo
+valor. Já aconteceu aqui com o bloco de data (a API interpretava "hoje" como a data do deploy).
+
+Do this — o que muda por turno entra como mensagem de sistema no `invoke` (ver
+`agents/nodes/contexto.py`):
+
+```python
+mensagens = [{"role": "system", "content": contexto_do_turno(perfil, pergunta)}, *estado["messages"]]
+saida = financeiro_app.invoke({"messages": mensagens})
+```
+
+Instead of:
+
+```python
+# DO NOT DO THIS — a data é a do import, não a de agora
+class GenericAgent:
+    CONTEXTO_TEMPORAL = f"Data atual: {datetime.now()}"   # roda uma vez, no import do módulo
+```
+
+Duas system messages na mesma lista é seguro nos dois providers do projeto: Groq é
+OpenAI-compatible e aceita várias; o `langchain-google-genai` **funde** as system messages extras no
+mesmo `system_instruction` (verificado em `_parse_chat_history` — vira uma segunda `part`, não um
+erro). **Ressalva:** essa fusão só acontece se já houver uma system message no índice 0 — se não houver,
+o `langchain-google-genai` **descarta a segunda em silêncio** (`else: pass` no mesmo trecho), sem
+erro nem warning. Hoje é seguro porque todo agente é criado com `system_prompt`, que o
+`create_agent` prepende (`langchain/agents/factory.py`: `messages = [request.system_message,
+*messages]`). Agente sem `system_prompt` + contexto por mensagem = contexto perdido sem aviso.
+
+Alternativa mais formal, se um dia precisar do prompt inteiro dinâmico: o middleware
+`dynamic_prompt` do `langchain.agents.middleware`, que recalcula o system prompt a cada chamada de
+modelo.

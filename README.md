@@ -172,8 +172,7 @@ assessor-ai/
 │   ├── settings.py                  # Carrega e valida variáveis de ambiente
 │   ├── models.py                    # PROVIDER_MAP, BUILDERS, Model Enum
 │   ├── logging.py                   # ColorFormatter e get_logger
-│   ├── decorators.py                # log_tool decorator
-│   └── docker.py                    # Auto start/stop do container PostgreSQL
+│   └── decorators.py                # log_tool decorator
 │
 ├── alembic/                          # Migrations versionadas do schema PostgreSQL
 │
@@ -219,7 +218,7 @@ Usuário
 
 | Agente | Modelo | Responsabilidade |
 |---|---|---|
-| **Guardrail Entrada** | `llama-3.3-70b-versatile` (temp 0.0) | Bloqueia mensagens indevidas e anonimiza PII |
+| **Guardrail Entrada** | `gemini-2.5-flash` (temp 0.0) | Bloqueia mensagens indevidas e anonimiza PII |
 | **Router** | `llama-3.3-70b-versatile` (temp 0.0) | Classifica a intenção e emite `ROUTE=financeiro\|agenda\|faq`, ou responde diretamente |
 | **Financeiro** | `gemini-2.5-flash` + fallback `llama-3.3-70b` | Interpreta a pergunta financeira e chama as tools do banco |
 | **Agenda** | `gemini-2.5-flash` + fallback `llama-3.3-70b` | Interpreta perguntas de agenda e chama as tools de eventos |

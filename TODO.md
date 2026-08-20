@@ -594,3 +594,184 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       None`) só pra adiar a criação do `MongoDBSaver`/compilação do grafo pro primeiro uso. Trocado
       por uma função `fluxo_agentes()` com `@functools.cache` (stdlib), mesmo comportamento de
       singleton lazy sem a classe. Call site (`chat/runner.py`) virou `fluxo_agentes().invoke(...)`
+
+## Backlog novo — a triar
+
+Levantado em 2026-08-20, ainda sem investigação. Cada item vira seção própria (ou entra na seção
+existente correspondente) quando sair do "a triar".
+
+- [x] **`perfil_usuario` é gerado, cacheado e nunca lido** — corrigido — o campo existe no `Estado`
+      (`graph/state.py:24`) e é preenchido a cada mensagem por `chat/runner.py:33` (que busca no
+      Mongo com cache Redis), mas **nenhum nó do grafo consome**. `no_financeiro`, `no_agenda` e
+      `no_roteador` invocam seus agentes só com `estado["messages"]`; os `system_prompt` são fixos,
+      montados em `create_agent` (`graph/agents.py`) na compilação. Ou seja, todo o pipeline de
+      perfil (2 chamadas de LLM no `/exit` + cache de 1h) é trabalho jogado fora hoje. É a causa raiz
+      do cenário "quanto gastei na viagem pra Maceió": mesmo que a memória existisse, o especialista
+      não veria. **Corrigido:** `agents/nodes/contexto.py` (novo) monta uma mensagem de sistema por
+      turno com data/hora, perfil e pergunta encaminhada, e `no_financeiro`, `no_agenda` e
+      `no_orquestrador` passaram a usá-la no `.invoke()`. Roteador e FAQ entram no mesmo bloco, com
+      recorte próprio: o roteador usa `incluir_pergunta=False` (a pergunta encaminhada é saída dele,
+      devolvê-la só polui o prompt que o regex `ROUTE=` lê), e o FAQ monta a mensagem de sistema
+      direto com `contexto_do_turno(perfil)` porque substitui o histórico pela `pergunta_original` em
+      vez de anexá-lo. Quando a memória episódica existir, ela entra nesse mesmo bloco, sem tocar em
+      nó nenhum
+- [x] **`pergunta_original` só é usado pelo FAQ** — corrigido para financeiro e agenda — o router extrai e publica no estado
+      (`nodes/router.py:52`), mas só `no_faq` lê (`nodes/faq.py:9`). Financeiro e agenda ignoram e
+      recebem `estado["messages"]` cru. O "protocolo de encaminhamento" do `RouterPrompts` existe,
+      mas dois dos três destinos não usam. **Corrigido:** financeiro e agenda recebem a pergunta
+      encaminhada no bloco de contexto do turno, mantendo o histórico completo (a conversa importa
+      pro fluxo de clarificação, então não dá pra substituir as `messages` pela pergunta como o FAQ
+      faz). Agora que os destinos leem o que o roteador manda, um campo novo de instrução
+      (`CONTEXTO=` ao lado do `PERGUNTA_ORIGINAL=`) passa a fazer sentido — antes viraria um terceiro
+      campo ignorado
+- [x] **`CONTEXTO_TEMPORAL` congela na hora do import** — corrigido — `agents/prompts/base.py:3` calcula
+      `_agora = datetime.now(UTC).astimezone()` no escopo do módulo e interpola num f-string de
+      classe, então "data e hora atual" é a hora em que o processo subiu. Terminal e TUI reiniciam a
+      cada uso e mascaram isso; a **API fica com "hoje" travado na data do deploy**, e todo cálculo
+      de data relativa ("mês passado", "semana que vem", "ontem") passa a ser feito a partir dela.
+      Bate direto em qualquer feature que dependa de data. **Corrigido:** virou
+      `GenericAgent.contexto_temporal()`, avaliada na chamada, e saiu do `system_prompt()` — deixar
+      lá não resolveria nada, porque `graph/agents.py` chama `system_prompt()` uma vez só, no import.
+      A data agora chega pelo bloco de contexto do turno. Teste de regressão em
+      `tests/agents/test_contexto.py` patcha o `datetime` do módulo: se a data voltar a ser
+      constante calculada no import, o patch não surte efeito e o teste quebra
+- [ ] **Decidido: memória não vira tool do roteador** — a ideia de escrever memória por turno (em vez
+      de só no `/exit`) é boa, mas o roteador é o pior lugar: a saída dele é parseada por regex
+      (`ROUTE=` / `PERGUNTA_ORIGINAL=`, `nodes/router.py`), num llama a temp 0 — dar tool-calling
+      pra ele faz o modelo alternar entre chamar tool e responder no formato, que é o jeito clássico
+      de quebrar o parser. Além disso põe +1 round-trip de LLM em toda mensagem, inclusive "oi", no
+      caminho crítico da resposta. Escrita de memória é side effect, não precisa de decisão do LLM:
+      o lugar barato é `chat/service.py:send_message` depois da resposta já ter saído, ou a fila de
+      tasks. **Leitura**, sim, pode ser tool — mas do especialista (`buscar_memoria("viagem
+      Maceió")` na mão do financeiro, que é quem sabe que precisa de data pro filtro), não do router,
+      que decide rota e não estratégia de consulta
+- [ ] **Memória episódica do usuário (fato, não traço)** — hoje o `profile` guarda só traço estável
+      (tom, objetivos, preferências, contexto de vida) porque o `PerfilPrompt`
+      (`agents/prompts/resumidor.py`) **proíbe explicitamente** fato episódico ("NUNCA inclua
+      saldos, valores ou transações"). Resultado: "viajou pra Salvador em março", "gosta de X",
+      "fez Y no dia Z" nunca entram em lugar nenhum. Desenho proposto, sem tocar no grafo:
+      (1) campo separado `memories` no `UserDocument` (`tools/mongo/users/schemas.py`), lista de
+      `{id, texto, data, session_id}` — **não** misturar no `profile`, a separação é o que resolve o
+      problema: traço se reescreve, fato se acumula; (2) `_extrair_memorias(resumo, memorias_atuais)`
+      em `tools/mongo/helpers.py`, mesmo padrão de `_gerar_resumo`/`_gerar_perfil`, com prompt novo
+      em `resumidor.py` — recebe as memórias existentes pra deduplicar e devolve só as novas;
+      (3) append com `$push`, **nunca** rewrite por LLM (o `profile` já sofre disso: reescrever o
+      texto inteiro a cada sessão perde informação); (4) injeção sem mexer em nó nenhum —
+      `chat/repositories.py:buscar_perfil` passa a concatenar perfil + últimas N memórias no mesmo
+      `perfil_usuario` que já vai pro estado. Cap em N (~20) por enquanto; quando não couber mais no
+      prompt, o upgrade é busca semântica no Qdrant (embedding já existe pro FAQ). A "aba" é
+      `GET /v1/me/memories` + `DELETE /v1/me/memories/{id}` filtrando por `user_id`, só quando o
+      frontend existir.
+      **Bloqueador que vem antes:** `encerrar_sessao` — único gatilho de resumo/perfil — só é chamado
+      por `interfaces/terminal/app.py` e `interfaces/tui/app.py`. **A API nunca chama**, não existe
+      endpoint pra isso. Ou seja, hoje quem usa a API já não gera perfil nenhum, e memória construída
+      nesse mesmo gatilho nasceria morta pra API, A2A e frontend. Decidir o gatilho primeiro:
+      endpoint explícito de encerrar sessão, TTL de sessão inativa, ou extração incremental por turno
+      (que é o item da fila de tasks acima). Custo a considerar: +1 chamada de LLM por encerramento e
+      um prompt que cresce a cada turno com as N memórias
+- [ ] **Versão do projeto está em três lugares diferentes e discordando** — tag git `1.0.0`
+      (no commit `965e33f`), `pyproject.toml` `version = "0.1.0"` e o app FastAPI
+      (`interfaces/api/main.py`) `version="0.5.0"`, que é o número que aparece no `/docs` e no
+      OpenAPI. Escolher o `pyproject.toml` como fonte única e fazer o FastAPI ler dali
+      (`importlib.metadata.version("assessor-ai")`) resolve dois dos três; a tag passa a ser
+      consequência do release, não um número solto. Pré-requisito pra qualquer coisa de changelog/
+      release notes fazer sentido
+- [ ] **Avaliar a estrutura antes de continuar adicionando** — a maior parte do backlog abaixo
+      (A2A, fila de tasks, MCP, frontend, sessões) adiciona pacote novo, então vale decidir a
+      estrutura **antes**, não depois de cinco features enfiadas no formato atual. Pontos concretos
+      pra revisar: (1) hoje são três pacotes de topo (`config/`, `interfaces/`, `src/assessor_ai/`) —
+      dois fora do `src/`, o que já aparece explícito no `[tool.hatch.build.targets.wheel]`; unificar
+      tudo sob `src/assessor_ai/` ou assumir a divisão de vez; (2) `interfaces/a2a/` entrou sem
+      seguir o padrão dos outros `interfaces/*` (nem sei ainda se A2A é "interface" ou consumidor de
+      `chat/service.py`); (3) fila de tasks e MCP não têm lugar óbvio no corte atual —
+      `tools/<sistema>/<domínio>/` é pra integração de dado, não pra infra de execução;
+      (4) `chat/service.py` é o único ponto por onde tudo passa: conferir se ainda cabe ou se
+      começou a virar god module. Resultado esperado é uma decisão escrita (refatora / não refatora /
+      refatora só X), não um refactor grande de uma vez — se der pra continuar sem mexer, melhor
+      ainda
+- [ ] **Sessões ativas no Redis** — ver e gerenciar sessões ativas (listar, inspecionar, encerrar)
+      usando o Redis que já é infra do projeto. Casa com o item pendente "Cache de sessão" da seção
+      Redis acima
+- [ ] **API key: desativar por ora** — burocratiza demais pro estágio atual; atrapalha o A2A entre
+      Frigus e Assessor e os testes. Decidir entre remover ou só marcar como deprecated/inativo
+      (`POST /v1/keys` + `interfaces/api/auth.py`). Preferência atual: deixar inativo, não remover
+- [ ] **Erro do Llama: trocar o modelo** — causa provável já identificada: a Groq
+      descontinuou o `llama-3.3-70b-versatile` (modelo decomissionado devolve erro na chamada, não é
+      bug de código). É troca de string, em 2 arquivos: `config/models.py`
+      (`Model.LLAMA_3_3_VERSATILE` + entrada no `PROVIDER_MAP`) e `graph/llm.py:38-39`
+      (`llm_groq` temp 0.7 e `llm_rapido` temp 0.0). Quem quebra: `llm_rapido` é router,
+      orquestrador, FAQ, guardrail de **saída** e os dois LLMs de `tools/mongo/helpers.py`
+      (`_gerar_resumo`/`_gerar_perfil`, que rodam no `/exit`); `llm_groq` é só o **fallback** de
+      `llm_especialista` — ou seja, financeiro e agenda continuam funcionando no Gemini e só
+      descobrem o problema no dia em que o Gemini falhar. Guardrail de **entrada** não é afetado
+      (roda em Gemini). A troca muda comportamento de prompt: revisar depois as saídas que dependem
+      de formato exato — `ROUTE=...` do router e `RESPOSTA:` do guardrail de saída. **Conferir junto:** `Model.QWEN_2_5_PRO` está
+      mapeado como `"qwen-2.5-pro"` no provider `groq` e esse id não parece existir na Groq — nenhum
+      agente usa hoje, mas é entrada morta ou errada. Não consegui listar o catálogo vivo da Groq pra
+      recomendar o substituto: `GET /openai/v1/models` com a `GROQ_API_KEY` do `.env` local devolve
+      403 (a key real vem do Infisical em runtime, `just dev`) — rodar a listagem com a key boa antes
+      de escolher
+- [ ] **A2A: incluir e expor na rota** — `interfaces/a2a/` existe como WIP mas os 6 arquivos estão
+      **vazios** (0 byte), então não há nada implementado ainda. Verificar se a chamada
+      Assessor → outro agente → Assessor não fica recursiva. Dois achados de investigação:
+      (1) o `a2a-sdk` é **async-only** — `AgentExecutor.execute`/`cancel` são `async def`, servidor é
+      ASGI, client é httpx async; não existe caminho sync, então o adaptador A2A é exatamente onde o
+      projeto síncrono encosta no async (ver item de async abaixo); (2) o pacote está instalado sem o
+      extra de servidor HTTP — `import a2a.server.routes` quebra hoje com
+      `ModuleNotFoundError: No module named 'sse_starlette'`. Precisa de `a2a-sdk[http-server]` (ou
+      `sse-starlette` explícito) antes de expor qualquer rota
+- [ ] **Error handler de sessão** — tratamento de erro dedicado pra sessão (e demais falhas hoje
+      caindo no catch-all `500` das rotas)
+- [ ] **Fila de tasks** — pra orquestrar execução de tools e sessões fora do request/response
+- [ ] **Async no máximo possível** — sem regredir performance; hoje as rotas são `def` síncrona de
+      propósito porque o I/O é bloqueante (ver `.agents/skills/fastapi.md`). Só migrar o que tiver
+      driver async de verdade. **Investigado (2026-08-20), separando duas coisas que se confundem:**
+      (a) *chamar o grafo de dentro de código async* já funciona hoje sem tocar em nó nenhum —
+      testado: `await app.ainvoke(...)` com nó `def` roda o nó numa thread do executor e o
+      `ContextVar` de `user_id` **propaga** pra essa thread (é a parte que poderia furar o escopo por
+      usuário e não fura); (b) *o grafo ser async de verdade* (nós `async def`, `llm.ainvoke`, tools
+      async, asyncpg no lugar de psycopg2) é a reescrita grande já registrada na seção do
+      `MongoDBSaver`. Ponto que decide a prioridade: async **não** dá paralelismo entre os agentes —
+      o grafo é sequencial por desenho (guardrail → router → especialista → orquestrador →
+      guardrail), async só libera a thread pra atender *outra* request, e a rota `def` já entrega
+      isso via threadpool do Starlette. Ou seja, ganho real é zero até existir consumidor async
+      (A2A ou streaming SSE). Quando existir, o caminho barato é `asyncio.to_thread(...)` /
+      `ainvoke` na borda, não converter o grafo. Detalhe: `MongoDBSaver.aget_tuple`/`aput` são
+      `run_in_executor` em cima do pymongo síncrono, então nem por ali o checkpoint fica async de
+      fato. Paralelismo entre especialistas, se um dia quiser, é fan-out de edge no LangGraph — não
+      depende de async
+- [ ] **Cache no Qdrant** — deixar a consulta do FAQ mais rápida (Redis na frente do retriever)
+- [ ] **MCP no lugar de tools** onde for melhor — provavelmente nas tools de consulta de dados
+- [ ] **Frontend** — só consome a API deployada; pegar o commit do deploy e exibir no front
+- [x] **Dependabot** — `.github/dependabot.yml` com dois ecossistemas: `uv` (lê o `uv.lock`) e
+      `github-actions` (o CI tem `actions/checkout@v4` e `setup-uv@v5` envelhecendo em silêncio).
+      Mensal e agrupado porque são ~100 deps pinadas em `==`; major fica fora do grupo, em PR
+      individual (langchain/langgraph quebram API entre majors). O CI já roda ruff + pytest em PR,
+      então cada PR do Dependabot chega verificado. **Passo manual pendente:** ligar "Dependabot
+      security updates" em Settings > Code security do repo — alerta de vulnerabilidade não se
+      configura pelo arquivo e ignora o schedule mensal
+- [x] **Skill de Mongo** (`.agents/skills/mongo.md`) — primeira leva de pegadinhas já pagas em
+      incidente: `MongoClient` é lazy mas `MongoDBSaver.__init__` conecta (cria índices), por isso
+      `fluxo_agentes()` é `@cache`; `ServerSelectionTimeoutError` em deploy é allowlist do Atlas e
+      não versão de Python/TLS (dois diagnósticos errados registrados neste TODO); o pin
+      `pymongo<4.17` vem do `langgraph-checkpoint-mongodb`; `$slice` na projeção; filtro por
+      `user_id` na query. Qdrant/Alembic/Textual ficam sem skill até morderem — a regra do AGENTS.md
+      é skill de achado real, não tutorial preventivo
+- [ ] **Skills mais restritas e descritivas pros agentes** — adicionar novas e apertar as existentes
+- [ ] **Dump SQL em `data/`** — "backup" em SQL do schema gerado pelo Alembic
+- [ ] **Verificar se IDOR é possível** — já tem entrada `[x]` na seção Segurança; revalidar com a
+      superfície nova (A2A, sessões, frontend)
+- [x] **Trazer a skill oficial de FastAPI** (repo oficial, com as melhores práticas) pra
+      `.agents/skills/fastapi.md` — feito: o arquivo agora tem duas partes, "práticas oficiais"
+      (adaptadas ao repo, com exemplos das rotas daqui) e "pegadinhas deste repo" (as 3 originais,
+      intactas). Inclui uma seção de **divergências deliberadas** do skill oficial — SQLModel (aqui
+      é SQLAlchemy + Alembic, não migrar), rotas `async` (aqui é `def` de propósito) e Asyncer (não
+      é dependência). Os arquivos de referência oficiais (`dependencies.md`, `responses.md`,
+      `streaming.md`, `path-operations.md`, `pydantic.md`, `other-tools.md`) já estavam em
+      `.agents/skills/` e agora são linkados a partir do `fastapi.md`
+- [ ] **Alinhar `interfaces/api/` com a skill do FastAPI** — três divergências concretas do código
+      atual, todas registradas na skill: (1) dependências no estilo antigo
+      (`user_id: str = Depends(get_current_user)`) em vez de `Annotated` + alias `CurrentUserDep`
+      (`routes/chats.py`, `auth.py`); (2) `response_model=X` onde a anotação de retorno bastaria, e
+      rotas sem anotação de retorno nenhuma; (3) `Field(..., min_length=1)` com Ellipsis em
+      `schemas/chat.py`. Nada quebrado, é alinhamento de estilo — fazer num PR só

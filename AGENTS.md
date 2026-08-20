@@ -50,6 +50,29 @@ existirem sem duplicar a lógica de montar estado, invocar o grafo e persistir h
 Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools em si) + `connection.py`
 (conexão lazy, só inicializa no primeiro uso). Siga esse padrão para qualquer tool nova (redis, qdrant, etc).
 
+## Ciclo de vida de uma mensagem
+
+Vale pras três interfaces; o caminho abaixo é o da API, que é o mais longo:
+
+1. **HTTP** — `SecurityMiddleware` (`fastapi-guard`) e `slowapi` (limite por IP) rodam antes da rota.
+2. **Auth** — `get_current_user` (`interfaces/api/auth.py`) troca o header `X-API-Key` por um
+   `user_id` guardado no Redis. `user_id` nunca vem do corpo nem da query da request.
+3. **Ownership** — `_validar_ownership` (`routes/chats.py`) confere que o `chat_id` é do usuário,
+   **fora** do `try` (dentro dele, o 403/404 viraria 500 — ver `.agents/skills/fastapi.md`).
+4. **Caso de uso** — `chat/service.py:send_message`: rate limit por `user_id` no Redis
+   (`LimiteDeMensagensExcedido` → 429), carrega histórico/perfil e persiste a mensagem.
+5. **Escopo** — `chat/runner.py:executar` seta o `ContextVar` de `user_id` e chama
+   `fluxo_agentes().invoke(...)`. Toda tool lê o usuário daí, nunca dos args escolhidos pelo LLM.
+6. **Grafo** — guardrail de entrada → router → especialista (tools) → orquestrador → guardrail de
+   saída (fluxo detalhado no README).
+7. **Persistência** — a resposta volta pro `service`, que grava no Mongo (histórico + checkpoint do
+   LangGraph); `encerrar_sessao` gera resumo/perfil e invalida o cache de perfil no Redis.
+8. **Resposta** — a rota devolve o schema de `interfaces/api/schemas/`; exceção não tratada vira 500
+   genérico com `logger.exception`.
+
+Quebrar esse encadeamento (interface chamando grafo/tool direto, tool recebendo `user_id` por
+argumento) é o tipo de mudança que passa nos testes e vaza dado entre usuários.
+
 ## Convenções
 
 - Código de domínio (nomes de função, variáveis, docstrings de tool, mensagens ao usuário) é em
@@ -69,6 +92,25 @@ Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools 
   abstração "flexível para o futuro". Sem camada genérica, sem config plugável, sem interface para
   uma única implementação. Se dá pra resolver com uma função e um `if`, não vira classe/padrão de
   projeto. Isso vale tanto para código de domínio quanto para infra.
+
+## Regras de operação para agentes
+
+- **Não deletar arquivo ou pasta sem permissão explícita** — inclusive arquivo que o próprio agente
+  criou. Se algo parece obsoleto, diga qual é e por quê, e espere a resposta.
+- **Comando destrutivo só com autorização literal:** `git reset --hard`, `git clean -fd`, `rm -rf`,
+  `git push --force`, `DROP`/`TRUNCATE` em banco. Tente antes o caminho não destrutivo (`git status`,
+  `git diff`, `git stash`, cópia de backup, migration nova).
+- **Nada de mudança em massa por script/regex.** Refactor amplo se faz arquivo a arquivo — `sed`
+  em cima de código gera estrago silencioso que o lint não pega.
+- **Nada de arquivo-variação.** Não existe `service_v2.py`, `app_novo.py`, `main_melhorado.py` —
+  revise o arquivo existente. Arquivo novo só pra responsabilidade genuinamente nova (a régua é
+  alta; ver "package by feature" acima).
+- **Sem shim de compatibilidade.** Projeto pessoal, sem consumidor externo: quando um contrato muda,
+  atualize todos os chamadores e siga. Nada de wrapper "deprecated" mantendo assinatura antiga viva.
+- **Na dúvida sobre uma lib, leia a doc atual** antes de escrever pelo que você lembra — as versões
+  aqui são recentes (LangChain 1.2, LangGraph 1.1, Pydantic 2.13, SQLAlchemy 2.0) e mudaram API.
+  Comece por `.agents/skills/`, que já é achado deste repo.
+- **Trabalho não terminado vira linha no TODO.md**, não comentário solto no código.
 
 ## Fluxo de trabalho (Git)
 
@@ -126,11 +168,21 @@ Padrões já em uso no repo — mantenha-os ao adicionar código novo:
 ## Comandos
 
 ```bash
-uv venv && uv sync       # instalar dependências
-python main.py terminal # rodar o assistente no terminal
-just test                # roda a suíte pytest (ou `pytest` direto)
-ruff check .             # lint (roda no CI em push/PR pra main)
+uv venv && uv sync        # instalar dependências
+python main.py terminal   # rodar o assistente (terminal | tui | api)
+fastapi dev               # subir só a API (entrypoint já está no pyproject.toml)
+just check                # ruff check — mesmo lint que roda no CI em push/PR pra main
+just fix                  # ruff check --fix
+just test                 # pytest
 ```
+
+### Verificação obrigatória depois de mexer em código
+
+`just check` e `just test`, os dois verdes, **antes** de dar a mudança por terminada. Se um teste já
+estava vermelho antes da sua mudança, diga isso explicitamente em vez de deixar passar.
+
+Teste novo cobre caminho feliz, borda (lista vazia, valor no limite, data virando o dia) e erro
+(exceção da tool, LLM devolvendo formato inesperado). `tests/` espelha a estrutura do pacote testado.
 
 ## Ao adicionar uma tool nova
 
@@ -142,11 +194,21 @@ ruff check .             # lint (roda no CI em push/PR pra main)
 5. Registrar a tool no agente correspondente em `agents/nodes/`.
 6. Atualizar a tabela de tools no README.md.
 
+## Encerrando a sessão
+
+1. `just check` e `just test` verdes — ou o motivo explícito de não estarem.
+2. TODO.md atualizado: item concluído vira `[x]` com o que ficou decidido, achado novo vira `[ ]`.
+3. Pegadinha nova de lib vira entrada em `.agents/skills/<lib>.md`.
+4. README atualizado se estrutura, tool ou variável de ambiente mudou.
+5. Commit `tipo: descrição` em branch própria + PR pra `main`.
+
 ## Skills por biblioteca
 
 `.agents/skills/` guarda convenções e pegadinhas específicas de cada lib usada no projeto
-(pydantic, fastapi, langchain, sqlalchemy, redis — um arquivo por lib, regra + exemplo do que fazer
-e do que não fazer). São achados reais do repo (muitos vêm de bugs já corrigidos, ver TODO.md),
+(pydantic, fastapi, mongo, langchain, sqlalchemy, redis — um arquivo por lib, regra + exemplo do que
+fazer e do que não fazer). `dependencies.md`, `responses.md`, `streaming.md`, `path-operations.md` e
+`other-tools.md` são material de referência do skill oficial do FastAPI, linkados a partir do
+`fastapi.md`. São achados reais do repo (muitos vêm de bugs já corrigidos, ver TODO.md),
 não tutorial genérico. Consulte antes de escrever código novo que toque uma dessas libs; adicione
 uma entrada nova quando encontrar uma pegadinha não óbvia que provavelmente vai se repetir.
 

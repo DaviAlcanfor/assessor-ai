@@ -1,0 +1,41 @@
+# Atualização automática de dependências.
+#
+# Mensal e agrupado de propósito: são ~100 dependências pinadas em `==`, então
+# semanal viraria enxurrada de PR. Update de major vem em PR separado (grupo só
+# pega minor/patch) — langchain/langgraph quebram API entre majors e merecem
+# review individual.
+#
+# Alerta de vulnerabilidade é coisa à parte: não se configura aqui, tem que
+# ligar "Dependabot security updates" em Settings > Code security do repo.
+# Esses PRs ignoram o schedule mensal e chegam na hora.
+#
+# Os pins que existem por motivo real (`pymongo<4.17` por causa do
+# langgraph-checkpoint-mongodb, `requires-python<3.14`) seguram o Dependabot
+# sozinhos — ele respeita a restrição do pyproject.toml.
+version: 2
+
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+    labels: ["dependencies"]
+    groups:
+      python:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore"
+    labels: ["dependencies"]
+    groups:
+      actions:
+        patterns: ["*"]

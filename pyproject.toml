@@ -90,7 +90,7 @@ dependencies = [
     "urllib3==2.6.3",
     "uuid-utils==0.14.1",
     "websockets==16.0",
-    "xxhash==3.6.0",
+    "xxhash==4.0.1",
     "yarl==1.24.2",
     "zstandard==0.25.0",
 ]

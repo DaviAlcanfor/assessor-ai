@@ -711,15 +711,39 @@ existente correspondente) quando sair do "a triar".
       recomendar o substituto: `GET /openai/v1/models` com a `GROQ_API_KEY` do `.env` local devolve
       403 (a key real vem do Infisical em runtime, `just dev`) — rodar a listagem com a key boa antes
       de escolher
-- [ ] **A2A: incluir e expor na rota** — `interfaces/a2a/` existe como WIP mas os 6 arquivos estão
-      **vazios** (0 byte), então não há nada implementado ainda. Verificar se a chamada
-      Assessor → outro agente → Assessor não fica recursiva. Dois achados de investigação:
-      (1) o `a2a-sdk` é **async-only** — `AgentExecutor.execute`/`cancel` são `async def`, servidor é
-      ASGI, client é httpx async; não existe caminho sync, então o adaptador A2A é exatamente onde o
-      projeto síncrono encosta no async (ver item de async abaixo); (2) o pacote está instalado sem o
-      extra de servidor HTTP — `import a2a.server.routes` quebra hoje com
-      `ModuleNotFoundError: No module named 'sse_starlette'`. Precisa de `a2a-sdk[http-server]` (ou
-      `sse-starlette` explícito) antes de expor qualquer rota
+- [x] **A2A: incluir e expor na rota** — implementado, primeira versão. `interfaces/a2a/` deixou de
+      ser WIP vazio: `agents/capabilites.py` (a `AgentSkill` única, `financas-e-agenda`),
+      `agents/card.py` (o `AgentCard`, versão lida de `importlib.metadata` em vez de hardcoded — não
+      é um quarto número desencontrado pro item de versão acima), `agents/interface.py`
+      (`AssessorAgentExecutor`, ponte pro `chat/service.py` — mesma camada de terminal/TUI/API,
+      arquitetura não foi furada) e `main.py` (`montar_rotas(app)`). Montado no **mesmo app FastAPI**
+      de `interfaces/api/main.py` (não é um segundo servidor/ASGI/modo novo em `main.py`) — expõe
+      `GET /.well-known/agent-card.json` e `POST /a2a` (JSON-RPC, método `SendMessage`). Cada
+      `context_id` do protocolo vira uma sessão/usuário do Assessor via `chat_service.iniciar_sessao()`
+      (mesmo bootstrap que terminal/TUI já usam — reaproveita usuário existente), guardado num dict
+      em memória (`ponytail:` global, perdido no restart / não compartilhado entre workers — troca
+      por Redis, mesmo padrão de `tools/redis/chat.py`, se rodar com múltiplos processos).
+      `LimiteDeMensagensExcedido` vira texto de resposta (não erro de protocolo), consistente com o
+      429 que a rota HTTP já faz. Sem autenticação de propósito (ver item "API key" acima) e sem
+      streaming/tasks (`AgentCapabilities(streaming=False)`) — é resposta imediata de mensagem única,
+      que é o que o protocolo já suporta sem precisar de `TaskStore` persistente.
+      **Achados que corrigem os dois desta entrada:** (1) o medo de "async-only" não se confirmou na
+      prática — só o `AgentExecutor.execute()` (borda) é `async def`; ele chama
+      `chat_service.send_message` (síncrono) via `asyncio.to_thread`, exatamente o padrão que o item
+      "Async no máximo possível" já recomendava, sem tocar em nó nenhum do grafo; (2) o pacote
+      instalado (`a2a-sdk==1.1.2`) precisava mesmo do extra — resolvido trocando a dependência pra
+      `a2a-sdk[fastapi]` (`pyproject.toml`), que já inclui `sse-starlette`. **Divergência da doc/tutorial
+      oficial:** essa versão do SDK não tem `a2a.server.apps.A2AStarletteApplication`/
+      `AgentCard`/`AgentSkill` em Pydantic — os tipos (`AgentCard`, `AgentSkill`, `Message`, `Part`,
+      `Role`, ...) são classes protobuf geradas (`a2a.types`, de `a2a_pb2`), e o mount é
+      `add_a2a_routes_to_fastapi` + `create_agent_card_routes`/`create_jsonrpc_routes`
+      (`a2a.server.routes`) em vez de instanciar um app pronto. Método JSON-RPC também mudou: é
+      `SendMessage` (PascalCase, nome do gRPC), não `message/send` do tutorial. Testado
+      (`tests/interfaces/api/test_a2a.py`, mock de `chat_service`): card, happy path, reuso de sessão
+      por `context_id` e o caminho de rate limit. **Não verificado nesta rodada** (não tem outro
+      agente A2A pra testar contra): a preocupação original de chamada recursiva Assessor → outro
+      agente → Assessor não se aplica ainda — o Assessor só **recebe** chamadas A2A hoje, não faz
+      nenhuma de saída
 - [ ] **Error handler de sessão** — tratamento de erro dedicado pra sessão (e demais falhas hoje
       caindo no catch-all `500` das rotas)
 - [ ] **Fila de tasks** — pra orquestrar execução de tools e sessões fora do request/response

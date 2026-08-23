@@ -695,22 +695,18 @@ existente correspondente) quando sair do "a triar".
 - [ ] **API key: desativar por ora** — burocratiza demais pro estágio atual; atrapalha o A2A entre
       Frigus e Assessor e os testes. Decidir entre remover ou só marcar como deprecated/inativo
       (`POST /v1/keys` + `interfaces/api/auth.py`). Preferência atual: deixar inativo, não remover
-- [ ] **Erro do Llama: trocar o modelo** — causa provável já identificada: a Groq
-      descontinuou o `llama-3.3-70b-versatile` (modelo decomissionado devolve erro na chamada, não é
-      bug de código). É troca de string, em 2 arquivos: `config/models.py`
-      (`Model.LLAMA_3_3_VERSATILE` + entrada no `PROVIDER_MAP`) e `graph/llm.py:38-39`
-      (`llm_groq` temp 0.7 e `llm_rapido` temp 0.0). Quem quebra: `llm_rapido` é router,
-      orquestrador, FAQ, guardrail de **saída** e os dois LLMs de `tools/mongo/helpers.py`
-      (`_gerar_resumo`/`_gerar_perfil`, que rodam no `/exit`); `llm_groq` é só o **fallback** de
-      `llm_especialista` — ou seja, financeiro e agenda continuam funcionando no Gemini e só
-      descobrem o problema no dia em que o Gemini falhar. Guardrail de **entrada** não é afetado
-      (roda em Gemini). A troca muda comportamento de prompt: revisar depois as saídas que dependem
-      de formato exato — `ROUTE=...` do router e `RESPOSTA:` do guardrail de saída. **Conferir junto:** `Model.QWEN_2_5_PRO` está
-      mapeado como `"qwen-2.5-pro"` no provider `groq` e esse id não parece existir na Groq — nenhum
-      agente usa hoje, mas é entrada morta ou errada. Não consegui listar o catálogo vivo da Groq pra
-      recomendar o substituto: `GET /openai/v1/models` com a `GROQ_API_KEY` do `.env` local devolve
-      403 (a key real vem do Infisical em runtime, `just dev`) — rodar a listagem com a key boa antes
-      de escolher
+- [x] **Erro do Llama: trocar o modelo** — confirmado na doc oficial
+      (`console.groq.com/docs/deprecations`): `llama-3.3-70b-versatile` (junto com
+      `llama-3.1-8b-instant`) foi desligado em 16/08/2026, substituto recomendado pela própria Groq
+      é `openai/gpt-oss-120b`. Trocado em `config/models.py` (`Model.GPT_OSS_120B` +
+      `PROVIDER_MAP`) e `graph/llm.py` (`llm_groq` temp 0.7, `llm_rapido` temp 0.0). Além da troca de
+      string, `build_llm` passou a setar `reasoning_format="hidden"` pra provider `groq` — gpt-oss é
+      modelo de raciocínio, sem isso o chain-of-thought viria dentro do `content` e quebraria os
+      regex de `ROUTE=` (router) e `RESPOSTA:` (guardrail de saída), que é exatamente o risco que
+      este item já apontava. `just check` e `just test` (136 testes) verdes depois da troca.
+      **Ainda falta:** `Model.QWEN_2_5_PRO` continua mapeado como `"qwen-2.5-pro"` no provider
+      `groq` e esse id não existe no catálogo da Groq — nenhum agente usa hoje, mas é entrada morta
+      ou errada, revisar/remover separadamente.
 - [ ] **A2A: incluir e expor na rota** — `interfaces/a2a/` existe como WIP mas os 6 arquivos estão
       **vazios** (0 byte), então não há nada implementado ainda. Verificar se a chamada
       Assessor → outro agente → Assessor não fica recursiva. Dois achados de investigação:

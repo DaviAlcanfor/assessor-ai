@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     LANGSMITH_API_KEY: str
     LANGSMITH_PROJECT: str
 
+    # Desliga a exigência de X-API-Key em /v1/chats (deixa True em produção). Temporário — burocratiza
+    # demais pro estágio atual e atrapalha o A2A entre Frigus e Assessor (ver TODO.md). Rotas
+    # continuam existindo, `get_current_user` (`interfaces/api/auth.py`) só passa a reaproveitar um
+    # usuário existente (mesmo bootstrap do terminal/TUI) em vez de checar a chave.
+    API_KEY_AUTH_ENABLED: bool = True
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

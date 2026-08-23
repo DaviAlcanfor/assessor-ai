@@ -17,3 +17,17 @@ def test_get_current_user_rejeita_chave_invalida(monkeypatch):
         auth.get_current_user(api_key="chave-invalida")
 
     assert exc_info.value.status_code == 401
+
+
+def test_get_current_user_rejeita_chave_ausente(monkeypatch):
+    with pytest.raises(HTTPException) as exc_info:
+        auth.get_current_user(api_key=None)
+
+    assert exc_info.value.status_code == 401
+
+
+def test_get_current_user_com_auth_desligada_ignora_chave(monkeypatch):
+    monkeypatch.setattr(auth.settings, "API_KEY_AUTH_ENABLED", False)
+    monkeypatch.setattr(auth.chat_service, "obter_usuario_padrao", lambda: "user-padrao")
+
+    assert auth.get_current_user(api_key=None) == "user-padrao"

@@ -692,9 +692,16 @@ existente correspondente) quando sair do "a triar".
 - [ ] **Sessões ativas no Redis** — ver e gerenciar sessões ativas (listar, inspecionar, encerrar)
       usando o Redis que já é infra do projeto. Casa com o item pendente "Cache de sessão" da seção
       Redis acima
-- [ ] **API key: desativar por ora** — burocratiza demais pro estágio atual; atrapalha o A2A entre
-      Frigus e Assessor e os testes. Decidir entre remover ou só marcar como deprecated/inativo
-      (`POST /v1/keys` + `interfaces/api/auth.py`). Preferência atual: deixar inativo, não remover
+- [x] **API key: desativar por ora** — implementado como flag, não remoção: `API_KEY_AUTH_ENABLED`
+      (`config/settings.py`, default `true`). Com `false`, `get_current_user`
+      (`interfaces/api/auth.py`) para de checar `X-API-Key` em `/v1/chats` e devolve
+      `chat_service.obter_usuario_padrao()` — reaproveita o primeiro usuário existente ou cria um
+      mock, o mesmo bootstrap que terminal/TUI já usam (extraído de `iniciar_sessao`, que agora só
+      chama essa função + `create_chat`, sem duplicar a lógica). O código de auth continua inteiro e
+      testado (`tests/interfaces/api/test_auth.py`) — reativar é só voltar a env var pra `true`, não
+      precisa mexer em código. **Escopo:** só `/v1/chats`. `POST /v1/keys` continua exigindo
+      `X-Signup-Secret` (`verify_signup_secret`) — gerar chave não é o que atrapalha o A2A, não fazia
+      sentido desligar
 - [ ] **Erro do Llama: trocar o modelo** — causa provável já identificada: a Groq
       descontinuou o `llama-3.3-70b-versatile` (modelo decomissionado devolve erro na chamada, não é
       bug de código). É troca de string, em 2 arquivos: `config/models.py`

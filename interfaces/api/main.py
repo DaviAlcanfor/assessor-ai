@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 
 from assessor_ai.tools.postgres.connection import dispose_engine
 from config.settings import settings
+from interfaces.a2a.main import montar_rotas as montar_rotas_a2a
 from interfaces.api.rate_limiting import limiter
 from interfaces.api.routes import chats_router, health_router, keys_router
 
@@ -43,3 +44,4 @@ app.add_middleware(SecurityMiddleware, config=config)
 app.include_router(health_router)
 app.include_router(chats_router)
 app.include_router(keys_router)
+montar_rotas_a2a(app)

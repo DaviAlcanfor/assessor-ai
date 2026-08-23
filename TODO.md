@@ -692,9 +692,16 @@ existente correspondente) quando sair do "a triar".
 - [ ] **Sessões ativas no Redis** — ver e gerenciar sessões ativas (listar, inspecionar, encerrar)
       usando o Redis que já é infra do projeto. Casa com o item pendente "Cache de sessão" da seção
       Redis acima
-- [ ] **API key: desativar por ora** — burocratiza demais pro estágio atual; atrapalha o A2A entre
-      Frigus e Assessor e os testes. Decidir entre remover ou só marcar como deprecated/inativo
-      (`POST /v1/keys` + `interfaces/api/auth.py`). Preferência atual: deixar inativo, não remover
+- [x] **API key: desativar por ora** — implementado como flag, não remoção: `API_KEY_AUTH_ENABLED`
+      (`config/settings.py`, default `true`). Com `false`, `get_current_user`
+      (`interfaces/api/auth.py`) para de checar `X-API-Key` em `/v1/chats` e devolve
+      `chat_service.obter_usuario_padrao()` — reaproveita o primeiro usuário existente ou cria um
+      mock, o mesmo bootstrap que terminal/TUI já usam (extraído de `iniciar_sessao`, que agora só
+      chama essa função + `create_chat`, sem duplicar a lógica). O código de auth continua inteiro e
+      testado (`tests/interfaces/api/test_auth.py`) — reativar é só voltar a env var pra `true`, não
+      precisa mexer em código. **Escopo:** só `/v1/chats`. `POST /v1/keys` continua exigindo
+      `X-Signup-Secret` (`verify_signup_secret`) — gerar chave não é o que atrapalha o A2A, não fazia
+      sentido desligar
 - [ ] **Erro do Llama: trocar o modelo** — causa provável já identificada: a Groq
       descontinuou o `llama-3.3-70b-versatile` (modelo decomissionado devolve erro na chamada, não é
       bug de código). É troca de string, em 2 arquivos: `config/models.py`
@@ -711,6 +718,51 @@ existente correspondente) quando sair do "a triar".
       recomendar o substituto: `GET /openai/v1/models` com a `GROQ_API_KEY` do `.env` local devolve
       403 (a key real vem do Infisical em runtime, `just dev`) — rodar a listagem com a key boa antes
       de escolher
+- [x] **A2A: incluir e expor na rota** — implementado, primeira versão. `interfaces/a2a/` deixou de
+      ser WIP vazio: `agents/capabilites.py` (a `AgentSkill` única, `financas-e-agenda`),
+      `agents/card.py` (o `AgentCard`, versão lida de `importlib.metadata` em vez de hardcoded — não
+      é um quarto número desencontrado pro item de versão acima), `agents/interface.py`
+      (`AssessorAgentExecutor`, ponte pro `chat/service.py` — mesma camada de terminal/TUI/API,
+      arquitetura não foi furada) e `main.py` (`montar_rotas(app)`). Montado no **mesmo app FastAPI**
+      de `interfaces/api/main.py` (não é um segundo servidor/ASGI/modo novo em `main.py`) — expõe
+      `GET /.well-known/agent-card.json` e `POST /a2a` (JSON-RPC, método `SendMessage`). Cada
+      `context_id` do protocolo vira uma sessão/usuário do Assessor via `chat_service.iniciar_sessao()`
+      (mesmo bootstrap que terminal/TUI já usam — reaproveita usuário existente), guardado num dict
+      em memória (`ponytail:` global, perdido no restart / não compartilhado entre workers — troca
+      por Redis, mesmo padrão de `tools/redis/chat.py`, se rodar com múltiplos processos).
+      `LimiteDeMensagensExcedido` vira texto de resposta (não erro de protocolo), consistente com o
+      429 que a rota HTTP já faz. Sem autenticação de propósito (ver item "API key" acima) e sem
+      streaming/tasks (`AgentCapabilities(streaming=False)`) — é resposta imediata de mensagem única,
+      que é o que o protocolo já suporta sem precisar de `TaskStore` persistente.
+      **Achados que corrigem os dois desta entrada:** (1) o medo de "async-only" não se confirmou na
+      prática — só o `AgentExecutor.execute()` (borda) é `async def`; ele chama
+      `chat_service.send_message` (síncrono) via `asyncio.to_thread`, exatamente o padrão que o item
+      "Async no máximo possível" já recomendava, sem tocar em nó nenhum do grafo; (2) o pacote
+      instalado (`a2a-sdk==1.1.2`) precisava mesmo do extra — resolvido trocando a dependência pra
+      `a2a-sdk[fastapi]` (`pyproject.toml`), que já inclui `sse-starlette`. **Divergência da doc/tutorial
+      oficial:** essa versão do SDK não tem `a2a.server.apps.A2AStarletteApplication`/
+      `AgentCard`/`AgentSkill` em Pydantic — os tipos (`AgentCard`, `AgentSkill`, `Message`, `Part`,
+      `Role`, ...) são classes protobuf geradas (`a2a.types`, de `a2a_pb2`), e o mount é
+      `add_a2a_routes_to_fastapi` + `create_agent_card_routes`/`create_jsonrpc_routes`
+      (`a2a.server.routes`) em vez de instanciar um app pronto. Método JSON-RPC também mudou: é
+      `SendMessage` (PascalCase, nome do gRPC), não `message/send` do tutorial. Testado
+      (`tests/interfaces/api/test_a2a.py`, mock de `chat_service`): card, happy path, reuso de sessão
+      por `context_id` e o caminho de rate limit. **Não verificado nesta rodada** (não tem outro
+      agente A2A pra testar contra): a preocupação original de chamada recursiva Assessor → outro
+      agente → Assessor não se aplica ainda — o Assessor só **recebe** chamadas A2A hoje, não faz
+      nenhuma de saída
+- [x] **Erro do Llama: trocar o modelo** — confirmado na doc oficial
+      (`console.groq.com/docs/deprecations`): `llama-3.3-70b-versatile` (junto com
+      `llama-3.1-8b-instant`) foi desligado em 16/08/2026, substituto recomendado pela própria Groq
+      é `openai/gpt-oss-120b`. Trocado em `config/models.py` (`Model.GPT_OSS_120B` +
+      `PROVIDER_MAP`) e `graph/llm.py` (`llm_groq` temp 0.7, `llm_rapido` temp 0.0). Além da troca de
+      string, `build_llm` passou a setar `reasoning_format="hidden"` pra provider `groq` — gpt-oss é
+      modelo de raciocínio, sem isso o chain-of-thought viria dentro do `content` e quebraria os
+      regex de `ROUTE=` (router) e `RESPOSTA:` (guardrail de saída), que é exatamente o risco que
+      este item já apontava. `just check` e `just test` (136 testes) verdes depois da troca.
+      **Ainda falta:** `Model.QWEN_2_5_PRO` continua mapeado como `"qwen-2.5-pro"` no provider
+      `groq` e esse id não existe no catálogo da Groq — nenhum agente usa hoje, mas é entrada morta
+      ou errada, revisar/remover separadamente.
 - [ ] **A2A: incluir e expor na rota** — `interfaces/a2a/` existe como WIP mas os 6 arquivos estão
       **vazios** (0 byte), então não há nada implementado ainda. Verificar se a chamada
       Assessor → outro agente → Assessor não fica recursiva. Dois achados de investigação:

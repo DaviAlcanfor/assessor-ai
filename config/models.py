@@ -8,7 +8,7 @@ from .settings import settings
 
 class Model(StrEnum):
     GEMINI_2_5_FLASH    = "gemini-2.5-flash"
-    LLAMA_3_3_VERSATILE = "llama-3.3-70b-versatile"
+    GPT_OSS_120B        = "openai/gpt-oss-120b"
     QWEN_2_5_PRO        = "qwen-2.5-pro"
     CLAUDE_HAIKU        = "claude-haiku-4-5"
     CLAUDE_SONNET       = "claude-sonnet-4-6"
@@ -18,7 +18,7 @@ class Model(StrEnum):
 
 PROVIDER_MAP = {
     Model.GEMINI_2_5_FLASH:    "gemini",
-    Model.LLAMA_3_3_VERSATILE: "groq",
+    Model.GPT_OSS_120B:        "groq",
     Model.QWEN_2_5_PRO:        "groq",
     Model.CLAUDE_HAIKU:        "claude",
     Model.CLAUDE_SONNET:       "claude",

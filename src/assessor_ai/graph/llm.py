@@ -30,13 +30,18 @@ def build_llm(
     if top_p is not None and provider == "gemini":
         kwargs["top_p"] = top_p
 
+    # gpt-oss é modelo de raciocínio: sem isso o chain-of-thought vem dentro do content
+    # e polui os regex de ROUTE= (nodes/router.py) e RESPOSTA: (guardrail de saída).
+    if provider == "groq":
+        kwargs["reasoning_format"] = "hidden"
+
     return BUILDERS[provider](**kwargs)
 
 
 
 llm_gemini = build_llm(model=Model.GEMINI_2_5_FLASH, temperature=0.7, top_p=0.95)
-llm_groq   = build_llm(model=Model.LLAMA_3_3_VERSATILE, temperature=0.7)
-llm_rapido = build_llm(model=Model.LLAMA_3_3_VERSATILE, temperature=0.0)
+llm_groq   = build_llm(model=Model.GPT_OSS_120B, temperature=0.7)
+llm_rapido = build_llm(model=Model.GPT_OSS_120B, temperature=0.0)
 llm_guardrail = build_llm(model=Model.GEMINI_2_5_FLASH, temperature=0.0)
 llm_especialista = llm_gemini.with_fallbacks([llm_groq])
 

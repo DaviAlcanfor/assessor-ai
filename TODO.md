@@ -744,6 +744,27 @@ existente correspondente) quando sair do "a triar".
       agente A2A pra testar contra): a preocupação original de chamada recursiva Assessor → outro
       agente → Assessor não se aplica ainda — o Assessor só **recebe** chamadas A2A hoje, não faz
       nenhuma de saída
+- [x] **Erro do Llama: trocar o modelo** — confirmado na doc oficial
+      (`console.groq.com/docs/deprecations`): `llama-3.3-70b-versatile` (junto com
+      `llama-3.1-8b-instant`) foi desligado em 16/08/2026, substituto recomendado pela própria Groq
+      é `openai/gpt-oss-120b`. Trocado em `config/models.py` (`Model.GPT_OSS_120B` +
+      `PROVIDER_MAP`) e `graph/llm.py` (`llm_groq` temp 0.7, `llm_rapido` temp 0.0). Além da troca de
+      string, `build_llm` passou a setar `reasoning_format="hidden"` pra provider `groq` — gpt-oss é
+      modelo de raciocínio, sem isso o chain-of-thought viria dentro do `content` e quebraria os
+      regex de `ROUTE=` (router) e `RESPOSTA:` (guardrail de saída), que é exatamente o risco que
+      este item já apontava. `just check` e `just test` (136 testes) verdes depois da troca.
+      **Ainda falta:** `Model.QWEN_2_5_PRO` continua mapeado como `"qwen-2.5-pro"` no provider
+      `groq` e esse id não existe no catálogo da Groq — nenhum agente usa hoje, mas é entrada morta
+      ou errada, revisar/remover separadamente.
+- [ ] **A2A: incluir e expor na rota** — `interfaces/a2a/` existe como WIP mas os 6 arquivos estão
+      **vazios** (0 byte), então não há nada implementado ainda. Verificar se a chamada
+      Assessor → outro agente → Assessor não fica recursiva. Dois achados de investigação:
+      (1) o `a2a-sdk` é **async-only** — `AgentExecutor.execute`/`cancel` são `async def`, servidor é
+      ASGI, client é httpx async; não existe caminho sync, então o adaptador A2A é exatamente onde o
+      projeto síncrono encosta no async (ver item de async abaixo); (2) o pacote está instalado sem o
+      extra de servidor HTTP — `import a2a.server.routes` quebra hoje com
+      `ModuleNotFoundError: No module named 'sse_starlette'`. Precisa de `a2a-sdk[http-server]` (ou
+      `sse-starlette` explícito) antes de expor qualquer rota
 - [ ] **Error handler de sessão** — tratamento de erro dedicado pra sessão (e demais falhas hoje
       caindo no catch-all `500` das rotas)
 - [ ] **Fila de tasks** — pra orquestrar execução de tools e sessões fora do request/response

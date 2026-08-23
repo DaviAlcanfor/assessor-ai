@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Personal AI agent for financial management"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "a2a-sdk>=1.1.2",
+    "a2a-sdk[fastapi]>=1.1.2",
     "aiohappyeyeballs==2.6.1",
     "aiohttp==3.13.5",
     "aiosignal==1.4.0",

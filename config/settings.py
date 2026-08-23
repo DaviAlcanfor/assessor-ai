@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # continuam existindo, `get_current_user` (`interfaces/api/auth.py`) só passa a reaproveitar um
     # usuário existente (mesmo bootstrap do terminal/TUI) em vez de checar a chave.
     API_KEY_AUTH_ENABLED: bool = True
+    # URL pública onde a API é servida — usada só pra montar o AgentCard do A2A
+    # (`interfaces/a2a/agents/card.py`), default cobre o `just dev`/`just run api` local
+    A2A_BASE_URL: str = "http://localhost:8000"
 
     model_config = {
         "env_file": ".env",

@@ -160,13 +160,19 @@ assessor-ai/
 │   │   ├── app.py                   # AssessorTUI — tela de chat com Textual
 │   │   ├── display.py               # Bubble (Rich Panel), MessageRow, Pensando (LoadingIndicator)
 │   │   └── app.tcss                 # Stylesheet do Textual
-│   └── api/
-│       ├── main.py                  # App FastAPI — registra health/chats/keys routers
-│       ├── auth.py                  # get_current_user via X-API-Key
-│       ├── gen_key.py                # generate_api_key
-│       ├── rate_limiting.py          # slowapi, limite por IP
-│       ├── routes/                   # chats.py, health.py, keys.py
-│       └── schemas/                  # chat.py, health.py, key.py
+│   ├── api/
+│   │   ├── main.py                  # App FastAPI — registra health/chats/keys routers + rotas A2A
+│   │   ├── auth.py                  # get_current_user via X-API-Key
+│   │   ├── gen_key.py                # generate_api_key
+│   │   ├── rate_limiting.py          # slowapi, limite por IP
+│   │   ├── routes/                   # chats.py, health.py, keys.py
+│   │   └── schemas/                  # chat.py, health.py, key.py
+│   └── a2a/                          # Protocolo A2A (JSON-RPC), montado no mesmo app FastAPI
+│       ├── main.py                  # montar_rotas(app) — agent card + endpoint JSON-RPC em /a2a
+│       └── agents/
+│           ├── card.py              # AgentCard (nome, versão, interface, skills)
+│           ├── capabilites.py       # AgentSkill(s) expostas no card
+│           └── interface.py          # AssessorAgentExecutor — ponte pro chat/service.py
 │
 ├── config/
 │   ├── settings.py                  # Carrega e valida variáveis de ambiente
@@ -321,6 +327,10 @@ API_KEY_AUTH_ENABLED=true
 ```
 
 Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `SIGNUP_SECRET` é obrigatório — sem ele `Settings()` falha ao importar; é o valor exigido no header `X-Signup-Secret` do `POST /v1/keys`. `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo). `API_KEY_AUTH_ENABLED` é opcional (default `true`) — com `false`, `/v1/chats` para de exigir `X-API-Key` e passa a reaproveitar/criar um usuário padrão a cada request (`chat_service.obter_usuario_padrao`, mesmo bootstrap do terminal/TUI); é um desligamento temporário pro estágio atual do projeto, não uma remoção — a chave de rota, `interfaces/api/auth.py:get_current_user`, continua existindo e testada (ver `TODO.md`).
+A2A_BASE_URL=http://localhost:8000
+```
+
+Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `SIGNUP_SECRET` é obrigatório — sem ele `Settings()` falha ao importar; é o valor exigido no header `X-Signup-Secret` do `POST /v1/keys`. `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo). `A2A_BASE_URL` é opcional (default já cobre execução local) — só muda a URL declarada no `AgentCard` do A2A (ver seção [A2A](#a2a) acima).
 
 ### Instalação
 
@@ -342,6 +352,22 @@ O sistema sobe automaticamente o container Docker do PostgreSQL ao iniciar e o e
 
 Também dá pra rodar via `justfile`: `just venv` (cria `.venv`), `just run [modo]` (default
 `terminal`) e `just dev [modo]` (mesma coisa, injetando env vars via `infisical run --`).
+
+### A2A
+
+`python main.py api` também expõe o protocolo [A2A](https://a2a-protocol.org/) (agent-to-agent),
+montado no mesmo app FastAPI:
+
+- `GET /.well-known/agent-card.json` — [`AgentCard`](interfaces/a2a/agents/card.py) com nome,
+  versão e a skill exposta (`financas-e-agenda`)
+- `POST /a2a` — endpoint JSON-RPC (método `SendMessage`) que processa a mensagem via
+  [`AssessorAgentExecutor`](interfaces/a2a/agents/interface.py), a mesma camada `chat/service.py`
+  usada por terminal/TUI/API. Cada `context_id` do protocolo vira uma sessão/usuário do Assessor —
+  na primeira mensagem, ou sem `context_id`.
+
+Primeira versão, sem tarefas assíncronas (`streaming`/`push_notifications` desligados no
+`AgentCard`) nem autenticação — a rota está aberta de propósito, porque a auth por API key
+atrapalha o caso de uso A2A entre agentes (ver `TODO.md`).
 
 ### Migrations (Alembic)
 
@@ -392,6 +418,7 @@ contexto antes de ligar tracing em produção com dado real.
 - [LangGraph](https://github.com/langchain-ai/langgraph) — orquestração stateful e checkpointing
 - [LangSmith](https://smith.langchain.com/) — tracing/observabilidade opcional do grafo (ver [Observabilidade](#observabilidade))
 - [FastAPI](https://fastapi.tiangolo.com/) — API HTTP (`interfaces/api/`), com [slowapi](https://github.com/laurentS/slowapi) pro rate limit por IP
+- [a2a-sdk](https://github.com/a2aproject/a2a-python) — protocolo A2A (`interfaces/a2a/`), agent card + JSON-RPC montados no mesmo app FastAPI
 - [Textual](https://github.com/Textualize/textual) — TUI (`interfaces/tui/`)
 - [SQLAlchemy](https://www.sqlalchemy.org/) — ORM sobre o PostgreSQL (`tools/postgres/models.py`), com `psycopg2` como driver
 - [Alembic](https://alembic.sqlalchemy.org/) — migrations versionadas do schema PostgreSQL

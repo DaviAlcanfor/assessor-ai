@@ -323,6 +323,10 @@ SIGNUP_SECRET=...
 LANGSMITH_TRACING=false
 LANGSMITH_API_KEY=...
 LANGSMITH_PROJECT=assessor-ai
+API_KEY_AUTH_ENABLED=true
+```
+
+Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `SIGNUP_SECRET` é obrigatório — sem ele `Settings()` falha ao importar; é o valor exigido no header `X-Signup-Secret` do `POST /v1/keys`. `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo). `API_KEY_AUTH_ENABLED` é opcional (default `true`) — com `false`, `/v1/chats` para de exigir `X-API-Key` e passa a reaproveitar/criar um usuário padrão a cada request (`chat_service.obter_usuario_padrao`, mesmo bootstrap do terminal/TUI); é um desligamento temporário pro estágio atual do projeto, não uma remoção — a chave de rota, `interfaces/api/auth.py:get_current_user`, continua existindo e testada (ver `TODO.md`).
 A2A_BASE_URL=http://localhost:8000
 ```
 

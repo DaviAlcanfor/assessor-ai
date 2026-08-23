@@ -48,18 +48,26 @@ def obter_ou_criar_usuario(nome: str, email: str) -> str:
     return user_id
 
 
-def iniciar_sessao() -> tuple[str, str]:
+def obter_usuario_padrao() -> str:
+    """
+    Reaproveita o primeiro usuário existente, ou cria um mock — mesmo bootstrap usado por
+    terminal/TUI (`iniciar_sessao`) e pela auth da API quando `API_KEY_AUTH_ENABLED=false`.
+    """
+
     usuario_existente = buscar_usuario_existente()
 
     if usuario_existente:
-        user_id = usuario_existente["user_id"]
-    else:
-        user_id = str(uuid4())
-        novo_usuario = _gerar_usuario_mock()
-        garantir_usuario(
-            user_id, nome=novo_usuario["name"], email=novo_usuario["email"]
-        )
+        return usuario_existente["user_id"]
 
+    user_id = str(uuid4())
+    novo_usuario = _gerar_usuario_mock()
+    garantir_usuario(user_id, nome=novo_usuario["name"], email=novo_usuario["email"])
+
+    return user_id
+
+
+def iniciar_sessao() -> tuple[str, str]:
+    user_id = obter_usuario_padrao()
     session_id = create_chat(user_id)
 
     return user_id, session_id
@@ -111,5 +119,6 @@ __all__ = [
     "iniciar_sessao",
     "obter_dono_chat",
     "obter_ou_criar_usuario",
+    "obter_usuario_padrao",
     "send_message",
 ]

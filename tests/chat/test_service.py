@@ -3,6 +3,32 @@ import pytest
 from assessor_ai.chat import service
 
 
+def test_obter_usuario_padrao_reaproveita_usuario_existente(monkeypatch):
+    monkeypatch.setattr(
+        "assessor_ai.chat.service.repositories.buscar_usuario_existente",
+        lambda: {"user_id": "user-existente"},
+    )
+
+    assert service.obter_usuario_padrao() == "user-existente"
+
+
+def test_obter_usuario_padrao_cria_usuario_mock_quando_nao_ha_nenhum(monkeypatch):
+    monkeypatch.setattr(
+        "assessor_ai.chat.service.repositories.buscar_usuario_existente", lambda: None
+    )
+
+    criado = {}
+    monkeypatch.setattr(
+        "assessor_ai.chat.service.repositories.garantir_usuario",
+        lambda user_id, nome, email: criado.update(user_id=user_id, nome=nome, email=email),
+    )
+
+    user_id = service.obter_usuario_padrao()
+
+    assert user_id == criado["user_id"]
+    assert criado["nome"] and criado["email"]
+
+
 def test_send_message_bloqueia_quando_limite_excedido(monkeypatch):
     monkeypatch.setattr("assessor_ai.chat.service.can_send_message", lambda _uid: False)
 

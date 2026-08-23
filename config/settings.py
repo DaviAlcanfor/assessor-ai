@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     LANGSMITH_API_KEY: str
     LANGSMITH_PROJECT: str
 
+    # URL pública onde a API é servida — usada só pra montar o AgentCard do A2A
+    # (`interfaces/a2a/agents/card.py`), default cobre o `just dev`/`just run api` local
+    A2A_BASE_URL: str = "http://localhost:8000"
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

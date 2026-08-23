@@ -595,6 +595,185 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       por uma função `fluxo_agentes()` com `@functools.cache` (stdlib), mesmo comportamento de
       singleton lazy sem a classe. Call site (`chat/runner.py`) virou `fluxo_agentes().invoke(...)`
 
+## Frontend web (React + Vite + GSAP) — planejado, nada iniciado
+
+Interface web consumindo a API que já existe. Escopo da V1: login simples (escolher usuário do banco
+ou criar), tela de chat com sidebar de conversas e animação nas mensagens / no "pensando".
+
+### Tecnologia escolhida
+
+- **React 19 + Vite + TypeScript.** Não Next.js: não há SSR nem SEO em jogo (app atrás de login) e
+  Next traria um servidor Node pra deployar ao lado da API FastAPI que já existe. Vite gera estático
+  puro, que qualquer coisa serve — inclusive o próprio FastAPI (ver Deploy abaixo).
+- **GSAP core + `@gsap/react`** (`useGSAP`). Sem plugins — ScrollTrigger/Flip/SplitText são
+  ferramenta de landing page, não de chat. Duas dependências, core ~23kb gz.
+- **`react-router`** — 2 rotas (`/login`, `/chat/:chatId?`). Considerado só um `useState` de tela
+  (mais barato), mas "poder entrar nesses chats" pede o `chat_id` na URL; router ganha por isso.
+- **Estado de servidor: `fetch` + `useState`.** Sem TanStack Query, sem Redux/Zustand — são ~5
+  chamadas de API no app inteiro. Adicionar quando houver cache/invalidação de verdade pra gerenciar.
+- **Estilo: CSS Modules + custom properties.** Sem Tailwind (mais uma toolchain), sem lib de
+  componentes. Ver seção "Identidade visual e design system" abaixo.
+- **ReactBits como referência copy-paste** (`npx jsrepo add https://reactbits.dev/<variant>/...`),
+  nunca como dependência. **Atenção:** boa parte dos componentes de texto de lá usa `motion`
+  (framer-motion), não GSAP — só trazer os que já são GSAP, ou portar. Duas libs de animação no
+  mesmo bundle é exatamente o peso que esse plano quer evitar.
+
+### Onde fica no projeto
+
+**`web/` na raiz, não `interfaces/web/`.** Conceitualmente `interfaces/` é o lugar certo (é mais uma
+"forma de uso", ao lado de `terminal`/`tui`/`api`/`a2a`), mas mecanicamente não: `interfaces` é
+pacote Python empacotado no wheel (`[tool.hatch.build.targets.wheel] packages = ["config",
+"interfaces", "src/assessor_ai"]`). Enfiar um projeto Node ali custa três exclusões de build
+(hatch, `.fastapicloudignore`, `.gitignore`) pra ganhar só simetria de nome — e um `node_modules`
+indo junto no deploy da API é o tipo de erro que só aparece no build lento.
+
+Isso responde diretamente o item **"Avaliar a estrutura antes de continuar adicionando"** do backlog,
+que pediu essa decisão antes de mais um pacote entrar: a divisão vira `config/` + `interfaces/` +
+`src/assessor_ai/` (Python) e `web/` (Node), com a fronteira sendo a linguagem, não a camada.
+
+- [ ] `.gitignore`: `web/node_modules/`, `web/dist/`
+- [ ] `.fastapicloudignore`: `web/` (a menos que se escolha o deploy (b) abaixo)
+- [ ] `ruff` não olha `.ts`/`.tsx`, então `just check` não muda; `just test` idem. Se um dia houver
+      teste de front, é um comando separado (`just test-web`), não dentro do `pytest`
+
+### Gaps da API — bloqueadores, resolver antes do front
+
+1. - [ ] **`GET /v1/chats` não existe** — a sidebar não tem de onde listar conversas. Precisa de
+     `listar_por_usuario(user_id)` em `tools/mongo/chats/core.py` (`find({"user_id": ...})`, projeção
+     **sem** `messages`, sort por `updated_at` desc, cap ~50) + `repositories` + `service` + rota +
+     schema. **Não existe campo de título** no `ChatDocument` — derivar do primeiro `content` de role
+     `human` (truncado em ~40 chars), sem coluna nova. Chat vazio (criado e nunca usado) vira
+     "Nova conversa".
+2. - [ ] **A tela de login não funciona com o desenho de auth atual.** Com
+     `API_KEY_AUTH_ENABLED=false`, `get_current_user` (`interfaces/api/auth.py:15`) devolve sempre
+     `obter_usuario_padrao()` — o *primeiro* usuário do Mongo, ignorando qualquer escolha do cliente.
+     Com a flag `true`, o caminho seria `POST /v1/keys`, mas ele responde `409` quando o usuário já
+     tem key ativa e não reexibe a key salva (só o hash fica) — ou seja, "entrar como um usuário
+     existente" quebra nos dois modos.
+     **Caminho barato:** com a flag desligada, `get_current_user` aceita um header opcional
+     `X-User-Id` e só cai no `obter_usuario_padrao()` se ele faltar. ~4 linhas, sem tocar no caminho
+     de API key, que continua inteiro e testado. `ponytail:` isso é bypass de auth deliberado — só
+     vale enquanto `API_KEY_AUTH_ENABLED=false`; o caminho real é reativar a API key junto com um
+     endpoint de reemissão/revogação (ver "Hash de API key sem salt e sem rotação", seção Segurança)
+3. - [ ] **`GET /v1/users` não existe** — a tela de login precisa listar pra escolher/sortear.
+     `mongo/users/core.py:listar()` (`find({}, {"user_id": 1, "nome": 1, "email": 1})`, cap ~50) +
+     rota. Só faz sentido em modo dev — gatear pela mesma flag do item 2 (`404` quando a auth por
+     API key estiver ligada), senão é enumeração de usuários exposta
+4. - [ ] **Criar usuário pelo front** — `POST /v1/keys` já resolve por dentro
+     (`chat_service.obter_ou_criar_usuario`), mas exige `X-Signup-Secret` e devolve uma API key que o
+     modo dev não usa. Um `POST /v1/users` (nome+email → `obter_ou_criar_usuario` → `user_id`), sob a
+     mesma flag dos itens 2 e 3, é mais direto que fazer o front carregar o signup secret
+5. - [ ] **CORS na prática** — `SecurityConfig` (`interfaces/api/main.py:28`) já tem
+     `cors_allow_origins=["*"]` e `cors_allow_methods=["GET", "POST"]`. Falta conferir preflight real
+     de browser passando pelo `SecurityMiddleware` do fastapi-guard, que roda `ip_security` antes
+     (o mesmo check que `tests/interfaces/api/conftest.py` precisa desligar porque rejeita host que
+     não é IP). Em dev isso não aparece — o proxy do Vite deixa tudo same-origin —, então é
+     verificação de pré-deploy, não de desenvolvimento
+6. - [ ] **Commit + versão do deploy no front** — encaixar no `GET /health/live` (versão via
+     `importlib.metadata` + hash curto do commit). Resolve de passagem o item "Versão do projeto está
+     em três lugares diferentes e discordando" do backlog, que é pré-requisito disso fazer sentido
+7. Fora do caminho crítico da V1, mas registrar a consequência:
+     `encerrar_sessao` continua sem endpoint (item já aberto) — quem usa web/API **nunca** gera
+     resumo nem perfil. O front não trava sem isso, mas o assistente fica sem memória pra esse
+     usuário, que é o mesmo bloqueador já registrado no item de memória episódica
+
+### Telas
+
+- [ ] **`/login`** — grid de cards com os usuários do banco, botão "entrar com um aleatório" e um
+      form curto "criar novo" (nome + email). Guarda `user_id` no `localStorage` e manda em
+      `X-User-Id`. Sem senha, sem sessão — é tela de teste, e o nome do arquivo/rota deve deixar isso
+      óbvio pra ninguém confundir com login de verdade depois
+- [ ] **`/chat/:chatId?`** — sidebar esquerda (lista de chats + botão "novo chat" + usuário atual no
+      rodapé) · painel de mensagens rolável · input fixo embaixo. Sem `chatId` na URL, cria um chat
+      novo no primeiro envio (não na montagem — senão cada refresh polui a sidebar com chat vazio)
+- [ ] Sidebar colapsável abaixo de ~768px (é o único ponto realmente responsivo do layout)
+
+### Animações (GSAP core + `useGSAP`)
+
+Regra transversal, sem exceção: tudo dentro de `gsap.matchMedia()` com a condição
+`reduceMotion: "(prefers-reduced-motion: reduce)"` → `duration: 0`. Acessibilidade não é o lugar de
+cortar. Um `mm` por componente, revertido pelo próprio `useGSAP` no unmount.
+
+- [ ] **Mensagem entrando** — `gsap.from` no nó recém-montado: `autoAlpha: 0, y: 12, scale: 0.98`,
+      `ease: "power2.out"`, ~0.35s. `useGSAP` com `scope` no container do histórico e
+      `dependencies: [mensagens.length]`. Usar `autoAlpha`, não `opacity` (o skill do GSAP é
+      explícito: `opacity: 0` deixa o nó invisível mas ainda clicável)
+- [ ] **Sidebar montando** — mesma tween com `stagger: 0.04`, `from: "start"`
+- [ ] **"Pensando"** — timeline `{ repeat: -1, yoyo: true }` em 3 pontos com `stagger`, guardando o
+      retorno pra `.kill()` quando a resposta chegar. É o equivalente web do `Pensando` /
+      `LoadingIndicator` que a TUI já tem (`interfaces/tui/display.py`) — mesma linguagem visual nas
+      duas interfaces, de graça
+- [ ] **Transição login → chat** — timeline curta (fade da lista + slide da sidebar entrando).
+      Disparada por clique, então o callback vai em `contextSafe` (do `useGSAP`), senão a tween
+      criada no handler fica fora do contexto e não é revertida
+- [ ] **Pendente até existir streaming: animação de "mandando"** (texto materializando token a
+      token). Depende do item "Endpoint de streaming (SSE ou WS)" da seção API. Enquanto não existir,
+      "mandando" e "pensando" são o mesmo estado — não inventar uma animação falsa de digitação sobre
+      uma resposta que já chegou inteira
+- [ ] Nunca `useEffect` + `gsap.context()` solto: `useGSAP` já faz revert no unmount, e misturar os
+      dois é o jeito clássico de vazar tween em nó desmontado
+
+### Deploy
+
+- [ ] **Dev:** `vite dev` com proxy de `/v1` e `/health` pra `http://localhost:8000` — mata CORS na
+      origem e deixa o item 5 dos gaps só como verificação de pré-deploy
+- [ ] **Prod — decidir:** (a) estático em Vercel/Cloudflare Pages, mantendo a API na FastAPI Cloud e
+      o CORS ligado; ou (b) `app.mount("/", StaticFiles(directory="web/dist", html=True))` no mesmo
+      app FastAPI — um deploy só, zero CORS, mas exige o `dist/` construído no build da FastAPI
+      Cloud, que hoje só roda `pyproject.toml`/`uv.lock` e não tem Node. (a) é o de menor atrito;
+      (b) só vale se o `dist/` for commitado ou o CI construir antes
+
+## Identidade visual e design system
+
+Estado atual — é pouco, mas existe e é consistente entre as duas interfaces:
+
+- Nome **Assessor.AI**, figlet `doom` (`interfaces/terminal/display.py:10`) e o mesmo ASCII no topo
+  do README
+- Cores: **cyan = assistente**, **verde = usuário**, cinza = neutro/logs — mesmo par no Rich
+  (`interfaces/terminal/display.py`) e no Textual (`interfaces/tui/app.tcss`)
+- `assets/` tem só `fluxo_agentes_v1.png` (diagrama de arquitetura) — não há logo, marca ou paleta
+  escrita em lugar nenhum
+
+- [ ] **Tokens num arquivo único** (`web/src/styles/tokens.css`), custom properties, dark-first —
+      herança de terminal e o uso real é tanto noturno quanto diurno. Escala mínima: `--bg`,
+      `--surface`, `--border`, `--text`, `--text-muted`, `--accent` (cyan/assistente),
+      `--accent-user` (verde), `--danger`. Light como override em
+      `@media (prefers-color-scheme: light)`, não obrigatório na V1
+- [ ] **Puxar o cyan/verde do terminal em vez de inventar paleta nova** — é a identidade que já
+      existe em duas interfaces e sai de graça; inventar uma terceira paleta só cria divergência
+- [ ] **Tipografia:** uma mono pros valores (é app financeiro, alinhamento de dígito importa,
+      `font-variant-numeric: tabular-nums`) + uma sans pro corpo. Duas famílias, não mais
+- [ ] **Contraste AA (4.5:1)** conferido antes de fixar os tokens — cyan puro passa sobre fundo
+      escuro e não passa sobre claro, então o tema light (se existir) precisa de um cyan próprio
+- [ ] Zero hex espalhado por componente — se um valor não está em `tokens.css`, não existe
+
+## Renomear o projeto — mapa de impacto antes de escolher o nome
+
+Intenção registrada: trocar `Assessor.AI` por um nome com identidade melhor. Escolher o nome pode ser
+a qualquer momento; **aplicar só depois do frontend**, porque é um rename em ~15 pontos que conflita
+com qualquer branch aberta.
+
+Onde o nome está hoje:
+
+- `pyproject.toml` — `name = "assessor-ai"`, `[project.scripts] assessor-ai = 'main:main'`,
+  `[tool.hatch.build.targets.wheel] packages`
+- `src/assessor_ai/` — o pacote em si, e portanto ~todo import do repo
+- `justfile` — `cmd := "assessor-ai"`
+- `interfaces/api/main.py` — `title="Assessor AI"` (aparece no `/docs` e no OpenAPI)
+- `interfaces/a2a/agents/card.py` — nome do `AgentCard` **e**
+  `importlib.metadata.version("assessor-ai")`, que quebra junto com o rename do pacote
+- `interfaces/terminal/display.py:10` (figlet) e o banner da TUI
+- README (ASCII + badges), `AGENTS.md`, `CLAUDE.md`, este `TODO.md`
+- Fora do repo: nome do repositório no GitHub (+ remote), app na FastAPI Cloud, projeto no LangSmith
+  (`LANGSMITH_PROJECT`)
+
+Não muda: nomes de collection do Mongo/Qdrant, tabelas do Postgres e env vars — nenhum carrega a
+marca.
+
+- [ ] Escolher o nome
+- [ ] Aplicar arquivo a arquivo (nada de `sed` — regra do AGENTS.md), em PR próprio, sem outra
+      mudança junto
+
 ## Backlog novo — a triar
 
 Levantado em 2026-08-20, ainda sem investigação. Cada item vira seção própria (ou entra na seção
@@ -688,7 +867,11 @@ existente correspondente) quando sair do "a triar".
       (4) `chat/service.py` é o único ponto por onde tudo passa: conferir se ainda cabe ou se
       começou a virar god module. Resultado esperado é uma decisão escrita (refatora / não refatora /
       refatora só X), não um refactor grande de uma vez — se der pra continuar sem mexer, melhor
-      ainda
+      ainda.
+      **Primeira decisão escrita (frontend):** o front vai em `web/` na raiz, fora de `interfaces/` —
+      a fronteira de pacote passa a ser a linguagem (Python: `config/`, `interfaces/`,
+      `src/assessor_ai/`; Node: `web/`), não a camada. Justificativa na seção "Frontend web" acima.
+      Os pontos (1), (2), (3) e (4) seguem em aberto
 - [ ] **Sessões ativas no Redis** — ver e gerenciar sessões ativas (listar, inspecionar, encerrar)
       usando o Redis que já é infra do projeto. Casa com o item pendente "Cache de sessão" da seção
       Redis acima
@@ -794,7 +977,10 @@ existente correspondente) quando sair do "a triar".
       depende de async
 - [ ] **Cache no Qdrant** — deixar a consulta do FAQ mais rápida (Redis na frente do retriever)
 - [ ] **MCP no lugar de tools** onde for melhor — provavelmente nas tools de consulta de dados
-- [ ] **Frontend** — só consome a API deployada; pegar o commit do deploy e exibir no front
+- [ ] **Frontend** — saiu do "a triar": virou a seção **"Frontend web (React + Vite + GSAP)"** acima,
+      com tecnologia escolhida, onde fica no projeto, os gaps de API que bloqueiam e o plano de
+      animação. "Pegar o commit do deploy e exibir no front" está lá como gap 6, amarrado ao item de
+      versão desencontrada
 - [x] **Dependabot** — `.github/dependabot.yml` com dois ecossistemas: `uv` (lê o `uv.lock`) e
       `github-actions` (o CI tem `actions/checkout@v4` e `setup-uv@v5` envelhecendo em silêncio).
       Mensal e agrupado porque são ~100 deps pinadas em `==`; major fica fora do grupo, em PR

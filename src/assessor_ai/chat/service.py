@@ -48,6 +48,14 @@ def obter_ou_criar_usuario(nome: str, email: str) -> str:
     return user_id
 
 
+def listar_usuarios() -> list[dict]:
+    return repositories.listar_usuarios()
+
+
+def listar_chats(user_id: str) -> list[dict]:
+    return repositories.listar_chats(user_id)
+
+
 def obter_usuario_padrao() -> str:
     """
     Reaproveita o primeiro usuário existente, ou cria um mock — mesmo bootstrap usado por
@@ -117,6 +125,8 @@ __all__ = [
     "garantir_usuario",
     "get_history",
     "iniciar_sessao",
+    "listar_chats",
+    "listar_usuarios",
     "obter_dono_chat",
     "obter_ou_criar_usuario",
     "obter_usuario_padrao",

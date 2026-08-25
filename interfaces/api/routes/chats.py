@@ -20,6 +20,7 @@ from interfaces.api.rate_limiting import limiter
 from interfaces.api.schemas.chat import (
     ChatCreateResponse,
     ChatMessageResponse,
+    ChatSummary,
     MessageCreate,
     MessageResponse,
     Role,
@@ -70,6 +71,31 @@ def create_chat(request: Request, user_id: str = Depends(get_current_user)):
 
     # retorna id do chat criado
     return ChatCreateResponse(chat_id=chat_id)
+
+
+def _titulo(chat: dict) -> str:
+    mensagens = chat.get("messages") or []
+
+    if mensagens and mensagens[0].get("role") == "human":
+        conteudo = mensagens[0]["content"]
+        return conteudo[:40] + "…" if len(conteudo) > 40 else conteudo
+
+    return "Nova conversa"
+
+
+@router.get("", response_model=list[ChatSummary])
+@limiter.limit("20/minute")
+def list_chats(request: Request, user_id: str = Depends(get_current_user)):
+    """
+    Lista os chats do usuário autenticado, mais recentes primeiro.
+    """
+
+    chats = chat_service.listar_chats(user_id)
+
+    return [
+        ChatSummary(chat_id=c["session_id"], title=_titulo(c), updated_at=c["updated_at"])
+        for c in chats
+    ]
 
 
 # Rota para enviar uma mensagem para um chat específico

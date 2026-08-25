@@ -82,8 +82,16 @@ def buscar_usuario_por_email(email: str) -> dict | None:
     return mongo_users.buscar_por_email(email)
 
 
+def listar_usuarios() -> list[dict]:
+    return mongo_users.listar()
+
+
 def criar_chat(user_id: str, session_id: str) -> None:
     chats.criar(user_id, session_id, [])
+
+
+def listar_chats(user_id: str) -> list[dict]:
+    return chats.listar_por_usuario(user_id)
 
 
 def buscar_dono_chat(session_id: str) -> str | None:
@@ -141,5 +149,7 @@ __all__ = [
     "criar_chat",
     "encerrar_sessao",
     "garantir_usuario",
+    "listar_chats",
+    "listar_usuarios",
     "salvar_mensagens",
 ]

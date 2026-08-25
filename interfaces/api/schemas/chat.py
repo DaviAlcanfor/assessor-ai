@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -24,3 +25,9 @@ class ChatCreateResponse(BaseModel):
 class ChatMessageResponse(BaseModel):
     chat_id: str
     content: str
+
+
+class ChatSummary(BaseModel):
+    chat_id: str
+    title: str
+    updated_at: datetime

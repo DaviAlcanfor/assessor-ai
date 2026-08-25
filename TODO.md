@@ -595,10 +595,12 @@ de dado entre usuários primeiro, robustez/infra por último) após o 500 em pro
       por uma função `fluxo_agentes()` com `@functools.cache` (stdlib), mesmo comportamento de
       singleton lazy sem a classe. Call site (`chat/runner.py`) virou `fluxo_agentes().invoke(...)`
 
-## Frontend web (React + Vite + GSAP) — planejado, nada iniciado
+## Frontend web (React + Vite + GSAP) — V1 implementada
 
-Interface web consumindo a API que já existe. Escopo da V1: login simples (escolher usuário do banco
-ou criar), tela de chat com sidebar de conversas e animação nas mensagens / no "pensando".
+Interface web consumindo a API que já existe, em `web/` (branch `feat/frontend-web`). Escopo da
+V1: login simples (escolher usuário do banco ou criar), tela de chat com sidebar de conversas e
+animação nas mensagens / no "pensando". Implementado ponta a ponta e testado contra o backend real
+(Mongo/Redis/LLM em nuvem) — falta só a decisão de deploy em produção (ver seção Deploy).
 
 ### Tecnologia escolhida
 
@@ -607,16 +609,26 @@ ou criar), tela de chat com sidebar de conversas e animação nas mensagens / no
   puro, que qualquer coisa serve — inclusive o próprio FastAPI (ver Deploy abaixo).
 - **GSAP core + `@gsap/react`** (`useGSAP`). Sem plugins — ScrollTrigger/Flip/SplitText são
   ferramenta de landing page, não de chat. Duas dependências, core ~23kb gz.
-- **`react-router`** — 2 rotas (`/login`, `/chat/:chatId?`). Considerado só um `useState` de tela
-  (mais barato), mas "poder entrar nesses chats" pede o `chat_id` na URL; router ganha por isso.
+- **`react-router`** — rotas `/login`, `/chat`, `/chat/:chatId` (duas rotas em vez de um segmento
+  opcional `:chatId?` — mais simples, sem depender de sintaxe específica de versão do router).
 - **Estado de servidor: `fetch` + `useState`.** Sem TanStack Query, sem Redux/Zustand — são ~5
   chamadas de API no app inteiro. Adicionar quando houver cache/invalidação de verdade pra gerenciar.
-- **Estilo: CSS Modules + custom properties.** Sem Tailwind (mais uma toolchain), sem lib de
-  componentes. Ver seção "Identidade visual e design system" abaixo.
-- **ReactBits como referência copy-paste** (`npx jsrepo add https://reactbits.dev/<variant>/...`),
-  nunca como dependência. **Atenção:** boa parte dos componentes de texto de lá usa `motion`
-  (framer-motion), não GSAP — só trazer os que já são GSAP, ou portar. Duas libs de animação no
-  mesmo bundle é exatamente o peso que esse plano quer evitar.
+- **Estilo: Tailwind CSS v4 + tokens do design system da Kobana** (`github.com/universokobana/
+  kobana-ui`) — **mudou em relação à decisão original deste TODO** ("CSS Modules, sem Tailwind, sem
+  lib de componentes"). O pedido explícito de usar o design system da Kobana implica Tailwind, já
+  que o Kobana UI é construído sobre shadcn/ui + Tailwind. Investigado: o pacote (`@kobana/ui`, MIT,
+  público no npm) não tem primitivos (Button/Input/Card) no próprio repo — só composites de
+  back-office (DataTable, FilterBar...) que não servem pra chat — e é consumido via CLI interna que
+  copia arquivos, arriscado rodar sem supervisão num agente não-interativo. Decisão: extrair os
+  tokens reais do repo (`src/tokens/colors.ts`, `web/styles/underlith.tokens.css` — cores de marca
+  `lime #D3FD54` / `black` / `white #FDFDFB` / `gray #676767` / `purple #A630DA`, tipografia Work
+  Sans + Syne, radius `0.5rem`) e montar primitivos shadcn-style à mão (`web/src/components/ui/`)
+  em cima deles, sem depender da CLI. **Isso também substitui o par cyan/verde do terminal/TUI**
+  (ver seção Identidade visual abaixo) — a paleta da Kobana não tem essas cores: lime passou a ser
+  a cor do assistente, purple a do usuário.
+- **`web/src/components/ui/`** — Button/Input/Card feitos à mão com Tailwind + os tokens acima.
+  Sem Radix/cva — poucos componentes, variant via mapa de classes simples (`clsx` +
+  `tailwind-merge`, padrão shadcn de merge de classe).
 
 ### Onde fica no projeto
 
@@ -631,20 +643,22 @@ Isso responde diretamente o item **"Avaliar a estrutura antes de continuar adici
 que pediu essa decisão antes de mais um pacote entrar: a divisão vira `config/` + `interfaces/` +
 `src/assessor_ai/` (Python) e `web/` (Node), com a fronteira sendo a linguagem, não a camada.
 
-- [ ] `.gitignore`: `web/node_modules/`, `web/dist/`
-- [ ] `.fastapicloudignore`: `web/` (a menos que se escolha o deploy (b) abaixo)
-- [ ] `ruff` não olha `.ts`/`.tsx`, então `just check` não muda; `just test` idem. Se um dia houver
-      teste de front, é um comando separado (`just test-web`), não dentro do `pytest`
+- [x] `.gitignore`: `web/node_modules/`, `web/dist/`
+- [x] `.fastapicloudignore`: `web/`
+- [x] `ruff` não olha `.ts`/`.tsx`, então `just check` não muda; `just test` idem. Verificação do
+      frontend é `npm run build` (TypeScript + Vite) dentro de `web/`; `just web` sobe o dev server
 
-### Gaps da API — bloqueadores, resolver antes do front
+### Gaps da API — bloqueadores, resolvidos antes do front
 
-1. - [ ] **`GET /v1/chats` não existe** — a sidebar não tem de onde listar conversas. Precisa de
+1. - [x] **`GET /v1/chats` não existe** — a sidebar não tem de onde listar conversas. Precisa de
      `listar_por_usuario(user_id)` em `tools/mongo/chats/core.py` (`find({"user_id": ...})`, projeção
      **sem** `messages`, sort por `updated_at` desc, cap ~50) + `repositories` + `service` + rota +
      schema. **Não existe campo de título** no `ChatDocument` — derivar do primeiro `content` de role
      `human` (truncado em ~40 chars), sem coluna nova. Chat vazio (criado e nunca usado) vira
-     "Nova conversa".
-2. - [ ] **A tela de login não funciona com o desenho de auth atual.** Com
+     "Nova conversa". **Implementado:** `listar_por_usuario` usa `{"messages": {"$slice": 1}}` na
+     projeção (só a primeira mensagem, sempre `human` quando o chat não está vazio) em vez de omitir
+     `messages` por completo — precisa dela pro título, mas sem carregar o histórico inteiro.
+2. - [x] **A tela de login não funciona com o desenho de auth atual.** Com
      `API_KEY_AUTH_ENABLED=false`, `get_current_user` (`interfaces/api/auth.py:15`) devolve sempre
      `obter_usuario_padrao()` — o *primeiro* usuário do Mongo, ignorando qualquer escolha do cliente.
      Com a flag `true`, o caminho seria `POST /v1/keys`, mas ele responde `409` quando o usuário já
@@ -654,15 +668,19 @@ que pediu essa decisão antes de mais um pacote entrar: a divisão vira `config/
      `X-User-Id` e só cai no `obter_usuario_padrao()` se ele faltar. ~4 linhas, sem tocar no caminho
      de API key, que continua inteiro e testado. `ponytail:` isso é bypass de auth deliberado — só
      vale enquanto `API_KEY_AUTH_ENABLED=false`; o caminho real é reativar a API key junto com um
-     endpoint de reemissão/revogação (ver "Hash de API key sem salt e sem rotação", seção Segurança)
-3. - [ ] **`GET /v1/users` não existe** — a tela de login precisa listar pra escolher/sortear.
+     endpoint de reemissão/revogação (ver "Hash de API key sem salt e sem rotação", seção Segurança).
+     **Implementado** exatamente como descrito, em `interfaces/api/auth.py:get_current_user`.
+3. - [x] **`GET /v1/users` não existe** — a tela de login precisa listar pra escolher/sortear.
      `mongo/users/core.py:listar()` (`find({}, {"user_id": 1, "nome": 1, "email": 1})`, cap ~50) +
      rota. Só faz sentido em modo dev — gatear pela mesma flag do item 2 (`404` quando a auth por
-     API key estiver ligada), senão é enumeração de usuários exposta
-4. - [ ] **Criar usuário pelo front** — `POST /v1/keys` já resolve por dentro
+     API key estiver ligada), senão é enumeração de usuários exposta. **Implementado** em
+     `interfaces/api/routes/users.py` (`GET /v1/users`).
+4. - [x] **Criar usuário pelo front** — `POST /v1/keys` já resolve por dentro
      (`chat_service.obter_ou_criar_usuario`), mas exige `X-Signup-Secret` e devolve uma API key que o
      modo dev não usa. Um `POST /v1/users` (nome+email → `obter_ou_criar_usuario` → `user_id`), sob a
-     mesma flag dos itens 2 e 3, é mais direto que fazer o front carregar o signup secret
+     mesma flag dos itens 2 e 3, é mais direto que fazer o front carregar o signup secret.
+     **Implementado** (`interfaces/api/routes/users.py:create_user`) — reaproveita
+     `chat_service.obter_ou_criar_usuario` já existente, sem endpoint novo de repositório.
 5. - [ ] **CORS na prática** — `SecurityConfig` (`interfaces/api/main.py:28`) já tem
      `cors_allow_origins=["*"]` e `cors_allow_methods=["GET", "POST"]`. Falta conferir preflight real
      de browser passando pelo `SecurityMiddleware` do fastapi-guard, que roda `ip_security` antes
@@ -679,14 +697,15 @@ que pediu essa decisão antes de mais um pacote entrar: a divisão vira `config/
 
 ### Telas
 
-- [ ] **`/login`** — grid de cards com os usuários do banco, botão "entrar com um aleatório" e um
-      form curto "criar novo" (nome + email). Guarda `user_id` no `localStorage` e manda em
-      `X-User-Id`. Sem senha, sem sessão — é tela de teste, e o nome do arquivo/rota deve deixar isso
-      óbvio pra ninguém confundir com login de verdade depois
-- [ ] **`/chat/:chatId?`** — sidebar esquerda (lista de chats + botão "novo chat" + usuário atual no
-      rodapé) · painel de mensagens rolável · input fixo embaixo. Sem `chatId` na URL, cria um chat
-      novo no primeiro envio (não na montagem — senão cada refresh polui a sidebar com chat vazio)
-- [ ] Sidebar colapsável abaixo de ~768px (é o único ponto realmente responsivo do layout)
+- [x] **`/login`** (`web/src/pages/login-page.tsx`) — grid de cards com os usuários do banco, botão
+      "entrar com um aleatório" e um form curto "criar novo" (nome + email). Guarda `user_id` no
+      `localStorage` (versionado, `assessor-ai:user:v1`) e manda em `X-User-Id`. Sem senha, sem
+      sessão — é tela de teste, comentário no topo do arquivo deixa isso explícito
+- [x] **`/chat` e `/chat/:chatId`** (`web/src/pages/chat-page.tsx`) — duas rotas em vez do segmento
+      opcional `:chatId?` do plano original (ver "Tecnologia escolhida"). Sidebar esquerda (lista de
+      chats + botão "novo chat" + usuário atual no rodapé) · painel de mensagens rolável · input
+      fixo embaixo. Sem `chatId` na URL, cria o chat no primeiro envio (não na montagem)
+- [ ] Sidebar colapsável abaixo de ~768px — **não entrou na V1**, layout só desktop por ora
 
 ### Animações (GSAP core + `useGSAP`)
 
@@ -694,58 +713,72 @@ Regra transversal, sem exceção: tudo dentro de `gsap.matchMedia()` com a condi
 `reduceMotion: "(prefers-reduced-motion: reduce)"` → `duration: 0`. Acessibilidade não é o lugar de
 cortar. Um `mm` por componente, revertido pelo próprio `useGSAP` no unmount.
 
-- [ ] **Mensagem entrando** — `gsap.from` no nó recém-montado: `autoAlpha: 0, y: 12, scale: 0.98`,
-      `ease: "power2.out"`, ~0.35s. `useGSAP` com `scope` no container do histórico e
-      `dependencies: [mensagens.length]`. Usar `autoAlpha`, não `opacity` (o skill do GSAP é
-      explícito: `opacity: 0` deixa o nó invisível mas ainda clicável)
-- [ ] **Sidebar montando** — mesma tween com `stagger: 0.04`, `from: "start"`
-- [ ] **"Pensando"** — timeline `{ repeat: -1, yoyo: true }` em 3 pontos com `stagger`, guardando o
-      retorno pra `.kill()` quando a resposta chegar. É o equivalente web do `Pensando` /
-      `LoadingIndicator` que a TUI já tem (`interfaces/tui/display.py`) — mesma linguagem visual nas
-      duas interfaces, de graça
-- [ ] **Transição login → chat** — timeline curta (fade da lista + slide da sidebar entrando).
-      Disparada por clique, então o callback vai em `contextSafe` (do `useGSAP`), senão a tween
-      criada no handler fica fora do contexto e não é revertida
+- [x] **Mensagem entrando** (`components/chat/message-list.tsx`) — `gsap.from` no nó recém-montado:
+      `autoAlpha: 0, y: 12, scale: 0.98`, `ease: "power2.out"`, ~0.35s. `useGSAP` com `scope` no
+      container do histórico e `dependencies: [mensagens.length]`. `autoAlpha`, não `opacity`
+- [x] **Sidebar montando** (`components/sidebar/sidebar.tsx`) — mesma tween com `stagger: 0.04`
+- [x] **"Pensando"** (`components/chat/thinking-dots.tsx`) — timeline `{ repeat: -1, yoyo: true }`
+      em 3 pontos com `stagger`. **Diferença do plano original:** em vez de guardar o retorno pra
+      `.kill()` manual, o componente só existe enquanto `pensando === true`
+      (`{pensando && <ThinkingDots />}` em `message-list.tsx`) — o `useGSAP` já reverte/mata a tween
+      sozinho no unmount, então desmontar o componente quando a resposta chega já limpa tudo, sem
+      guardar timeline numa ref à parte
+- [x] **Transição login → chat** (`pages/login-page.tsx`) — fade da tela inteira no clique de
+      "Entrar", callback em `contextSafe` (do `useGSAP`), `onComplete` navega pra `/chat`
 - [ ] **Pendente até existir streaming: animação de "mandando"** (texto materializando token a
       token). Depende do item "Endpoint de streaming (SSE ou WS)" da seção API. Enquanto não existir,
       "mandando" e "pensando" são o mesmo estado — não inventar uma animação falsa de digitação sobre
       uma resposta que já chegou inteira
-- [ ] Nunca `useEffect` + `gsap.context()` solto: `useGSAP` já faz revert no unmount, e misturar os
-      dois é o jeito clássico de vazar tween em nó desmontado
+- [x] Nunca `useEffect` + `gsap.context()` solto — todo componente animado usa só `useGSAP`
 
 ### Deploy
 
-- [ ] **Dev:** `vite dev` com proxy de `/v1` e `/health` pra `http://localhost:8000` — mata CORS na
-      origem e deixa o item 5 dos gaps só como verificação de pré-deploy
+- [x] **Dev:** `vite dev` com proxy de `/v1` e `/health` pra `http://localhost:8000` — mata CORS na
+      origem e deixa o item 5 dos gaps só como verificação de pré-deploy. `just web` sobe o dev
+      server (`justfile`)
 - [ ] **Prod — decidir:** (a) estático em Vercel/Cloudflare Pages, mantendo a API na FastAPI Cloud e
       o CORS ligado; ou (b) `app.mount("/", StaticFiles(directory="web/dist", html=True))` no mesmo
       app FastAPI — um deploy só, zero CORS, mas exige o `dist/` construído no build da FastAPI
       Cloud, que hoje só roda `pyproject.toml`/`uv.lock` e não tem Node. (a) é o de menor atrito;
       (b) só vale se o `dist/` for commitado ou o CI construir antes
 
+**Achado de ambiente (Windows):** `npm run <script>` quebra nesta máquina porque o caminho do
+projeto tem `&` (`...Instituto J&F\...`) — o shim `.bin/vite`/`.bin/tsc` (ou `npx`) calcula o próprio
+diretório via `dirname`/`cygpath` e trunca o path no `&`, resultando em
+`Cannot find module 'C:\Users\...\vite\bin\vite.js'`. Reproduz em PowerShell e Git Bash igual,
+porque o `npm run` do Windows sempre passa pelo `cmd.exe` internamente. **Corrigido** nos scripts de
+`web/package.json` (`dev`/`build`/`preview`) chamando `node node_modules/<pkg>/bin/...` direto, sem
+passar pelos shims — verificado funcionando nos dois shells.
+
 ## Identidade visual e design system
 
-Estado atual — é pouco, mas existe e é consistente entre as duas interfaces:
+Estado atual — o terminal/TUI mantêm a paleta antiga (cyan/verde); o frontend web adotou o design
+system da Kobana (`github.com/universokobana/kobana-ui`) a pedido explícito, então as duas paletas
+convivem por ora (ver `web/src/styles/tokens.css`) — não houve tentativa de unificar terminal/TUI/web
+numa paleta só nesta entrega.
 
 - Nome **Assessor.AI**, figlet `doom` (`interfaces/terminal/display.py:10`) e o mesmo ASCII no topo
   do README
-- Cores: **cyan = assistente**, **verde = usuário**, cinza = neutro/logs — mesmo par no Rich
-  (`interfaces/terminal/display.py`) e no Textual (`interfaces/tui/app.tcss`)
+- Terminal/TUI: **cyan = assistente**, **verde = usuário**, cinza = neutro/logs — mesmo par no Rich
+  (`interfaces/terminal/display.py`) e no Textual (`interfaces/tui/app.tcss`). Inalterado.
+- **Web:** paleta da Kobana — `lime #D3FD54` = assistente, `purple #A630DA` = usuário, `black`/
+  `white #FDFDFB`/`gray #676767` como neutros; tipografia Work Sans (corpo) + Syne (headings/
+  números); radius base `0.5rem`. Tokens extraídos de `src/tokens/colors.ts` e
+  `web/styles/underlith.tokens.css` do repo da Kobana, copiados pra `web/src/styles/tokens.css` e
+  mapeados pro Tailwind via `@theme inline` em `web/src/styles/index.css`
 - `assets/` tem só `fluxo_agentes_v1.png` (diagrama de arquitetura) — não há logo, marca ou paleta
-  escrita em lugar nenhum
+  escrita em lugar nenhum fora do código
 
-- [ ] **Tokens num arquivo único** (`web/src/styles/tokens.css`), custom properties, dark-first —
-      herança de terminal e o uso real é tanto noturno quanto diurno. Escala mínima: `--bg`,
-      `--surface`, `--border`, `--text`, `--text-muted`, `--accent` (cyan/assistente),
-      `--accent-user` (verde), `--danger`. Light como override em
-      `@media (prefers-color-scheme: light)`, não obrigatório na V1
-- [ ] **Puxar o cyan/verde do terminal em vez de inventar paleta nova** — é a identidade que já
-      existe em duas interfaces e sai de graça; inventar uma terceira paleta só cria divergência
-- [ ] **Tipografia:** uma mono pros valores (é app financeiro, alinhamento de dígito importa,
-      `font-variant-numeric: tabular-nums`) + uma sans pro corpo. Duas famílias, não mais
-- [ ] **Contraste AA (4.5:1)** conferido antes de fixar os tokens — cyan puro passa sobre fundo
-      escuro e não passa sobre claro, então o tema light (se existir) precisa de um cyan próprio
-- [ ] Zero hex espalhado por componente — se um valor não está em `tokens.css`, não existe
+- [x] **Tokens num arquivo único** (`web/src/styles/tokens.css`) — custom properties da Kobana,
+      light por padrão (é o default deles) com override em `@media (prefers-color-scheme: dark)`
+      (mais simples que um toggle com classe, sem JS de tema na V1)
+- [x] **Tipografia:** Work Sans (corpo/UI) + Syne (`font-display`, headings/números) — `body` já
+      usa `font-variant-numeric: tabular-nums` (`index.css`), importante pro app financeiro
+- [ ] **Contraste AA (4.5:1)** não conferido formalmente nesta entrega — os tokens vêm direto do
+      repo da Kobana (já pensados como design system de produção), mas não houve checagem própria
+      de contraste pros pares específicos usados aqui (ex. texto sobre `bg-primary`/lime)
+- [x] Zero hex espalhado por componente — todo componente usa classes Tailwind resolvidas a partir
+      de `tokens.css`, nenhum valor de cor hardcoded em `.tsx`
 
 ## Renomear o projeto — mapa de impacto antes de escolher o nome
 

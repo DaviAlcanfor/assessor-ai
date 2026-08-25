@@ -24,3 +24,6 @@ CLAUDE.md
 TODO.md
 LICENSE
 assets/
+
+# Frontend (web/) — projeto Node separado, não faz parte do build da API (ver TODO.md)
+web/

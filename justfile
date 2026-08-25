@@ -14,6 +14,10 @@ run mode="terminal":
     @echo "Running the application"
     {{cmd}} {{mode}}
 
+web:
+    @echo "Running the frontend dev server (proxy pra API em localhost:8000)"
+    cd web; npm run dev
+
 check:
     @echo "Running pre-commit checks"
     ruff check

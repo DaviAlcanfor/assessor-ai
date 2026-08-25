@@ -14,6 +14,10 @@ run mode="terminal":
     @echo "Running the application"
     {{cmd}} {{mode}}
 
+api:
+    @echo "Running the API locally (localhost:8000)"
+    just run api
+
 web:
     @echo "Running the frontend dev server (proxy pra API em localhost:8000)"
     cd web; npm run dev

@@ -15,8 +15,8 @@ run mode="terminal":
     {{cmd}} {{mode}}
 
 api:
-    @echo "Running the API locally (localhost:8000)"
-    just run api
+    @echo "Running the API locally (localhost:8000, auth por API key desligada — pareia com just web)"
+    $env:API_KEY_AUTH_ENABLED = "false"; just run api
 
 web:
     @echo "Running the frontend dev server (proxy pra API em localhost:8000)"

@@ -22,6 +22,17 @@ def criar(user_id: str, session_id: str, mensagens: list[Mensagem]) -> None:
     collection.insert_one(document.model_dump())
 
 
+def listar_por_usuario(user_id: str, limit: int = 50) -> list[dict]:
+    logger.info(f"Listando chats para user_id: {user_id}")
+
+    cursor = (
+        collection.find({"user_id": user_id}, {"messages": {"$slice": 1}})
+        .sort("updated_at", -1)
+        .limit(limit)
+    )
+    return list(cursor)
+
+
 def buscar(session_id: str, limit: int = 5, user_id: str | None = None) -> dict | None:
     logger.info(f"Buscando histórico de mensagens para session_id: {session_id} (limit={limit})")
 

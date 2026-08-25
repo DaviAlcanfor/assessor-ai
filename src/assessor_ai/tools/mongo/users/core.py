@@ -41,6 +41,14 @@ def buscar_algum() -> dict | None:
     return collection.find_one()
 
 
+def listar(limit: int = 50) -> list[dict]:
+    logger.info("Listando usuários")
+
+    return list(
+        collection.find({}, {"_id": 0, "user_id": 1, "nome": 1, "email": 1}).limit(limit)
+    )
+
+
 def atualizar_perfil(user_id: str, perfil: str) -> None:
     logger.info(f"Atualizando perfil para user_id: {user_id}")
 

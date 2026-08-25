@@ -163,3 +163,74 @@ def test_get_messages_sem_historico_retorna_lista_vazia(client, monkeypatch):
 
     assert resposta.status_code == 200
     assert resposta.json() == []
+
+
+def test_list_chats_deriva_titulo_da_primeira_mensagem_humana(client, monkeypatch):
+    _autenticar_como("user-1")
+    monkeypatch.setattr(
+        chat_service,
+        "listar_chats",
+        lambda user_id: [
+            {
+                "session_id": "chat-1",
+                "updated_at": "2026-08-25T12:00:00+00:00",
+                "messages": [{"role": "human", "content": "quanto eu gastei esse mês?"}],
+            }
+        ],
+    )
+
+    resposta = client.get("/v1/chats", headers=HEADERS)
+
+    assert resposta.status_code == 200
+    assert resposta.json() == [
+        {
+            "chat_id": "chat-1",
+            "title": "quanto eu gastei esse mês?",
+            "updated_at": "2026-08-25T12:00:00Z",
+        }
+    ]
+
+
+def test_list_chats_trunca_titulo_longo(client, monkeypatch):
+    _autenticar_como("user-1")
+    texto = "a" * 60
+    monkeypatch.setattr(
+        chat_service,
+        "listar_chats",
+        lambda user_id: [
+            {
+                "session_id": "chat-1",
+                "updated_at": "2026-08-25T12:00:00+00:00",
+                "messages": [{"role": "human", "content": texto}],
+            }
+        ],
+    )
+
+    resposta = client.get("/v1/chats", headers=HEADERS)
+
+    assert resposta.json()[0]["title"] == texto[:40] + "…"
+
+
+def test_list_chats_sem_mensagens_vira_nova_conversa(client, monkeypatch):
+    _autenticar_como("user-1")
+    monkeypatch.setattr(
+        chat_service,
+        "listar_chats",
+        lambda user_id: [
+            {"session_id": "chat-1", "updated_at": "2026-08-25T12:00:00+00:00", "messages": []}
+        ],
+    )
+
+    resposta = client.get("/v1/chats", headers=HEADERS)
+
+    assert resposta.json()[0]["title"] == "Nova conversa"
+
+
+def test_list_chats_vazio(client, monkeypatch):
+    _autenticar_como("user-1")
+    monkeypatch.setattr(chat_service, "listar_chats", lambda user_id: [])
+
+    resposta = client.get("/v1/chats", headers=HEADERS)
+
+    assert resposta.status_code == 200
+    assert resposta.json() == []

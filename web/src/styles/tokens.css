@@ -1,0 +1,75 @@
+/**
+ * Tokens do design system da Kobana (github.com/universokobana/kobana-ui), extraídos de
+ * src/tokens/colors.ts e web/styles/underlith.tokens.css do repo. Cores de marca e radius
+ * copiados verbatim; --ul-primary/--ul-accent adaptados pro Assessor.AI: lime = assistente,
+ * purple = usuário (a paleta da Kobana não tem cyan/verde, que era a identidade antiga do
+ * terminal/TUI — ver TODO.md).
+ */
+
+:root {
+  --ul-kobana-lime: 73 99% 66%;
+  --ul-kobana-black: 0 0% 0%;
+  --ul-kobana-white: 60 20% 99%;
+  --ul-kobana-gray: 0 0% 40%;
+  --ul-kobana-purple: 285 75% 52%;
+
+  --ul-font-sans: "Work Sans", sans-serif;
+  --ul-font-display: "Syne", sans-serif;
+
+  --ul-radius: 0.5rem;
+  --ul-radius-sm: calc(var(--ul-radius) - 4px);
+  --ul-radius-md: calc(var(--ul-radius) - 2px);
+  --ul-radius-lg: var(--ul-radius);
+  --ul-radius-xl: calc(var(--ul-radius) + 4px);
+
+  --ul-status-success: oklch(0.3 0.13 145);
+  --ul-status-success-bg: oklch(0.98 0.03 145);
+  --ul-status-warning: oklch(0.4 0.12 75);
+  --ul-status-warning-bg: oklch(0.97 0.04 75);
+  --ul-status-error: oklch(0.4 0.16 25);
+  --ul-status-error-bg: oklch(0.97 0.04 25);
+  --ul-status-info: oklch(0.4 0.13 240);
+  --ul-status-info-bg: oklch(0.97 0.04 240);
+
+  --ul-background: oklch(1 0 0);
+  --ul-foreground: oklch(0.145 0 0);
+  --ul-card: oklch(1 0 0);
+  --ul-card-foreground: oklch(0.145 0 0);
+  --ul-popover: oklch(1 0 0);
+  --ul-popover-foreground: oklch(0.145 0 0);
+  --ul-primary: hsl(var(--ul-kobana-lime));
+  --ul-primary-foreground: hsl(var(--ul-kobana-black));
+  --ul-secondary: oklch(0.97 0 0);
+  --ul-secondary-foreground: oklch(0.205 0 0);
+  --ul-muted: oklch(0.97 0 0);
+  --ul-muted-foreground: oklch(0.556 0 0);
+  --ul-accent: hsl(var(--ul-kobana-purple));
+  --ul-accent-foreground: oklch(0.985 0 0);
+  --ul-destructive: var(--ul-status-error);
+  --ul-border: oklch(0.922 0 0);
+  --ul-input: oklch(0.922 0 0);
+  --ul-ring: hsl(var(--ul-kobana-lime));
+  --ul-sidebar-background: oklch(0.985 0 0);
+  --ul-sidebar-foreground: oklch(0.145 0 0);
+  --ul-sidebar-border: oklch(0.922 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ul-background: oklch(0.145 0 0);
+    --ul-foreground: oklch(0.985 0 0);
+    --ul-card: oklch(0.19 0 0);
+    --ul-card-foreground: oklch(0.985 0 0);
+    --ul-popover: oklch(0.19 0 0);
+    --ul-popover-foreground: oklch(0.985 0 0);
+    --ul-secondary: oklch(0.269 0 0);
+    --ul-secondary-foreground: oklch(0.985 0 0);
+    --ul-muted: oklch(0.269 0 0);
+    --ul-muted-foreground: oklch(0.708 0 0);
+    --ul-border: oklch(0.269 0 0);
+    --ul-input: oklch(0.269 0 0);
+    --ul-sidebar-background: oklch(0.205 0 0);
+    --ul-sidebar-foreground: oklch(0.985 0 0);
+    --ul-sidebar-border: oklch(0.269 0 0);
+  }
+}

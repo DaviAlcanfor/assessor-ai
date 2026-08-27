@@ -6,11 +6,11 @@ venv:
     @echo "Preparing python environment"
     python -m venv .venv
 
-dev mode="terminal":
+dev mode="tui":
     @echo "Getting environment variables / infisical"
     infisical run -- {{cmd}} {{mode}}
 
-run mode="terminal":
+run mode="tui":
     @echo "Running the application"
     {{cmd}} {{mode}}
 

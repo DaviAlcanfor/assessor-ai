@@ -1,11 +1,6 @@
-import os
-from functools import cache
+import asyncio
 
-os.environ["LANGGRAPH_ALLOWED_MSGPACK_MODULES"] = (
-    "agents.nodes.names,graph.state"
-)
-
-from langgraph.checkpoint.mongodb import MongoDBSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
 
 from assessor_ai.agents.nodes import (
@@ -19,7 +14,7 @@ from assessor_ai.agents.nodes import (
 )
 from assessor_ai.agents.nodes.names import NodeName
 from assessor_ai.graph.state import Estado, Route
-from assessor_ai.tools.mongo.connection import banco
+from assessor_ai.tools.postgres.connection import get_checkpointer_pool
 
 
 def decidir_apos_guardrail_entrada(estado: Estado) -> str:
@@ -75,20 +70,33 @@ grafo.add_edge(NodeName.FAQ,          NodeName.GUARDRAIL_SAIDA)
 grafo.add_edge(NodeName.GUARDRAIL_SAIDA, END)
 
 
-@cache
-def fluxo_agentes():
+_fluxo = None
+_lock = asyncio.Lock()
+
+
+async def fluxo_agentes():
     """
-    Adia a conexão com o Mongo (MongoDBSaver cria índices no __init__) para o
-    primeiro uso real, em vez de acontecer no import do pacote. @cache garante
-    que só compila uma vez (mesma coisa que o singleton manual fazia).
+    Adia a conexão com o Postgres e o `setup()` do checkpointer (que cria as tabelas
+    `checkpoints`/`checkpoint_blobs`/`checkpoint_writes`/`checkpoint_migrations`) para o primeiro
+    uso real, em vez de acontecer no import do pacote. O lock faz o papel do cache que existia
+    aqui quando isso era síncrono: sem ele, dois requests concorrentes no primeiro uso abririam
+    dois pools e rodariam `setup()` duas vezes.
+
+    `AsyncPostgresSaver` (e não o `PostgresSaver` síncrono) porque os nós são async e chamam
+    `ainvoke` — o saver síncrono não implementa `aget_tuple`/`aput` e estoura NotImplementedError.
+    Não usar `from_conn_string()`: é context manager e fecha a conexão na saída do `with`, o que
+    morre no primeiro uso num app de vida longa.
     """
-    checkpointer = MongoDBSaver(
-        banco.client,
-        db_name=banco.name,
-        checkpoint_collection_name="graph_checkpoints",
-        writes_collection_name="graph_checkpoint_writes",
-    )
-    return grafo.compile(checkpointer=checkpointer)
+
+    global _fluxo
+
+    async with _lock:
+        if _fluxo is None:
+            checkpointer = AsyncPostgresSaver(await get_checkpointer_pool())
+            await checkpointer.setup()
+            _fluxo = grafo.compile(checkpointer=checkpointer)
+
+    return _fluxo
 
 
 __all__ = ["fluxo_agentes"]

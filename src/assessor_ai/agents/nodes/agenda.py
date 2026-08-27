@@ -4,15 +4,15 @@ from assessor_ai.graph.agents import agenda_app
 from assessor_ai.graph.state import Estado
 
 
-def no_agenda(estado: Estado) -> dict:
+async def no_agenda(estado: Estado) -> dict:
 
-    saida = agenda_app.invoke({"messages": mensagens_com_contexto(estado)})
+    saida = await agenda_app.ainvoke({"messages": mensagens_com_contexto(estado)})
     resposta = saida["messages"][-1].content
 
     return {
-        "agentes_chamados":    [NodeName.AGENDA],
+        "agentes_chamados":      [NodeName.AGENDA],
         "resposta_especialista": resposta,
     }
-    
+
 
 __all__ = ['no_agenda']

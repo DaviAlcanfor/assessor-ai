@@ -15,7 +15,7 @@ from interfaces.api.routes import chats_router, health_router, keys_router, user
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
-    dispose_engine()
+    await dispose_engine()
 
 
 app = FastAPI(

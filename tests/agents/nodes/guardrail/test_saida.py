@@ -49,7 +49,7 @@ def test_redigir_pii_sem_pii_mantem_texto_intacto():
     assert resultado == "sua conta está no limite"
 
 
-def test_guardrail_saida_nao_repassa_resposta_sem_compliance_revisar(monkeypatch):
+async def test_guardrail_saida_nao_repassa_resposta_sem_compliance_revisar(monkeypatch):
     """Se o LLM de compliance nunca segue o formato esperado (ex.: tenta driblar a
     revisão), a resposta original não pode vazar sem revisão — precisa cair no
     fallback seguro em vez de confiar cegamente no texto não revisado."""
@@ -60,31 +60,31 @@ def test_guardrail_saida_nao_repassa_resposta_sem_compliance_revisar(monkeypatch
         content = "desculpa, não vou seguir esse formato"
 
     class _LLMFake:
-        def invoke(self, *_args, **_kwargs):
+        async def ainvoke(self, *_args, **_kwargs):
             return _RespostaSemFormato()
 
     monkeypatch.setattr(
         "assessor_ai.agents.nodes.guardrail.saida.llm_rapido", _LLMFake()
     )
 
-    resultado = guardrail_saida(resposta_arriscada, mapa_pii={})
+    resultado = await guardrail_saida(resposta_arriscada, mapa_pii={})
 
     assert resultado["conteudo"] == _FALLBACK_COMPLIANCE
     assert resposta_arriscada not in resultado["conteudo"]
 
 
-def test_guardrail_saida_usa_resposta_revisada_quando_formato_ok(monkeypatch):
+async def test_guardrail_saida_usa_resposta_revisada_quando_formato_ok(monkeypatch):
     class _RespostaComFormato:
         content = "STATUS: CORRIGIDO\nRESPOSTA:\ntexto revisado e seguro"
 
     class _LLMFake:
-        def invoke(self, *_args, **_kwargs):
+        async def ainvoke(self, *_args, **_kwargs):
             return _RespostaComFormato()
 
     monkeypatch.setattr(
         "assessor_ai.agents.nodes.guardrail.saida.llm_rapido", _LLMFake()
     )
 
-    resultado = guardrail_saida("resposta original", mapa_pii={})
+    resultado = await guardrail_saida("resposta original", mapa_pii={})
 
     assert resultado["conteudo"] == "texto revisado e seguro"

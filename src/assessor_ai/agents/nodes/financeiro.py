@@ -4,9 +4,9 @@ from assessor_ai.graph.agents import financeiro_app
 from assessor_ai.graph.state import Estado
 
 
-def no_financeiro(estado: Estado) -> dict:
+async def no_financeiro(estado: Estado) -> dict:
 
-    saida = financeiro_app.invoke({"messages": mensagens_com_contexto(estado)})
+    saida = await financeiro_app.ainvoke({"messages": mensagens_com_contexto(estado)})
     resposta = saida["messages"][-1].content
 
     return {

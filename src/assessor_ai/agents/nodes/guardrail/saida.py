@@ -6,12 +6,14 @@ from assessor_ai.agents.nodes.guardrail.schemas import (
     ResultadoGuardrail,
 )
 from assessor_ai.agents.nodes.names import NodeName
-from assessor_ai.agents.prompts.guardrail import GuardrailPrompts
+from assessor_ai.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_rapido
 from assessor_ai.graph.state import Estado
 from config.logging import get_logger
 
 logger = get_logger(__name__)
+
+_GUARDRAIL = load_sections("guardrail")
 
 def _saida_ok(conteudo: str) -> ResultadoGuardrail:
     return ResultadoGuardrail(
@@ -55,10 +57,11 @@ _FALLBACK_COMPLIANCE = (
 )
 
 
-def _revisar_compliance(resposta: str) -> str | None:
-    saida = llm_rapido.invoke(
-        GuardrailPrompts.COMPLIANCE.format(resposta=resposta)
-    ).content.strip()
+async def _revisar_compliance(resposta: str) -> str | None:
+    revisao = await llm_rapido.ainvoke(
+        _GUARDRAIL["compliance"].format(resposta=resposta)
+    )
+    saida = revisao.content.strip()
 
     if "RESPOSTA:" not in saida:
         return None
@@ -67,7 +70,7 @@ def _revisar_compliance(resposta: str) -> str | None:
     return revisada or None
 
 
-def guardrail_saida(
+async def guardrail_saida(
     resposta: str,
     mapa_pii: dict,
     restaurar_pii: bool = False
@@ -83,7 +86,7 @@ def guardrail_saida(
 
     # ponytail: 1 retry fixo, depois fallback seguro — troque por backoff/mais tentativas
     # se o parsing falhar com frequência em produção (hoje é raro, LLM segue o formato quase sempre)
-    revisada = _revisar_compliance(resposta) or _revisar_compliance(resposta)
+    revisada = await _revisar_compliance(resposta) or await _revisar_compliance(resposta)
 
     if revisada is None:
         logger.warning("Guardrail de saída: compliance não retornou formato esperado em 2 tentativas")
@@ -92,10 +95,10 @@ def guardrail_saida(
     return _saida_ok(revisada)
 
 
-def no_guardrail_saida(estado: Estado) -> dict:
+async def no_guardrail_saida(estado: Estado) -> dict:
     
     logger.info("Revisando resposta do especialista com guardrail de saída...")
-    resultado = guardrail_saida(
+    resultado = await guardrail_saida(
         estado["resposta_especialista"], 
         estado.get("mapa_pii", {})
     )

@@ -1,4 +1,3 @@
-import asyncio
 from uuid import uuid4
 
 from a2a.server.agent_execution import AgentExecutor, RequestContext
@@ -12,9 +11,9 @@ from assessor_ai.chat import service as chat_service
 _sessoes: dict[str, tuple[str, str]] = {}
 
 
-def _sessao_para(context_id: str) -> tuple[str, str]:
+async def _sessao_para(context_id: str) -> tuple[str, str]:
     if context_id not in _sessoes:
-        _sessoes[context_id] = chat_service.iniciar_sessao()
+        _sessoes[context_id] = await chat_service.iniciar_sessao()
     return _sessoes[context_id]
 
 
@@ -28,16 +27,14 @@ def _mensagem_agente(context_id: str, texto: str) -> Message:
 
 
 class AssessorAgentExecutor(AgentExecutor):
-    """Ponte entre o protocolo A2A e chat/service.py — mesma camada usada por terminal/TUI/API."""
+    """Ponte entre o protocolo A2A e chat/service.py — mesma camada usada por TUI/API."""
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         texto = context.get_user_input()
-        user_id, session_id = _sessao_para(context.context_id)
+        user_id, session_id = await _sessao_para(context.context_id)
 
         try:
-            resposta = await asyncio.to_thread(
-                chat_service.send_message, user_id, session_id, texto
-            )
+            resposta = await chat_service.send_message(user_id, session_id, texto)
         except chat_service.LimiteDeMensagensExcedido as e:
             resposta = str(e)
 

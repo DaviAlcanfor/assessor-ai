@@ -807,6 +807,185 @@ marca.
 - [ ] Aplicar arquivo a arquivo (nada de `sed` — regra do AGENTS.md), em PR próprio, sem outra
       mudança junto
 
+## Memória: Postgres (curta) + Neo4j (longa) — proposta avaliada, parcialmente aceita
+
+Proposta recebida em 2026-08-25: remover Mongo, mover o checkpointer do LangGraph pro Postgres,
+e pôr memória longa (preferências, tom, relações) num Neo4j. Avaliada item a item contra o código
+antes de virar trabalho — três das seis premissas não batem com o repo de hoje.
+
+### O que checa — aceito
+
+- **Trocar `MongoDBSaver` por `PostgresSaver`** — é o único item da lista que se sustenta sozinho,
+  sem depender de decisão nenhuma em aberto. Tira um serviço em nuvem do caminho crítico de toda
+  mensagem e junta o estado do grafo no mesmo banco que já tem transações/eventos (backup e
+  restore passam a ser um só). Plano concreto na subseção "Passo 1" abaixo
+- **Trim/sumarização do contexto dentro do grafo** — necessário de qualquer jeito: hoje
+  `MessagesState` (`graph/state.py`) cresce sem teto e cada turno reenvia o histórico inteiro pros
+  especialistas via `mensagens_com_contexto` (`agents/nodes/contexto.py`). Independe de qual banco
+  guarda o checkpoint
+- **Regras de higiene de memória longa** — origem/data/confiança por fato, só gravar com
+  confirmação/declaração explícita/recorrência, editar e apagar por item, nunca guardar raciocínio
+  bruto do modelo. Valem qualquer que seja o backend, e são mais restritas (melhor) que o desenho
+  atual do item "Memória episódica do usuário" no Backlog, que só previa `{id, texto, data,
+  session_id}`. **Adotar esses campos lá**, mesmo sem Neo4j
+- **Separar "memória de contexto do agente" de "histórico de produto"** — é a distinção certa e o
+  projeto não a fazia explicitamente. Só que a conclusão que a proposta tira dela está invertida
+  (ver abaixo)
+
+### O que não checa — premissas erradas
+
+- **"`user_profiles`: perfil é gerado mas nem é injetado nos prompts dos agentes"** — era verdade,
+  deixou de ser. `agents/nodes/contexto.py` monta uma mensagem de sistema por turno com
+  `perfil_usuario`, e `no_financeiro`, `no_agenda`, `no_orquestrador`, `no_roteador` e `no_faq`
+  passaram a consumi-la (`agents/prompts/base.py:82`, `contexto_do_turno`). Está registrado como
+  `[x]` no item "`perfil_usuario` é gerado, cacheado e nunca lido" do Backlog. A proposta descreve
+  o repo de antes desse fix — o argumento "remover porque ninguém lê" caiu junto
+- **"`agent_chats` duplica o checkpointer e não é usado pela interface atual"** — falso pra API,
+  A2A e web; verdade só pra terminal/TUI. Quatro endpoints dependem dele: `POST /v1/chats`
+  (`create_chat`), `GET /v1/chats` (`listar_chats`, e o título de cada chat sai da primeira
+  mensagem, `routes/chats.py:76`), `GET /v1/chats/{id}/messages` (`get_history`) — mais o sidebar
+  do front (`web/src/components/sidebar/sidebar.tsx`). Não é duplicação inerte, é o que a UI lê
+- **"`get_history()` pode ser atendido pelo checkpointer"** — parcial, e colide com o próprio
+  plano. (1) `listar_chats(user_id)` não sai de `graph.get_state()`: exigiria varrer `list()` de
+  checkpoints filtrando por `metadata.user_id` (que `chat/runner.py:41` já grava) e deduplicar por
+  `thread_id` — mais código que o `find` de hoje, num caminho quente da UI. (2) O checkpointer
+  guarda **uma linha por superstep**, não um histórico de conversa. (3) Pior: o mesmo documento
+  pede trim/sumarização do `MessagesState` — se o histórico do produto mora no checkpoint, o trim
+  apaga o histórico da UI junto. Estado de execução tem ciclo de vida de execução; histórico de
+  produto, não
+- **Contradição interna do plano** — a última regra já diz "criar uma tabela `chat_messages` só se
+  a API precisar de histórico paginado, exportação, auditoria ou analytics". A API **já precisa**
+  de listagem e histórico, hoje. Então o passo 2 não é "remover `agent_chats`": é "migrar
+  `agent_chats` de Mongo pra uma tabela `chat_messages` no Postgres". O trabalho não some, troca de
+  banco — e isso muda a estimativa do passo inteiro
+- **A modelagem Neo4j é de outro domínio** — `(:Ingredient {name:"lactose"})`,
+  `(:Cuisine {name:"italiana"})`, "preferências alimentares", "restrições",
+  `[:COMPARTILHA_ESTOQUE_COM]->(:Household)`. Este projeto é assessoria de **finanças e agenda**:
+  não existe casa, estoque, ingrediente nem receita no domínio, nem no backlog. O exemplo veio de
+  um projeto de despensa/cozinha. Como o argumento pró-grafo é justamente "as relações importam", e
+  as relações citadas não existem aqui, o item fica **sem justificativa** até estar escrito quais
+  relações do domínio real (usuário ↔ categoria de gasto ↔ recorrência ↔ evento de agenda?)
+  precisam de travessia de grafo que Postgres + Qdrant não dão
+- **"Remover resumo/perfil ao encerrar sessão"** — o efeito prático é menor do que parece, e o
+  bloqueador é outro: `encerrar_sessao` só é chamado por `interfaces/terminal/app.py` e
+  `interfaces/tui/app.py`. **A API nunca chama** (já registrado no Backlog). Quem usa API/A2A/web já
+  não gera perfil nenhum. E qualquer memória longa — Neo4j ou não — esbarra no mesmo buraco: não
+  existe gatilho decidido. Decidir o gatilho vem antes de escolher banco
+
+### Custo escondido no passo 1 que a proposta não menciona
+
+`langgraph-checkpoint-postgres` roda em **psycopg 3** (`psycopg[binary]`); o projeto usa
+`psycopg2==2.9.11` com SQLAlchemy (`tools/postgres/connection.py:39`). Trocar o checkpointer não
+remove uma dependência, **adiciona** um segundo driver de Postgres no mesmo processo. Duas saídas:
+conviver com os dois (mais simples agora, dois pools), ou mover o SQLAlchemy pra psycopg 3 junto
+(`postgresql+psycopg://` na `POSTGRES_URL`) e deletar o psycopg2 — um driver só, mas mexe na URL
+que vem do Infisical e em todo o caminho de ORM já testado. Ver decisão no Passo 1.
+
+Segundo custo: `PostgresSaver.setup()` cria as tabelas dele (`checkpoints`, `checkpoint_blobs`,
+`checkpoint_writes`, `checkpoint_migrations`) **fora do Alembic**, no mesmo banco que o Alembic
+versiona. Duas fontes de schema convivendo — aceitável (é schema de biblioteca, não do domínio),
+mas precisa ficar escrito pra ninguém tentar "consertar" gerando migration em cima delas. Se
+incomodar, o isolamento barato é um schema Postgres separado, não migration própria.
+
+### Ordem revisada
+
+1. [ ] **`MongoDBSaver` → `PostgresSaver`** — aceito como está, plano abaixo. Não depende de nada
+2. [ ] **Trim/sumarização do `MessagesState` dentro do grafo** — subiu de posição: independe do
+       banco, e é o que impede o custo por turno de crescer sem teto. Fazer antes de qualquer coisa
+       de memória
+3. [ ] **Decidir o gatilho de escrita de memória** (endpoint de encerrar sessão / TTL de sessão
+       inativa / extração por turno fora do caminho crítico). Bloqueia 4 e 6, e já bloqueava o item
+       "Memória episódica do usuário" do Backlog. É decisão escrita, não código
+4. [ ] **`agent_chats` → tabela `chat_messages` no Postgres** — migração, não remoção (a UI lê).
+       Só aqui o Mongo fica realmente vazio e o `pymongo` pode sair. Depende de 1
+5. [ ] **`user_profiles`** — não remover; migrar junto de 4, com os campos de origem/data/confiança
+       da proposta. Removê-lo hoje regride o contexto que os especialistas já usam
+6. [ ] **Neo4j Agent Memory** — aceito como destino da memória longa, só a camada `long-term`.
+       Depende de (3). Ver subseção "Neo4j Agent Memory" abaixo — a primeira avaliação desta
+       seção julgou "Neo4j como banco de grafo" e estava errada sobre o produto
+7. [ ] **Async / `AsyncPostgresSaver`** — mantido como estava: o item "Async no máximo possível" do
+       Backlog já concluiu que o ganho é **zero** até existir consumidor async de verdade (streaming
+       SSE), porque o grafo é sequencial por desenho e a rota `def` já usa o threadpool do Starlette.
+       Trocar `PostgresSaver` por `AsyncPostgresSaver` é troca de classe quando chegar a hora — não é
+       motivo pra fazer o passo 1 diferente
+
+### Neo4j Agent Memory — avaliado de verdade (corrige a primeira leitura)
+
+<https://neo4j.com/labs/agent-memory/> — não é "usar Neo4j como banco", é uma lib de memória
+pronta. A primeira avaliação desta seção rejeitou o item com dois argumentos que **não se
+sustentam** contra o produto real:
+
+- "o trabalho está fora do banco, o grafo não ajuda na extração" — **falso**: a lib traz o
+  pipeline de extração (spaCy → GLiNER → LLM, cada estágio liga/desliga por config) com
+  deduplicação de entidade embutida. Era exatamente o passo caro que a avaliação dizia sobrar
+- "falta invalidação temporal, que seria o argumento a favor" — a camada `long-term` tem
+  **temporal fact validity**. O critério de reabertura que a própria avaliação escreveu já estava
+  atendido
+
+Custos levantados que também caem: **provider** não é preso a OpenAI (extras `google`/`vertex-ai`
+nativos + fallback LiteLLM que cobre Groq — o Gemini/Groq daqui encaixa sem provider novo); **peso
+de dependência** não é problema (spaCy e GLiNER são extras opcionais, `enable_spacy`/`enable_gliner`/
+`enable_llm_fallback`; base + extração LLM-only não puxa torch pro deploy); **vetor** não duplica o
+Qdrant (vector + graph no mesmo store, e o Qdrant continua só com o FAQ).
+
+**O que sobrou de risco real, bem menor:**
+
+- Versão `0.2.x`, Neo4j **Labs**, sem compromisso de estabilidade de API documentado. Num repo que
+  pina ~100 deps em `==` e que já pagou o preço do `a2a-sdk` divergindo do tutorial oficial (ver
+  item A2A no Backlog), isso é risco de verdade. Mitigação: pin exato, e a memória ter que ser
+  **degradável** — se a lib quebrar, o assistente piora, não cai. Isolar atrás de uma função só
+  (mesmo padrão de `tools/qdrant/faq/core.py`, que já devolve `Response.error` sem derrubar o nó)
+- NAMS (hosted) é **preview, sem preço divulgado** — então self-host num Aura, o que devolve o
+  quinto serviço em nuvem. Custo honesto, não impeditivo
+- **Ligar só a camada `long-term`.** A `short-term` duplica o checkpointer (a proposta original já
+  dizia isso, e estava certa) e a `reasoning` (trace de tool/decisão) sobrepõe o LangSmith, que já
+  está ligado e redigindo PII (`chat/repositories.py`). Ligar as três é pagar duas vezes por coisa
+  que existe
+- Requisitos: Neo4j 5.20+ self-hosted (5.11+ pra vector search), Python 3.10+ (o repo é 3.13, ok).
+  Os 8 schemas de domínio que a lib traz (podcast, news, medical, legal...) **não incluem
+  finanças/agenda** — vai ser schema custom ou o caminho genérico
+
+**O que não muda: a ordem.** A lib dá extração e storage; ela **não decide quando chamar `add`**. O
+gatilho (passo 3) continua sendo o bloqueador, e `encerrar_sessao` segue sem ser chamado pela API.
+Mas a decisão encolheu: com extração barata e fora do caminho crítico, o gatilho provavelmente
+resolve pra "por turno, depois da resposta já ter saído" — que é onde o item "memória não vira tool
+do roteador" do Backlog já tinha chegado por outro caminho. Deixou de ser decisão de arquitetura e
+virou "onde chamo isso dentro de `chat/service.py:send_message`".
+
+### Passo 1 — plano de execução (`MongoDBSaver` → `PostgresSaver`)
+
+**Decisão de driver:** conviver com psycopg2 + psycopg3 nesta etapa. Unificar em psycopg 3 é um PR
+separado, com teste de todo o caminho de ORM, e não é pré-requisito. Motivo: manter o diff do passo 1
+restrito a `graph/builder.py` — se o checkpointer der problema, o rollback é uma linha, não uma
+migração de driver.
+
+1. **Dependência** — `uv add "langgraph-checkpoint-postgres" "psycopg[binary,pool]"`. Conferir que o
+   resolver não mexeu nos pins de `langgraph==1.1.6` / `langgraph-checkpoint==4.0.2`
+2. **Pool** — em `tools/postgres/connection.py`, um `ConnectionPool` psycopg3 lazy, no mesmo padrão
+   `global` + `_get_session_factory()` que já existe ali (e entrando no `dispose_engine()`, que a API
+   já chama no `lifespan` de shutdown). Obrigatório pelo driver:
+   `kwargs={"autocommit": True, "row_factory": dict_row}` — sem `autocommit` o `setup()` não
+   persiste as tabelas, sem `dict_row` o checkpointer quebra ao ler as linhas.
+   **Não usar `PostgresSaver.from_conn_string()`**: é context manager, fecha a conexão na saída do
+   `with` — morre no primeiro uso dentro de um app de vida longa
+3. **Builder** — `graph/builder.py:fluxo_agentes()` troca o `MongoDBSaver` por `PostgresSaver(pool)`
+   + `checkpointer.setup()` na mesma função. O `@cache` que já está lá garante que roda uma vez por
+   processo, que é exatamente o contrato do `setup()` (idempotente, mas caro). Aproveitar o mesmo
+   commit pra deletar as 3 linhas mortas de `LANGGRAPH_ALLOWED_MSGPACK_MODULES` (env var que o
+   langgraph não lê — só existe `LANGGRAPH_STRICT_MSGPACK`) e o `warnings.filterwarnings` no-op de
+   `chat/runner.py:10` (o aviso sai por `logger.warning`, não pelo módulo `warnings`)
+4. **Estado antigo** — os checkpoints em Mongo **não** são migrados: são estado de conversa de
+   desenvolvimento, e o histórico que a UI mostra vem de `agent_chats`, que este passo não toca.
+   Efeito prático: sessões abertas perdem o contexto de execução na virada. Se um dia precisar
+   preservar, o caminho é `list()` no saver antigo + `put()` no novo, script descartável
+5. **Mongo continua vivo** — `agent_chats`, `user_profiles` e `pymongo` só saem no passo 4 da ordem
+   acima. Este passo **não** remove o Mongo do projeto, só do checkpointer
+6. **Verificação** — `just check` e `just test` (a suíte não toca no checkpointer real:
+   `test_runner.py` patcha `fluxo_agentes`, então tem que seguir verde sem alterar teste). O que
+   realmente prova é o teste manual ponta a ponta: `just dev` → duas mensagens encadeadas ("meus
+   gastos de ontem" → "e de hoje?") conferindo que a segunda enxerga a primeira, e depois conferir as
+   4 tabelas criadas no Postgres. Sem isso, "passou nos testes" não significa nada aqui
+
 ## Backlog novo — a triar
 
 Levantado em 2026-08-20, ainda sem investigação. Cada item vira seção própria (ou entra na seção

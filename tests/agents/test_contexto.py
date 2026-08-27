@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
 from assessor_ai.agents.nodes.contexto import mensagens_com_contexto
-from assessor_ai.agents.prompts import base
-from assessor_ai.agents.prompts.base import GenericAgent, contexto_do_turno
+from assessor_ai.agents.prompts import loader
+from assessor_ai.agents.prompts.loader import contexto_do_turno, contexto_temporal
 
 
 class _DatetimeFake:
@@ -18,9 +18,9 @@ def test_contexto_temporal_e_calculado_na_chamada(monkeypatch):
     constante de módulo, o patch abaixo não muda nada e o teste quebra.
     """
 
-    monkeypatch.setattr(base, "datetime", _DatetimeFake)
+    monkeypatch.setattr(loader, "datetime", _DatetimeFake)
 
-    assert "2030" in GenericAgent.contexto_temporal()
+    assert "2030" in contexto_temporal()
 
 
 def test_contexto_do_turno_inclui_perfil_e_pergunta():

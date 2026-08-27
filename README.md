@@ -89,15 +89,15 @@ assessor-ai/
 │   │   └── service.py               # create_chat, send_message, get_history, encerrar_sessao, obter_ou_criar_usuario, obter_dono_chat — API pública
 │   │
 │   ├── agents/
-│   │   ├── prompts/                 # Prompts de cada agente
-│   │   │   ├── base.py              # GenericAgent: persona, contexto temporal e montagem de shots
-│   │   │   ├── router.py            # RouterPrompts
-│   │   │   ├── financeiro.py        # FinanceiroPrompts
-│   │   │   ├── agenda.py            # AgendaPrompts
-│   │   │   ├── orquestrador.py      # OrquestradorPrompts
-│   │   │   ├── faq.py               # FaqPrompts
-│   │   │   ├── guardrail.py         # GuardrailPrompts
-│   │   │   └── resumidor.py         # ResumidorPrompt, PerfilPrompt
+│   │   ├── prompts/                 # Prompts de cada agente — .md puro + um loader
+│   │   │   ├── loader.py            # load_prompt/load_sections, persona e contexto do turno
+│   │   │   ├── router.md            # PAPEL + SHOTS do roteador
+│   │   │   ├── financeiro.md        # idem financeiro (frontmatter liga obrigatoriedade de tools)
+│   │   │   ├── agenda.md            # idem agenda (frontmatter liga obrigatoriedade de tools)
+│   │   │   ├── orquestrador.md      # idem orquestrador
+│   │   │   ├── faq.md               # idem FAQ
+│   │   │   ├── guardrail.md         # templates CLASSIFICADOR e COMPLIANCE
+│   │   │   └── resumidor.md         # templates RESUMO e PERFIL
 │   │   └── nodes/                   # Funções de nó do grafo LangGraph
 │   │       ├── names.py             # NodeName StrEnum
 │   │       ├── router.py            # no_roteador

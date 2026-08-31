@@ -15,12 +15,17 @@ run mode="tui":
     {{cmd}} {{mode}}
 
 api:
-    @echo "Running the API locally (localhost:8000)"
-    just run api
+    @echo "Running the API locally (localhost:8000, auth por API key desligada — pareia com just web)"
+    $env:API_KEY_AUTH_ENABLED = "false"; just run api
 
-web:
+front:
     @echo "Running the frontend dev server (proxy pra API em localhost:8000)"
     cd web; npm run dev
+
+web:
+    @echo "Abrindo 'just api' e 'just front' em janelas separadas"
+    Start-Process powershell -ArgumentList '-NoExit','-Command','just api' -WorkingDirectory '{{justfile_directory()}}'
+    Start-Process powershell -ArgumentList '-NoExit','-Command','just front' -WorkingDirectory '{{justfile_directory()}}'
 
 check:
     @echo "Running pre-commit checks"

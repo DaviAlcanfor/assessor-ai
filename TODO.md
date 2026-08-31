@@ -784,26 +784,75 @@ numa paleta só nesta entrega.
 
 Intenção registrada: trocar `Assessor.AI` por um nome com identidade melhor. Escolher o nome pode ser
 a qualquer momento; **aplicar só depois do frontend**, porque é um rename em ~15 pontos que conflita
-com qualquer branch aberta.
+com qualquer branch aberta. Frontend V1 saiu (`feat/frontend-web`) — rename segue liberado pra
+acontecer, mas **ainda não aplicado**; esta seção é só o plano.
 
-Onde o nome está hoje:
+### Nome escolhido: **Zelo**
 
-- `pyproject.toml` — `name = "assessor-ai"`, `[project.scripts] assessor-ai = 'main:main'`,
-  `[tool.hatch.build.targets.wheel] packages`
-- `src/assessor_ai/` — o pacote em si, e portanto ~todo import do repo
-- `justfile` — `cmd := "assessor-ai"`
+Das 10 propostas levantadas junto com o frontend (Zelo, Norte, Cofre, Vero, Aporta, Saldo, Trilha,
+Fento, Cadência, Lúmen), **Zelo** venceu — curto, remete a cuidado com dinheiro/tempo (os dois
+domínios do produto), vira identificador Python válido sem adaptação (`zelo`) e não colide com nada
+já usado no código (grep por `zelo`/`Zelo` no repo: zero ocorrências hoje).
+
+### Mapa de impacto (levantado via grep, contagem real)
+
+**Código Python — 66 arquivos importam `assessor_ai`** (pacote em `src/assessor_ai/`, viraria
+`src/zelo/`). Lista completa não vai aqui (é ~todo `src/`, `interfaces/`, `tests/` — qualquer
+arquivo que faça `from assessor_ai...` ou `import assessor_ai...`); confirmar de novo com
+`grep -rl "assessor_ai" --include="*.py"` na hora de aplicar, já que o número muda com o código.
+
+**Config / build:**
+
+- `pyproject.toml` — `name = "assessor-ai"` → `"zelo"`; `description`; `[project.scripts]
+  assessor-ai = 'main:main'` → `zelo = 'main:main'`; `[tool.hatch.build.targets.wheel] packages =
+  [..., "src/assessor_ai"]` → `"src/zelo"`
+- `justfile` — `cmd := "assessor-ai"` → `"zelo"`
+- `web/package.json` — `"name": "assessor-ai-web"` → `"zelo-web"` (novo desde o frontend V1, não
+  estava no mapeamento original desta seção)
+
+**Superfície visível:**
+
 - `interfaces/api/main.py` — `title="Assessor AI"` (aparece no `/docs` e no OpenAPI)
 - `interfaces/a2a/agents/card.py` — nome do `AgentCard` **e**
-  `importlib.metadata.version("assessor-ai")`, que quebra junto com o rename do pacote
-- `interfaces/terminal/display.py:10` (figlet) e o banner da TUI
+  `importlib.metadata.version("assessor-ai")`, que quebra junto com o rename do pacote em
+  `pyproject.toml` (o `importlib.metadata.version(...)` lê pelo `name` do `[project]`)
+- `interfaces/terminal/display.py:10` (figlet `doom`) e o banner da TUI — trocar o texto renderizado
+  pelo pyfiglet, não só uma string solta
+- `web/index.html` (`<title>Assessor.AI</title>`) e `web/src/pages/login-page.tsx` (`<h1>` com o
+  nome) — também novos desde o frontend V1
 - README (ASCII + badges), `AGENTS.md`, `CLAUDE.md`, este `TODO.md`
-- Fora do repo: nome do repositório no GitHub (+ remote), app na FastAPI Cloud, projeto no LangSmith
-  (`LANGSMITH_PROJECT`)
 
-Não muda: nomes de collection do Mongo/Qdrant, tabelas do Postgres e env vars — nenhum carrega a
-marca.
+**Fora do repo** (não é edição de arquivo, é ação manual em cada painel):
 
-- [ ] Escolher o nome
+- Nome do repositório no GitHub (+ atualizar o remote local depois: `git remote set-url origin ...`)
+- App na FastAPI Cloud
+- Projeto no LangSmith (`LANGSMITH_PROJECT` no `.env`/Infisical — variável em si não muda de nome,
+  só o valor)
+
+**Não muda:** nomes de collection do Mongo/Qdrant, tabelas do Postgres e env vars (`POSTGRES_URL`,
+`MONGO_URL`, etc.) — nenhum carrega a marca no nome, só o dado.
+
+### Ordem de execução
+
+Tudo num PR só (é um rename mecânico, não faz sentido fatiar em vários PRs que quebram build uns dos
+outros até o último merge), mas arquivo a arquivo dentro dele — **nada de `sed`/regex em massa**
+(regra do AGENTS.md: dano silencioso que o lint não pega). Ordem que minimiza quebra intermediária:
+
+1. `git mv src/assessor_ai src/zelo` (preserva histórico do arquivo, ao contrário de deletar+criar)
+2. `pyproject.toml` (`name`, `[project.scripts]`, `packages`) — sem isso nada mais importa
+   (`assessor_ai` deixa de existir como pacote instalável)
+3. Os 66 arquivos que importam `assessor_ai` → `zelo`, um a um (`import`/`from` no topo do arquivo,
+   só a raiz do path muda — `assessor_ai.chat.service` vira `zelo.chat.service`, resto do caminho
+   igual)
+4. `justfile`, `interfaces/api/main.py`, `interfaces/a2a/agents/card.py`
+5. `interfaces/terminal/display.py` (figlet) + banner da TUI
+6. `web/package.json`, `web/index.html`, `web/src/pages/login-page.tsx`
+7. README, `AGENTS.md`, `CLAUDE.md`, `TODO.md` (esta seção some/vira "concluído" no lugar)
+8. `just check` + `just test` verdes, `web/`: `npm run build` sem erro — só então commit
+9. Ações fora do repo (GitHub, FastAPI Cloud, LangSmith) — depois do merge, não antes (evita branch
+   órfã se o rename do repo no GitHub acontecer com PR aberto)
+
+- [x] Escolher o nome — **Zelo**
 - [ ] Aplicar arquivo a arquivo (nada de `sed` — regra do AGENTS.md), em PR próprio, sem outra
       mudança junto
 

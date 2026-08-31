@@ -19,16 +19,18 @@ export function ChatInput({
   }
 
   return (
-    <form onSubmit={submit} className="flex gap-2 border-t border-border p-4">
-      <Input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Escreva sua mensagem..."
-        disabled={disabled}
-      />
-      <Button type="submit" disabled={disabled || !value.trim()}>
-        Enviar
-      </Button>
+    <form onSubmit={submit} className="border-t border-border">
+      <div className="mx-auto flex max-w-2xl gap-2 px-4 py-3">
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Escreva sua mensagem..."
+          disabled={disabled}
+        />
+        <Button type="submit" disabled={disabled || !value.trim()}>
+          Enviar
+        </Button>
+      </div>
     </form>
   );
 }

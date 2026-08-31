@@ -27,6 +27,10 @@ app = FastAPI(
 
 config = SecurityConfig(
     redis_url=settings.REDIS_URL,
+    # guard limita 10 req/60s por IP e depois auto-bane o IP por 1h. Fatal pro frontend em
+    # modo dev (uma navegação entre chats já dispara list + messages). Só liga em produção,
+    # que é o mesmo momento em que a auth por API key volta.
+    enable_rate_limiting=settings.API_KEY_AUTH_ENABLED,
     enable_cors=True,
     cors_allow_origins=["*"],
     cors_allow_methods=["GET", "POST"],

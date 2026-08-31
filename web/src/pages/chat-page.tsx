@@ -112,7 +112,8 @@ export function ChatPage() {
   return (
     <div className="flex h-screen">
       <Sidebar refreshKey={sidebarRefresh} />
-      <div ref={mainRef} className="flex flex-1 flex-col">
+      {/* pr-64 espelha a largura da sidebar → mx-auto interno centraliza no centro da tela, não da área restante */}
+      <div ref={mainRef} className="flex flex-1 flex-col xl:pr-64">
         <MessageList messages={messages} pensando={pensando} />
         <ChatInput onSend={handleSend} disabled={pensando} />
       </div>

@@ -42,14 +42,18 @@ export function MessageList({
   }, [messages.length, pensando]);
 
   return (
-    <div ref={containerRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-6">
-      {messages.map((message, i) => (
-        <div key={i} className="message-item">
-          <MessageBubble message={message} />
-        </div>
-      ))}
-      {pensando && <ThinkingDots />}
-      <div ref={bottomRef} />
+    <div ref={containerRef} className="flex-1 overflow-y-auto">
+      <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-2 px-4 py-6">
+        {/* empurra as mensagens pra baixo (perto do input) quando tem poucas; some ao rolar */}
+        <div className="flex-1" />
+        {messages.map((message, i) => (
+          <div key={i} className="message-item">
+            <MessageBubble message={message} />
+          </div>
+        ))}
+        {pensando && <ThinkingDots />}
+        <div ref={bottomRef} />
+      </div>
     </div>
   );
 }

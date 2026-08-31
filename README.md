@@ -359,7 +359,7 @@ Também dá pra rodar via `justfile`: `just venv` (cria `.venv`), `just run [mod
 montado no mesmo app FastAPI:
 
 - `GET /.well-known/agent-card.json` — [`AgentCard`](interfaces/a2a/agents/card.py) com nome,
-  versão e a skill exposta (`financas-e-agenda`)
+  versão e as skills expostas (`moneysaving`, `agenda`, `faq`)
 - `POST /a2a` — endpoint JSON-RPC (método `SendMessage`) que processa a mensagem via
   [`AssessorAgentExecutor`](interfaces/a2a/agents/interface.py), a mesma camada `chat/service.py`
   usada por terminal/TUI/API. Cada `context_id` do protocolo vira uma sessão/usuário do Assessor —

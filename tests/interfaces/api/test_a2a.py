@@ -46,7 +46,7 @@ def test_agent_card_expoe_nome_e_skill(client):
     assert resposta.status_code == 200
     corpo = resposta.json()
     assert corpo["name"] == "Assessor AI"
-    assert corpo["skills"][0]["id"] == "financas-e-agenda"
+    assert {s["id"] for s in corpo["skills"]} == {"moneysaving", "agenda", "faq"}
 
 
 def test_send_message_retorna_resposta_do_chat_service(client, monkeypatch):

@@ -1,27 +1,22 @@
-from assessor_ai.agents.prompts.base import GenericAgent
+## RESUMO
 
+Você é um assistente que resume conversas de assessoria financeira e agenda.
+Gere um resumo conciso em 3-5 frases capturando:
 
-class ResumidorPrompt(GenericAgent):
-    PAPEL = """\
-    Você é um assistente que resume conversas de assessoria financeira e agenda.
-    Gere um resumo conciso em 3-5 frases capturando:
+- O que o usuário fez (transações registradas, eventos agendados)
+- O que o usuário perguntou
+- Informações relevantes mencionadas (valores, datas, categorias)
+- Informações sobre o próprio usuário: preferências, hábitos financeiros, padrões de gasto,
+  dados pessoais mencionados (nome, renda, objetivos)
 
-    - O que o usuário fez (transações registradas, eventos agendados)
-    - O que o usuário perguntou
-    - Informações relevantes mencionadas (valores, datas, categorias)
-    - Informações sobre o próprio usuário: preferências, hábitos financeiros, \
-padrões de gasto, dados pessoais mencionados (nome, renda, objetivos)
+Se nenhuma informação pessoal foi mencionada, ignore o último ponto.
+Responda APENAS com o resumo, sem introdução ou explicação.
 
-    Se nenhuma informação pessoal foi mencionada, ignore o último ponto.
-    Responda APENAS com o resumo, sem introdução ou explicação.
+Conversa:
+{conversa}
 
-    Conversa:
-    {conversa}
-    """
+## PERFIL
 
-
-class PerfilPrompt(GenericAgent):
-    PAPEL = """\
 Você é um assistente que mantém o perfil comportamental de um usuário de assessoria financeira e agenda.
 
 Capture APENAS informações estáveis e pessoais:
@@ -45,4 +40,3 @@ Perfil atual:
 
 Resumo da sessão:
 {resumo}
-"""

@@ -34,15 +34,15 @@ class AssessorTUI(App):
 
     def compose(self) -> ComposeResult:
         arte = pyfiglet.figlet_format("ASSESSOR.AI", font="doom")
-        yield Static(Text(arte, style="#d3fd54"), id="banner")
+        yield Static(Text(arte, style="#d9fe52"), id="banner")
         yield VerticalScroll(id="historico")
         yield Input(placeholder="Digite sua mensagem... (/exit para sair)")
         yield RichLog(id="logs", max_lines=200, highlight=False, markup=False)
         yield Footer()
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self._redirecionar_logs()
-        self.user_id, self.session_id = service.iniciar_sessao()
+        self.user_id, self.session_id = await service.iniciar_sessao()
 
     def _redirecionar_logs(self) -> None:
         handler = _LogWidgetHandler(self.query_one("#logs", RichLog))
@@ -85,14 +85,14 @@ class AssessorTUI(App):
         input_widget.disabled = True
         self._processar(texto, indicador)
 
-    @work(thread=True)
-    def _processar(self, texto: str, indicador: Pensando) -> None:
+    @work
+    async def _processar(self, texto: str, indicador: Pensando) -> None:
         try:
-            resposta = service.send_message(self.user_id, self.session_id, texto)
+            resposta = await service.send_message(self.user_id, self.session_id, texto)
         except Exception as e:
             resposta = f"Erro: {e}"
 
-        self.call_from_thread(self._exibir_resposta, indicador, resposta)
+        self._exibir_resposta(indicador, resposta)
 
     def _exibir_resposta(self, indicador: Pensando, resposta: str) -> None:
         historico = self.query_one("#historico", VerticalScroll)
@@ -108,7 +108,7 @@ class AssessorTUI(App):
 
     async def action_sair(self) -> None:
         if self.session_id:
-            service.encerrar_sessao(self.session_id, self.user_id)
+            await service.encerrar_sessao(self.session_id, self.user_id)
         self.exit()
 
 

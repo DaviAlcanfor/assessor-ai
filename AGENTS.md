@@ -150,7 +150,15 @@ Padrões já em uso no repo — mantenha-os ao adicionar código novo:
   vez de devolver um erro estruturado pro LLM reagir.
 - **Single responsibility por nó de agente.** `agents/nodes/` (execução) fica separado de
   `agents/prompts/` (conteúdo/persona) — mudar o texto de um prompt nunca deveria exigir tocar na
-  lógica de roteamento do grafo, e vice-versa.
+  lógica de roteamento do grafo, e vice-versa. Prompt é `.md`, não Python: cada arquivo tem
+  seções `## PAPEL` / `## SHOTS` (ou templates nomeados, como `## CLASSIFICADOR`) e um frontmatter
+  opcional (`usa_tools_obrigatorias: true`). `prompts/loader.py` é o único `.py` da pasta —
+  `load_prompt(nome)` monta persona + papel + shots, `load_sections(nome)` devolve as seções cruas.
+- **Tudo async da ponta ao fim.** Nós do grafo, `chat/runner.py`, `chat/service.py`,
+  `chat/repositories.py` e as rotas da API são `async def`. O grafo roda por `ainvoke` (por isso o
+  checkpointer é `AsyncPostgresSaver`, não o síncrono). Os drivers de Mongo/Redis/SQLAlchemy
+  continuam síncronos e são chamados via `asyncio.to_thread` em `chat/repositories.py` — função nova
+  que faça I/O bloqueante entra pelo mesmo caminho, nunca direto no event loop.
 - **Contrato de retorno único.** Tools não retornam dict cru nem deixam exception vazar para o
   agente — usam `Response` (`tools/response.py`) como envelope padrão de sucesso/erro. Ao criar
   tool nova, reusar essa classe em vez de inventar outro formato de retorno.

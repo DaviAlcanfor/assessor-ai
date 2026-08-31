@@ -1,29 +1,19 @@
-from rich.panel import Panel
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import LoadingIndicator, Static
 
-# Paleta do design system da Kobana (mesma de web/src/styles/tokens.css):
-# lime = assistente, purple = usuário.
-_ESTILO = {
-    "usuario": ("Você", "#a630da"),
-    "assistente": ("Assessor", "#d3fd54"),
-}
-
 
 class Bubble(Static):
-    """Uma mensagem no histórico do chat, no mesmo estilo de Panel do terminal."""
+    """
+    Uma mensagem no histórico do chat: bolha preenchida, cor por papel (lime = assistente,
+    purple = usuário), igual ao `MessageBubble` do web. Cor e padding vivem no `app.tcss`.
+    """
 
     def __init__(self, texto: str, tipo: str) -> None:
-        titulo, cor = _ESTILO[tipo]
-        painel = Panel(
-            Text(texto, style="white"),
-            title=f"[bold {cor}]{titulo}[/bold {cor}]",
-            title_align="left",
-            border_style=cor,
-        )
-        super().__init__(painel, classes=tipo)
+        # `Text` em vez de str cru: o conteúdo vem do usuário e do LLM, e colchete solto
+        # seria interpretado como markup do Textual.
+        super().__init__(Text(texto), classes=tipo)
 
 
 class MessageRow(Horizontal):
@@ -31,7 +21,7 @@ class MessageRow(Horizontal):
 
 
 class Pensando(Horizontal):
-    """Indicador de carregamento (bolinhas) enquanto o assistente responde."""
+    """Indicador de carregamento enquanto o assistente responde."""
 
     def compose(self) -> ComposeResult:
         yield LoadingIndicator()

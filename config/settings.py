@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Desliga a exigência de X-API-Key em /v1/chats (deixa True em produção). Temporário — burocratiza
     # demais pro estágio atual e atrapalha o A2A entre Frigus e Assessor (ver TODO.md). Rotas
     # continuam existindo, `get_current_user` (`interfaces/api/auth.py`) só passa a reaproveitar um
-    # usuário existente (mesmo bootstrap do terminal/TUI) em vez de checar a chave.
+    # usuário existente (mesmo bootstrap da TUI) em vez de checar a chave.
     API_KEY_AUTH_ENABLED: bool = True
     # URL pública onde a API é servida — usada só pra montar o AgentCard do A2A
     # (`interfaces/a2a/agents/card.py`), default cobre o `just dev`/`just run api` local

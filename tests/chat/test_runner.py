@@ -11,17 +11,24 @@ class _FluxoFake:
         self.recebido = None
         self.user_id_durante_invoke = None
 
-    def invoke(self, estado_inicial, config):
+    async def ainvoke(self, estado_inicial, config):
         self.recebido = (estado_inicial, config)
         self.user_id_durante_invoke = current_user_id()
         return {"messages": [HumanMessage(content="oi"), AIMessage(content=self.resposta)]}
 
 
-def test_executar_extrai_ultima_resposta_da_ia(monkeypatch):
-    fake = _FluxoFake("resposta do assessor")
-    monkeypatch.setattr("assessor_ai.chat.runner.fluxo_agentes", lambda: fake)
+def _patch_fluxo(monkeypatch, fake):
+    async def _fluxo():
+        return fake
 
-    resposta = runner.executar(
+    monkeypatch.setattr("assessor_ai.chat.runner.fluxo_agentes", _fluxo)
+
+
+async def test_executar_extrai_ultima_resposta_da_ia(monkeypatch):
+    fake = _FluxoFake("resposta do assessor")
+    _patch_fluxo(monkeypatch, fake)
+
+    resposta = await runner.executar(
         ChatMessage(role=Role.HUMAN, content="oi"),
         session_id="sess-1",
         perfil_usuario="perfil x",
@@ -31,13 +38,13 @@ def test_executar_extrai_ultima_resposta_da_ia(monkeypatch):
     assert resposta == "resposta do assessor"
 
 
-def test_executar_seta_current_user_durante_invoke_e_restaura_depois(monkeypatch):
+async def test_executar_seta_current_user_durante_invoke_e_restaura_depois(monkeypatch):
     fake = _FluxoFake("ok")
-    monkeypatch.setattr("assessor_ai.chat.runner.fluxo_agentes", lambda: fake)
+    _patch_fluxo(monkeypatch, fake)
     user_id = "22222222-2222-2222-2222-222222222222"
 
     anterior = current_user_id()
-    runner.executar(
+    await runner.executar(
         ChatMessage(role=Role.HUMAN, content="oi"), "sess-1", "perfil", user_id
     )
 
@@ -45,12 +52,12 @@ def test_executar_seta_current_user_durante_invoke_e_restaura_depois(monkeypatch
     assert current_user_id() == anterior
 
 
-def test_executar_passa_thread_id_tags_e_metadata_pro_invoke(monkeypatch):
+async def test_executar_passa_thread_id_tags_e_metadata_pro_invoke(monkeypatch):
     fake = _FluxoFake("ok")
-    monkeypatch.setattr("assessor_ai.chat.runner.fluxo_agentes", lambda: fake)
+    _patch_fluxo(monkeypatch, fake)
 
     user_id = "33333333-3333-3333-3333-333333333333"
-    runner.executar(
+    await runner.executar(
         ChatMessage(role=Role.HUMAN, content="oi"), "sess-42", "perfil", user_id
     )
 
@@ -59,14 +66,14 @@ def test_executar_passa_thread_id_tags_e_metadata_pro_invoke(monkeypatch):
     assert config["metadata"] == {"user_id": user_id, "session_id": "sess-42"}
 
 
-def test_executar_sem_ai_message_retorna_none(monkeypatch):
+async def test_executar_sem_ai_message_retorna_none(monkeypatch):
     class _FluxoSemResposta:
-        def invoke(self, *_args, **_kwargs):
+        async def ainvoke(self, *_args, **_kwargs):
             return {"messages": [HumanMessage(content="oi")]}
 
-    monkeypatch.setattr("assessor_ai.chat.runner.fluxo_agentes", lambda: _FluxoSemResposta())
+    _patch_fluxo(monkeypatch, _FluxoSemResposta())
 
-    resposta = runner.executar(
+    resposta = await runner.executar(
         ChatMessage(role=Role.HUMAN, content="oi"),
         "sess-1",
         "perfil",

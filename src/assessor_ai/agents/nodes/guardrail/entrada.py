@@ -4,12 +4,14 @@ import uuid
 from langchain_core.messages import HumanMessage
 
 from assessor_ai.agents.nodes.names import NodeName
-from assessor_ai.agents.prompts.guardrail import GuardrailPrompts
+from assessor_ai.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_guardrail
 from assessor_ai.graph.state import Estado
 from config.logging import get_logger
 
 logger = get_logger(__name__)
+
+_GUARDRAIL = load_sections("guardrail")
 
 from assessor_ai.agents.nodes.guardrail.schemas import (
     _KEYWORDS_DADOS_INTERNOS,
@@ -76,7 +78,7 @@ def _detectar_acesso_interno(texto: str) -> bool:
     )
 
 
-def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
+async def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     """
     Executa verificações em ordem de custo crescente:
     determinístico primeiro, LLM só se necessário.
@@ -88,9 +90,10 @@ def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     if _detectar_acesso_interno(mensagem_anonimizada):
         return _bloquear("acesso_dados_internos", "Não tenho como compartilhar informações internas do sistema.")
     
-    mensagem = llm_guardrail.invoke(
-                GuardrailPrompts.CLASSIFICADOR.format(mensagem=mensagem_anonimizada)
-            ).content
+    resposta = await llm_guardrail.ainvoke(
+        _GUARDRAIL["classificador"].format(mensagem=mensagem_anonimizada)
+    )
+    mensagem = resposta.content
     
     categoria = _extrair_categoria(mensagem)
 
@@ -101,12 +104,12 @@ def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     return _aprovado()
 
 
-def no_guardrail_entrada(estado: Estado) -> dict:
+async def no_guardrail_entrada(estado: Estado) -> dict:
     logger.info("Verificando entrada com guardrail de entrada...")
     
     ultima_msg = estado["messages"][-1]
     texto_anonimizado, mapa_pii = anonimizar_entrada(ultima_msg.content)
-    resultado = guardrail_entrada(texto_anonimizado)
+    resultado = await guardrail_entrada(texto_anonimizado)
 
     if resultado["bloqueado"]:
         logger.warning(f"Mensagem bloqueada por guardrail: {resultado['motivo']} - {texto_anonimizado}")

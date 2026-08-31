@@ -39,13 +39,13 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/v1/chats", tags=["chats"])
 
 
-def _validar_ownership(chat_id: str, user_id: str) -> None:
+async def _validar_ownership(chat_id: str, user_id: str) -> None:
     """
     Verifica se um chat pertence ao usuário recebido.
     Lança HTTPException caso o chat não exista ou não pertença ao usuário.
     """
     
-    dono = chat_service.obter_dono_chat(chat_id)
+    dono = await chat_service.obter_dono_chat(chat_id)
 
     if dono is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Chat não encontrado.")
@@ -56,14 +56,14 @@ def _validar_ownership(chat_id: str, user_id: str) -> None:
 
 @router.post("", response_model=ChatCreateResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-def create_chat(request: Request, user_id: str = Depends(get_current_user)):
+async def create_chat(request: Request, user_id: str = Depends(get_current_user)):
     """
     Cria um chat caso não exista de acordo com o usuário autenticado.
     Retorna o chat_id (session_id) do chat criado.
     """
     
     try:
-        chat_id = chat_service.create_chat(user_id)
+        chat_id = await chat_service.create_chat(user_id)
         
     except Exception:
         logger.exception(f"Falha ao criar chat para user_id={user_id}")
@@ -85,12 +85,12 @@ def _titulo(chat: dict) -> str:
 
 @router.get("", response_model=list[ChatSummary])
 @limiter.limit("20/minute")
-def list_chats(request: Request, user_id: str = Depends(get_current_user)):
+async def list_chats(request: Request, user_id: str = Depends(get_current_user)):
     """
     Lista os chats do usuário autenticado, mais recentes primeiro.
     """
 
-    chats = chat_service.listar_chats(user_id)
+    chats = await chat_service.listar_chats(user_id)
 
     return [
         ChatSummary(chat_id=c["session_id"], title=_titulo(c), updated_at=c["updated_at"])
@@ -101,7 +101,7 @@ def list_chats(request: Request, user_id: str = Depends(get_current_user)):
 # Rota para enviar uma mensagem para um chat específico
 @router.post("/{chat_id}/messages", response_model=ChatMessageResponse)
 @limiter.limit("10/minute")
-def send_message(
+async def send_message(
     request: Request,
     chat_id: str,
     payload: MessageCreate,
@@ -111,10 +111,10 @@ def send_message(
     Envia uma mensagem para um chat específico.
     """
     
-    _validar_ownership(chat_id, user_id)
+    await _validar_ownership(chat_id, user_id)
 
     try:
-        resposta = chat_service.send_message(user_id, chat_id, payload.content)
+        resposta = await chat_service.send_message(user_id, chat_id, payload.content)
 
     except LimiteDeMensagensExcedido as e:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(e))
@@ -131,14 +131,14 @@ def send_message(
 
 @router.get("/{chat_id}/messages", response_model=list[MessageResponse])
 @limiter.limit("20/minute")
-def get_messages(request: Request, chat_id: str, user_id: str = Depends(get_current_user)):
+async def get_messages(request: Request, chat_id: str, user_id: str = Depends(get_current_user)):
     """
     Obtém as mensagens de histórico de um chat específico.
     """
     
-    _validar_ownership(chat_id, user_id)
+    await _validar_ownership(chat_id, user_id)
 
-    historico = chat_service.get_history(chat_id, user_id) or []
+    historico = await chat_service.get_history(chat_id, user_id) or []
 
     return [
         MessageResponse(role=_ROLE_MAP[m.role], content=m.content)

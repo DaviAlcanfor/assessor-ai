@@ -2,6 +2,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from uuid import UUID
 
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -10,6 +12,7 @@ from config.settings import settings
 
 _engine = None
 _SessionFactory = None
+_pool: AsyncConnectionPool | None = None
 
 # ponytail: ContextVar em vez de passar user_id manualmente por toda chamada de tool do
 # LangChain (que só recebe os args escolhidos pelo LLM) — setado uma vez por request em
@@ -42,14 +45,42 @@ def _get_session_factory() -> sessionmaker:
     return _SessionFactory
 
 
-def dispose_engine() -> None:
-    global _engine, _SessionFactory
+async def get_checkpointer_pool() -> AsyncConnectionPool:
+    """
+    Pool async psycopg3 usado só pelo checkpointer do LangGraph (`graph/builder.py`), em paralelo
+    ao engine SQLAlchemy acima, que continua em psycopg2 síncrono — unificar os dois drivers é PR
+    à parte. `autocommit` e `dict_row` são exigência do `AsyncPostgresSaver`: sem o primeiro o
+    `setup()` não persiste as tabelas, sem o segundo ele quebra ao ler as linhas.
+
+    `open=False` + `await open()` porque o psycopg3 desencoraja abrir o pool no construtor (o
+    pool async precisa do event loop que já está rodando).
+    """
+
+    global _pool
+
+    if _pool is None:
+        _pool = AsyncConnectionPool(
+            settings.POSTGRES_URL,
+            kwargs={"autocommit": True, "row_factory": dict_row},
+            open=False,
+        )
+        await _pool.open()
+
+    return _pool
+
+
+async def dispose_engine() -> None:
+    global _engine, _SessionFactory, _pool
 
     if _engine is not None:
         _engine.dispose()
 
+    if _pool is not None:
+        await _pool.close()
+
     _engine = None
     _SessionFactory = None
+    _pool = None
 
 
 @contextmanager

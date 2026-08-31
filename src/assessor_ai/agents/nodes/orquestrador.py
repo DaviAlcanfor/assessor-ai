@@ -4,13 +4,13 @@ from assessor_ai.graph.agents import orquestrador_app
 from assessor_ai.graph.state import Estado
 
 
-def no_orquestrador(estado: Estado) -> dict:
+async def no_orquestrador(estado: Estado) -> dict:
 
     mensagens = mensagens_com_contexto(estado, incluir_pergunta=False) + [
         {"role": "human", "content": estado["resposta_especialista"]}
     ]
 
-    saida = orquestrador_app.invoke({"messages": mensagens})
+    saida = await orquestrador_app.ainvoke({"messages": mensagens})
 
     return {
         "agentes_chamados":      [NodeName.ORQUESTRADOR],

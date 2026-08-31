@@ -10,7 +10,6 @@ warnings.filterwarnings(
     message=r".*allowed_objects.*",
 )
 
-from interfaces.terminal import app as terminal_app
 from interfaces.tui import app as tui_app
 
 
@@ -24,15 +23,13 @@ def run_api() -> None:
 
 
 OPTIONS = {
-    "terminal": terminal_app.run,
-    "tui":      tui_app.run,
-    "api":      run_api,
+    "tui": tui_app.run,
+    "api": run_api,
 }
 
 
 def print_usage() -> None:
     print("Uso:")
-    print("  python main.py terminal")
     print("  python main.py tui")
     print("  python main.py api")
 

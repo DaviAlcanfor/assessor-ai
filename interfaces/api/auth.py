@@ -11,14 +11,14 @@ _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 _signup_secret_header = APIKeyHeader(name="X-Signup-Secret")
 
 
-def get_current_user(
+async def get_current_user(
     api_key: str | None = Security(_api_key_header),
     x_user_id: str | None = Header(None, alias="X-User-Id"),
 ) -> str:
     if not settings.API_KEY_AUTH_ENABLED:
         # ponytail: bypass de auth deliberado — só vale enquanto API_KEY_AUTH_ENABLED=false.
         # Permite o frontend em modo dev escolher o usuário sem precisar de API key.
-        return x_user_id or chat_service.obter_usuario_padrao()
+        return x_user_id or await chat_service.obter_usuario_padrao()
 
     if api_key is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid API key")

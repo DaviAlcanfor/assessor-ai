@@ -34,7 +34,7 @@ class AssessorTUI(App):
 
     def compose(self) -> ComposeResult:
         arte = pyfiglet.figlet_format("ASSESSOR.AI", font="doom")
-        yield Static(Text(arte, style="cyan"), id="banner")
+        yield Static(Text(arte, style="#d3fd54"), id="banner")
         yield VerticalScroll(id="historico")
         yield Input(placeholder="Digite sua mensagem... (/exit para sair)")
         yield RichLog(id="logs", max_lines=200, highlight=False, markup=False)

@@ -4,9 +4,11 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import LoadingIndicator, Static
 
+# Paleta do design system da Kobana (mesma de web/src/styles/tokens.css):
+# lime = assistente, purple = usuário.
 _ESTILO = {
-    "usuario": ("Você", "green"),
-    "assistente": ("Assessor", "cyan"),
+    "usuario": ("Você", "#a630da"),
+    "assistente": ("Assessor", "#d3fd54"),
 }
 
 

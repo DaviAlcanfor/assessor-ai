@@ -16,15 +16,18 @@ Screen {
     padding: 1 2;
 }
 
+/* Paleta do design system da Kobana (mesma de web/src/styles/tokens.css):
+   lime #d3fd54 = assistente, purple #a630da = usuário, #666666 = neutro/logs. */
+
 Input {
     width: 90%;
     max-width: 120;
     margin: 0 0 1 0;
-    border: round cyan;
+    border: round #d3fd54;
 }
 
 Input:focus {
-    border: round cyan;
+    border: round #d3fd54;
 }
 
 MessageRow {
@@ -50,19 +53,19 @@ Pensando {
     width: 20;
     height: 3;
     margin-bottom: 1;
-    border: round grey;
+    border: round #666666;
 }
 
 Pensando LoadingIndicator {
     height: 1;
-    color: grey;
+    color: #666666;
 }
 
 #logs {
     width: 90%;
     max-width: 120;
     height: 8;
-    border: round grey;
+    border: round #666666;
     color: $text-muted;
     background: $surface;
     padding: 0 1;

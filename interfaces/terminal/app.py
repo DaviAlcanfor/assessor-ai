@@ -1,5 +1,6 @@
 from assessor_ai.chat import service
 from interfaces.terminal.display import (
+    PURPLE,
     console,
     exibir_assistente,
     exibir_titulo,
@@ -14,7 +15,7 @@ def run() -> None:
 
     while True:
         try:
-            user_input = console.input("[bold green]>[/bold green] ").strip()
+            user_input = console.input(f"[bold {PURPLE}]>[/bold {PURPLE}] ").strip()
 
             if user_input == "/exit":
                 service.encerrar_sessao(session_id, user_id)

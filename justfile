@@ -22,6 +22,12 @@ web:
     @echo "Running the frontend dev server (proxy pra API em localhost:8000)"
     cd web; npm run dev
 
+# Sobe API + frontend, cada um na sua janela do PowerShell (só Windows)
+web-full:
+    @echo "Abrindo 'just api' e 'just web' em janelas separadas"
+    Start-Process powershell -ArgumentList '-NoExit','-Command','just api' -WorkingDirectory '{{justfile_directory()}}'
+    Start-Process powershell -ArgumentList '-NoExit','-Command','just web' -WorkingDirectory '{{justfile_directory()}}'
+
 check:
     @echo "Running pre-commit checks"
     ruff check

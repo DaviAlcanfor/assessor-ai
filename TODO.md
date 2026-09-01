@@ -2,6 +2,55 @@
 
 Próximos passos planejados. Contexto do projeto em [AGENTS.md](AGENTS.md).
 
+## Refatoração: padrão limpo e injeção de dependência — a fazer
+
+Regra transversal: classe é pra segurar dependência injetada. Classe sem estado com um método é
+função de fantasia — não converter por estética.
+
+- [ ] **mypy + ruff estrito** — nenhum type checker revisa o código hoje. Adicionar `mypy` ao dev
+      group, um job no CI, e endurecer o ruff (hoje é quase default). Consertar o que aparecer
+      (ex.: `Estado.mensagem_bloqueada: str` recebendo `None` em `graph/state.py`; retornos `-> dict`
+      genéricos). Zero mudança de estrutura; é só instalar o crítico. **Faz isso primeiro.**
+- [ ] **Matar efeito colateral de import** — `config/settings.py` instancia `Settings()` e **muta
+      `os.environ`** só de importar o módulo (linhas ~44-49); `graph/builder.py` monta `grafo` no
+      import e tem `_fluxo`/`_lock` como global de módulo. Mover pra função chamada uma vez no
+      startup (lifespan da API / bootstrap da TUI). Diff pequeno e isolado.
+- [ ] **`SecretStr` nos segredos** — `config/settings.py`: trocar `str` por `SecretStr` em
+      `GEMINI_API_KEY`, `GROQ_API_KEY`, `POSTGRES_URL`, `MONGO_URL`, `QDRANT_API_KEY`,
+      `SIGNUP_SECRET`. Evita vazamento acidental em log/traceback/`/docs`. **Não** embrulhar o que
+      não é segredo (nomes de coleção, `A2A_BASE_URL`, `LANGSMITH_PROJECT`).
+- [ ] **Extrair redação de PII pra módulo neutro** — `chat/repositories.py` importa
+      `anonimizar_entrada` de `agents/nodes/guardrail/entrada.py`: a persistência reachando dentro
+      da camada de agentes. Mover `anonimizar_entrada` (+ os padrões PII) pra um módulo neutro tipo
+      `src/assessor_ai/privacy/` que persistência e guardrail importam. Remove a violação de camada.
+- [ ] **`repositories.py` → classes injetadas** — hoje é um módulo de ~15 funções que fala com
+      Mongo + Postgres + Redis ao mesmo tempo (são 3 repositórios colados). Quebrar em
+      `ChatRepository` / `UserRepository` (talvez `ProfileCache` pro Redis), cada uma recebendo seu
+      client no `__init__`. Um de cada vez. Destrava teste com fake e mata o `monkeypatch` frágil.
+- [ ] **`chat/service.py` → classe** — `ChatService(chat_repo, user_repo, graph, rate_limiter)` em
+      vez de funções soltas importando `repositories`. Depende do item acima. Os testes em
+      `tests/chat/test_service.py` passam a injetar fakes em vez de `monkeypatch.setattr` em string.
+- [ ] **`chat/` — não reduzir número de arquivo** — `models`/`repositories`/`runner`/`service` é uma
+      divisão sã. A pasta precisa de *mais* separação (itens acima), não menos. Confusão ≠ contagem
+      de arquivo.
+- [ ] **Nodes → classe só se ganharem dependência injetada** — hoje são `async def(estado) -> dict`
+      puxando colaborador de global (`llm_guardrail`, `financeiro_app`). Se o LLM/tools/clock
+      passarem a ser injetados, a classe vira o container natural (é o que o outro projeto faz:
+      node = classe que segura `agent_factory`, `clock`, `tools`). Node genuinamente sem estado
+      continua função. Decidir **depois** dos itens de DI — vai estar claro.
+- [ ] **Graph → função que retorna, não módulo com global** — o smell real é `grafo`/`_fluxo`/`_lock`
+      no topo de `builder.py`, não "falta ser classe". `build_graph(deps) -> CompiledGraph` chamada
+      uma vez no startup basta. Vira classe (`AgentGraph` como porta) só se adotar DI a sério.
+- [ ] **API robusta** — independente do resto, pode ser a qualquer momento:
+      taxonomia de exceção + um exception handler, no lugar de `except Exception` em toda rota;
+      validar `chat_id` como UUID na fronteira (422 pra lixo); logging estruturado com request id;
+      o bypass `API_KEY_AUTH_ENABLED=false` que injeta usuário aleatório precisa **gritar no log no
+      startup** (arma apontada pro pé se subir em prod).
+
+Referências pra estudar o padrão: livro **"Architecture Patterns with Python"** (grátis em
+cosmicpython.com — ports/adapters, repository, service layer, DI), canal **ArjanCodes**, fonte da
+org **encode** no GitHub (FastAPI/Starlette/httpx).
+
 ## Refatoração: camada de serviço compartilhada — concluída (terminal)
 
 `main.py` mistura três coisas: o loop de terminal, a lógica de montar/persistir mensagens e a

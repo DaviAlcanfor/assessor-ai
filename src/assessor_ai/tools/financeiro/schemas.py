@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from assessor_ai.tools.postgres.models import PaymentType
+from assessor_ai.tools.financeiro.models import PaymentType
 
 
 class AddTransactionArgs(BaseModel):

@@ -1,7 +1,8 @@
 """Ingestão do PDF de FAQ para a collection do Qdrant. Rodar sob demanda:
-python -m assessor_ai.tools.qdrant.faq.ingest
+python -m assessor_ai.tools.faq.ingest
 """
 
+import time
 from pathlib import Path
 from uuid import NAMESPACE_DNS, uuid5
 
@@ -11,19 +12,20 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-from config.logging import get_logger
-from config.models import Model
-from config.settings import settings
-
-from .connection import get_qdrant_client
+from assessor_ai.core.config import settings
+from assessor_ai.core.logging import get_logger
+from assessor_ai.core.models import Model
+from assessor_ai.tools.infra.qdrant import VECTOR_SIZE, qdrant
 
 logger = get_logger("qdrant_ingest")
 
 _PDF_PATH = Path("data/documents/FAQ_assessor_v1.1.pdf")
 _CHUNK_SIZE = 700
 _CHUNK_OVERLAP = 150
-_VECTOR_SIZE = 768
+_VECTOR_SIZE = VECTOR_SIZE  # mesma constante que a busca usa (infra/qdrant.py)
 _TASK_TYPE_DOCUMENT = "retrieval_document"
+_EMBED_BATCH = 20
+_EMBED_PAUSE_S = 20  # gemini-embedding-001 tem cota por minuto baixa; pausa entre lotes
 
 
 def _load_faq_pdf() -> tuple[GoogleGenerativeAIEmbeddings, list]:
@@ -38,11 +40,21 @@ def _load_faq_pdf() -> tuple[GoogleGenerativeAIEmbeddings, list]:
 
     embeddings = GoogleGenerativeAIEmbeddings(
         model=Model.EMBEDDING_MODEL,
-        google_api_key=settings.GEMINI_API_KEY,
+        google_api_key=settings.GEMINI_API_KEY.get_secret_value(),
         task_type=_TASK_TYPE_DOCUMENT,
+        output_dimensionality=_VECTOR_SIZE,
     )
 
     return embeddings, chunks
+
+
+def _embed_em_lotes(embeddings: GoogleGenerativeAIEmbeddings, textos: list[str]) -> list[list[float]]:
+    vetores: list[list[float]] = []
+    for i in range(0, len(textos), _EMBED_BATCH):
+        if i:
+            time.sleep(_EMBED_PAUSE_S)
+        vetores.extend(embeddings.embed_documents(textos[i : i + _EMBED_BATCH]))
+    return vetores
 
 
 def _ensure_collection_exists(client: QdrantClient) -> None:
@@ -59,7 +71,7 @@ def _store_documents_in_qdrant(
     chunks: list,
 ) -> None:
     textos = [chunk.page_content for chunk in chunks]
-    vetores = embeddings.embed_documents(textos)
+    vetores = _embed_em_lotes(embeddings, textos)
 
     pontos = [
         PointStruct(
@@ -78,7 +90,7 @@ def _store_documents_in_qdrant(
 
 
 def ingest() -> None:
-    client = get_qdrant_client()
+    client = qdrant.client
     embeddings, chunks = _load_faq_pdf()
 
     _ensure_collection_exists(client)

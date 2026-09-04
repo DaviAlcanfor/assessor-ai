@@ -1,6 +1,6 @@
-from assessor_ai.agents.prompts.loader import load_sections
+from assessor_ai.core.logging import get_logger
+from assessor_ai.core.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_rapido
-from config.logging import get_logger
 
 log = get_logger(__name__)
 
@@ -16,19 +16,22 @@ def _formatar_conversa(mensagens: list[dict]) -> str:
     return "\n".join(linhas)
 
 
-def _gerar_resumo(mensagens: list[dict]) -> str:
+def gerar_resumo(mensagens: list[dict]) -> str:
     log.info("Resumindo conversa...")
 
     conversa = _formatar_conversa(mensagens)
 
     return llm_rapido.invoke(
         _RESUMIDOR["resumo"].format(conversa=conversa)
-    ).content.strip()
+    ).text.strip()
 
 
-def _gerar_perfil(perfil_atual: str, resumo: str) -> str:
+def gerar_perfil(perfil_atual: str, resumo: str) -> str:
     log.info("Atualizando perfil do usuário...")
 
     return llm_rapido.invoke(
         _RESUMIDOR["perfil"].format(perfil_atual=perfil_atual, resumo=resumo)
-    ).content.strip()
+    ).text.strip()
+
+
+__all__ = ["gerar_perfil", "gerar_resumo"]

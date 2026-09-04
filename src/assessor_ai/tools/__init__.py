@@ -1,28 +1,38 @@
-from .postgres.agenda.core import (
-    add_event,
-    query_daily_events,
-    query_events,
-    update_event,
-)
-from .postgres.financeiro.core import (
-    add_transaction,
-    daily_balance,
-    query_transactions,
-    total_balance,
-    update_transaction,
-)
-from .qdrant.faq.core import faq_retriever
-from .redis.api_key import get_user_id_by_api_key
-from .redis.chat import can_send_message
+"""
+Uma pasta por feature (`financeiro`, `agenda`, `faq`, `chats`, `usuarios`), não por banco —
+`usuarios` sozinho fala com Mongo, Postgres e Redis. As conexões, que são compartilhadas entre
+features, ficam em `infra/`.
 
-REDIS_TOOLS = [get_user_id_by_api_key, can_send_message]
-FINANCEIRO_TOOLS = [add_transaction, daily_balance, total_balance, query_transactions, update_transaction]
-AGENDA_TOOLS = [add_event, query_daily_events, query_events, update_event]
-FAQ_TOOLS = [faq_retriever]
+Cada feature expõe um `*Repo`. Os que têm tools do LLM (financeiro, agenda, faq) devolvem a lista
+via `as_tools()`; os internos (chats, usuarios) são só chamados por `repositories/`.
+
+As instâncias abaixo são singletons de processo: o construtor só guarda a conexão (que por sua vez
+é lazy), então criá-las no import não abre socket nenhum.
+"""
+
+from assessor_ai.tools.agenda.repo import AgendaRepo
+from assessor_ai.tools.chats.repo import ChatsRepo
+from assessor_ai.tools.faq.repo import FaqRepo
+from assessor_ai.tools.financeiro.repo import FinanceiroRepo
+from assessor_ai.tools.usuarios.repo import UsuariosRepo
+
+financeiro = FinanceiroRepo()
+agenda     = AgendaRepo()
+faq        = FaqRepo()
+chats      = ChatsRepo()
+usuarios   = UsuariosRepo()
+
+FINANCEIRO_TOOLS = financeiro.as_tools()
+AGENDA_TOOLS     = agenda.as_tools()
+FAQ_TOOLS        = faq.as_tools()
 
 __all__ = [
     "AGENDA_TOOLS",
     "FAQ_TOOLS",
     "FINANCEIRO_TOOLS",
-    "REDIS_TOOLS"
+    "agenda",
+    "chats",
+    "faq",
+    "financeiro",
+    "usuarios",
 ]

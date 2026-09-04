@@ -14,40 +14,24 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-class Base(DeclarativeBase):
-    pass
-
-
-# Usuário "legado" criado pela migration a83e50c95f94 — mesmo propósito do DEFAULT da
-# coluna no banco: financeiro/agenda ainda não propagam o user_id real (ver TODO.md).
-# Precisa ser setado explicitamente aqui porque o ORM sempre manda a coluna no INSERT
-# (diferente do SQL cru, que a omite e deixa o Postgres aplicar o DEFAULT).
-LEGACY_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
-
-
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[UUID] = mapped_column(primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+from assessor_ai.tools.infra.postgres import LEGACY_USER_ID, Base
 
 
 class TransactionType(StrEnum):
-    INCOME = "INCOME"
+    INCOME   = "INCOME"
     EXPENSES = "EXPENSES"
     TRANSFER = "TRANSFER"
 
 
 class PaymentType(StrEnum):
-    DINHEIRO = "DINHEIRO"
-    PIX = "PIX"
+    DINHEIRO       = "DINHEIRO"
+    PIX            = "PIX"
     CARTAO_CREDITO = "CARTAO_CREDITO"
-    CARTAO_DEBITO = "CARTAO_DEBITO"
-    BOLETO = "BOLETO"
-    OUTRO = "OUTRO"
+    CARTAO_DEBITO  = "CARTAO_DEBITO"
+    BOLETO         = "BOLETO"
+    OUTRO          = "OUTRO"
 
 
 # native_enum=True + create_type=False: os tipos `transaction_type`/`payment_type` já
@@ -77,7 +61,7 @@ class Transaction(Base):
 
     # with_variant: SQLite só trata a PK como rowid alias (autoincrement) se o tipo
     # declarado for exatamente Integer — BigInteger puro quebra o insert sem id explícito
-    # em teste (SQLite in-memory, ver tests/tools/postgres/conftest.py). Sem efeito no
+    # em teste (SQLite in-memory, ver tests/tools/conftest.py). Sem efeito no
     # Postgres real (continua BIGINT).
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
@@ -92,25 +76,10 @@ class Transaction(Base):
     category: Mapped["Category | None"] = relationship()
 
 
-class Event(Base):
-    __tablename__ = "events"
-
-    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
-    title: Mapped[str] = mapped_column(Text)
-    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    location: Mapped[str | None] = mapped_column(Text)
-    notes: Mapped[str | None] = mapped_column(Text)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    source_text: Mapped[str] = mapped_column(Text)
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), default=LEGACY_USER_ID)
-
-
 # Índices existentes no schema (criados nas migrations Alembic) — declarados aqui pra
 # --autogenerate não tentar dropá-los num diff futuro.
 Index("idx_transactions_occurred_at", Transaction.occurred_at.desc())
 Index("idx_transactions_category_time", Transaction.category_id, Transaction.occurred_at.desc())
-Index("idx_events_start_time", Event.start_time.desc())
 
 
-__all__ = ["Base", "Category", "Event", "PaymentType", "Transaction", "TransactionType", "User"]
+__all__ = ["Category", "PaymentType", "Transaction", "TransactionType"]

@@ -1,6 +1,6 @@
 import hashlib
 
-from assessor_ai.tools.usuarios.schemas import (
+from assessor_ai.graph.tools.usuarios.schemas import (
     chave_api_key,
     chave_api_key_lookup,
     hash_api_key,

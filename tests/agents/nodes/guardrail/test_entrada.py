@@ -3,7 +3,7 @@ import logging
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from assessor_ai.agents.nodes.guardrail.entrada import (
+from assessor_ai.graph.agents.nodes.guardrail.entrada import (
     _detectar_acesso_interno,
     _detectar_injecao,
     _extrair_categoria,
@@ -11,7 +11,7 @@ from assessor_ai.agents.nodes.guardrail.entrada import (
     guardrail_entrada,
     no_guardrail_entrada,
 )
-from assessor_ai.agents.nodes.guardrail.schemas import Categoria
+from assessor_ai.graph.agents.nodes.guardrail.schemas import Categoria
 
 
 def test_anonimizar_entrada_substitui_cpf_por_token():
@@ -121,7 +121,7 @@ async def test_guardrail_entrada_bloqueia_injecao_fora_do_regex_via_llm(monkeypa
             )
 
     monkeypatch.setattr(
-        "assessor_ai.agents.nodes.guardrail.entrada.llm_guardrail", _LLMFake()
+        "assessor_ai.graph.agents.nodes.guardrail.entrada.llm_guardrail", _LLMFake()
     )
 
     resultado = await guardrail_entrada(texto)

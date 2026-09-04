@@ -5,14 +5,14 @@ from slowapi.errors import RateLimitExceeded
 from assessor_ai.a2a.main import montar_rotas as montar_rotas_a2a
 from assessor_ai.api.exception_handlers import register_exception_handlers
 from assessor_ai.api.lifespan import lifespan
+from assessor_ai.api.limiter import limiter
+from assessor_ai.api.middleware import adicionar_middleware
 from assessor_ai.api.routes import (
     chats_router,
     health_router,
     keys_router,
     users_router,
 )
-from assessor_ai.core.limiter import limiter
-from assessor_ai.core.middleware import adicionar_middleware
 
 app = FastAPI(
     title="Assessor AI",

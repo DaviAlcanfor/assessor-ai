@@ -3,7 +3,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 
-from assessor_ai.core.models import API_KEYS, BUILDERS, PROVIDER_MAP, Model
+from assessor_ai.models import API_KEYS, BUILDERS, PROVIDER_MAP, Model
 
 
 def build_llm(

@@ -8,9 +8,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from assessor_ai.core.logging import get_logger
 from assessor_ai.graph.builder import fluxo_agentes
-from assessor_ai.tools.infra.postgres import postgres
+from assessor_ai.infra.postgres import postgres
+from assessor_ai.logging import get_logger
 
 logger = get_logger(__name__)
 

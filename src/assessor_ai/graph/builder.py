@@ -3,7 +3,7 @@ import asyncio
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
 
-from assessor_ai.agents.nodes import (
+from assessor_ai.graph.agents.nodes import (
     no_agenda,
     no_faq,
     no_financeiro,
@@ -12,9 +12,9 @@ from assessor_ai.agents.nodes import (
     no_orquestrador,
     no_roteador,
 )
-from assessor_ai.agents.nodes.names import NodeName
+from assessor_ai.graph.agents.nodes.names import NodeName
 from assessor_ai.graph.state import Estado, Route
-from assessor_ai.tools.infra.postgres import postgres
+from assessor_ai.infra.postgres import postgres
 
 
 def decidir_apos_guardrail_entrada(estado: Estado) -> str:

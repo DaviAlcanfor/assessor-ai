@@ -1,9 +1,9 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
+from assessor_ai.infra.mongo import mongo
+from assessor_ai.infra.redis import redis
 from assessor_ai.schemas.health import HealthCheckResponse
-from assessor_ai.tools.infra.mongo import mongo
-from assessor_ai.tools.infra.redis import redis
 
 router = APIRouter(prefix="/health", tags=["health"])
 

@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from assessor_ai.tools.agenda.models import Event
-from assessor_ai.tools.infra.postgres import reset_current_user, set_current_user
+from assessor_ai.graph.tools.agenda.models import Event
+from assessor_ai.infra.postgres import reset_current_user, set_current_user
 
 OUTRO_USUARIO = UUID("11111111-1111-1111-1111-111111111111")
 

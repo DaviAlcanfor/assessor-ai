@@ -3,8 +3,8 @@ import logging
 from langchain_core.messages import AIMessage, HumanMessage
 
 from assessor_ai.graph.builder import fluxo_agentes
+from assessor_ai.infra.postgres import reset_current_user, set_current_user
 from assessor_ai.schemas.models import ChatMessage, Role
-from assessor_ai.tools.infra.postgres import reset_current_user, set_current_user
 
 # O aviso "Deserializing unregistered type" sai por `logger.warning` do serde do langgraph, não
 # pelo módulo `warnings` — filtrar em `warnings.filterwarnings` era no-op. Silenciado no logger do

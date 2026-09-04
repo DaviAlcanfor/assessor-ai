@@ -3,9 +3,9 @@ import pytest
 import assessor_ai.api.routes.keys as keys_route
 from assessor_ai.api.app import app
 from assessor_ai.api.auth import verify_signup_secret
-from assessor_ai.core.config import settings
+from assessor_ai.config import settings
+from assessor_ai.graph.tools import usuarios
 from assessor_ai.services import chat_service
-from assessor_ai.tools import usuarios
 
 
 def _async(valor):

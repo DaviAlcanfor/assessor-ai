@@ -1,5 +1,5 @@
-from assessor_ai.core import limiter
-from assessor_ai.core.limiter import CHAT_TTL_TIME, N_MESSAGES_ACCEPTED, _chave_mensagem
+from assessor_ai.api import limiter
+from assessor_ai.api.limiter import CHAT_TTL_TIME, N_MESSAGES_ACCEPTED, _chave_mensagem
 from tests.fakes import ConnFake, FakeRedis
 
 

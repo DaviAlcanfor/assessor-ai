@@ -1,9 +1,9 @@
 import pytest
 from sqlalchemy import column
 
-from assessor_ai.tools.financeiro.models import TransactionType
-from assessor_ai.tools.financeiro.repo import resolve_transaction_type
-from assessor_ai.tools.infra.postgres import (
+from assessor_ai.graph.tools.financeiro.models import TransactionType
+from assessor_ai.graph.tools.financeiro.repo import resolve_transaction_type
+from assessor_ai.infra.postgres import (
     local_date,
     local_date_filter,
     local_date_range_filter,

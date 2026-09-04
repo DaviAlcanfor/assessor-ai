@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from assessor_ai.api.auth import verify_signup_secret
 from assessor_ai.api.gen_key import generate_api_key
-from assessor_ai.core.limiter import limiter
+from assessor_ai.api.limiter import limiter
+from assessor_ai.graph.tools import usuarios
 from assessor_ai.schemas.key import KeyCreate, KeyCreateResponse
 from assessor_ai.services import chat_service
-from assessor_ai.tools import usuarios
 
 router = APIRouter(prefix="/v1/keys", tags=["keys"])
 

@@ -1,4 +1,4 @@
-from assessor_ai.agents.nodes.router import _extrair_pergunta, _extrair_rota
+from assessor_ai.graph.agents.nodes.router import _extrair_pergunta, _extrair_rota
 from assessor_ai.graph.state import Route
 
 

@@ -11,7 +11,7 @@ Rotas para chat:
 from fastapi import APIRouter, Depends, Request, status
 
 from assessor_ai.api.auth import get_current_user
-from assessor_ai.core.limiter import limiter
+from assessor_ai.api.limiter import limiter
 from assessor_ai.schemas.chat import (
     ChatCreateResponse,
     ChatMessageResponse,

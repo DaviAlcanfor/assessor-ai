@@ -2,16 +2,16 @@ import asyncio
 
 from langsmith import traceable
 
-from assessor_ai.core.cache import (
+from assessor_ai.graph.tools import chats, usuarios
+from assessor_ai.graph.tools.chats.schemas import Mensagem
+from assessor_ai.graph.tools.chats.schemas import Role as MongoRole
+from assessor_ai.infra.cache import (
     buscar_perfil_cache,
     invalidar_perfil_cache,
     salvar_perfil_cache,
 )
-from assessor_ai.core.privacy import anonimizar_entrada
+from assessor_ai.privacy import anonimizar_entrada
 from assessor_ai.schemas.models import ChatMessage, Role
-from assessor_ai.tools import chats, usuarios
-from assessor_ai.tools.chats.schemas import Mensagem
-from assessor_ai.tools.chats.schemas import Role as MongoRole
 
 # Os drivers de Mongo/Redis/SQLAlchemy usados aqui são todos síncronos e bloqueantes. Como a
 # cadeia acima (service -> rotas/TUI/A2A) é async, cada chamada vai pra thread via

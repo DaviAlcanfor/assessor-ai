@@ -2,7 +2,7 @@ import pytest
 from fastapi import HTTPException
 
 from assessor_ai.api import auth
-from assessor_ai.tools import usuarios
+from assessor_ai.graph.tools import usuarios
 
 
 def _async(valor):

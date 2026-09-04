@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from guard import SecurityMiddleware
 
 from assessor_ai.api.app import app
-from assessor_ai.core.limiter import limiter
+from assessor_ai.api.limiter import limiter
 
 
 @contextmanager

@@ -3,9 +3,9 @@ import secrets
 from fastapi import Header, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
-from assessor_ai.core.config import settings
+from assessor_ai.config import settings
+from assessor_ai.graph.tools import usuarios
 from assessor_ai.services import chat_service
-from assessor_ai.tools import usuarios
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 _signup_secret_header = APIKeyHeader(name="X-Signup-Secret")

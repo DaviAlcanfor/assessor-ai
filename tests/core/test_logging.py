@@ -1,6 +1,6 @@
 import logging
 
-from assessor_ai.core.logging import log_tool
+from assessor_ai.logging import log_tool
 
 
 @log_tool

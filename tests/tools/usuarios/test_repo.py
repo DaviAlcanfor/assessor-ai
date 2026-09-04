@@ -1,5 +1,5 @@
-from assessor_ai.tools.usuarios.repo import UsuariosRepo
-from assessor_ai.tools.usuarios.schemas import API_KEY_TTL_TIME, hash_api_key
+from assessor_ai.graph.tools.usuarios.repo import UsuariosRepo
+from assessor_ai.graph.tools.usuarios.schemas import API_KEY_TTL_TIME, hash_api_key
 from tests.fakes import FakeRedis
 
 

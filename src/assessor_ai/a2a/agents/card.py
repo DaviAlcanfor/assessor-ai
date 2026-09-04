@@ -3,7 +3,7 @@ from importlib.metadata import version
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentProvider
 
 from assessor_ai.a2a.agents.capabilites import SKILLS
-from assessor_ai.core.config import settings
+from assessor_ai.config import settings
 
 AGENT_CARD = AgentCard(
     name="Assessor AI",

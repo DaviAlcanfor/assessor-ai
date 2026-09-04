@@ -8,14 +8,14 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from assessor_ai.tools.agenda.models import (
+from assessor_ai.graph.tools.agenda.models import (
     Event,  # noqa: F401  (registra a tabela no metadata)
 )
-from assessor_ai.tools.agenda.repo import AgendaRepo
-from assessor_ai.tools.financeiro.models import Category, Transaction
-from assessor_ai.tools.financeiro.repo import FinanceiroRepo
-from assessor_ai.tools.infra.postgres import LEGACY_USER_ID, Base
-from assessor_ai.tools.usuarios.models import User
+from assessor_ai.graph.tools.agenda.repo import AgendaRepo
+from assessor_ai.graph.tools.financeiro.models import Category, Transaction
+from assessor_ai.graph.tools.financeiro.repo import FinanceiroRepo
+from assessor_ai.graph.tools.usuarios.models import User
+from assessor_ai.infra.postgres import LEGACY_USER_ID, Base
 
 
 def _timezone_sqlite(tz_name: str, timestamp: str) -> str:

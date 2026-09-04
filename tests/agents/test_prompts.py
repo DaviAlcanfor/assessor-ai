@@ -5,7 +5,7 @@ do parser: frontmatter, seções e o envelope montado por `load_prompt`.
 
 import pytest
 
-from assessor_ai.core.prompts.loader import load_prompt, load_sections
+from assessor_ai.graph.agents.prompts.loader import load_prompt, load_sections
 
 
 @pytest.mark.parametrize(

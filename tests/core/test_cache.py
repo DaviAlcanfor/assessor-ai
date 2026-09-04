@@ -1,5 +1,5 @@
-from assessor_ai.core import cache
-from assessor_ai.core.cache import PROFILE_TTL_TIME, _chave_perfil
+from assessor_ai.infra import cache
+from assessor_ai.infra.cache import PROFILE_TTL_TIME, _chave_perfil
 from tests.fakes import ConnFake, FakeRedis
 
 

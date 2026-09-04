@@ -7,10 +7,13 @@ from assessor_ai.core.config import settings
 
 # Todo model precisa ser importado aqui: com os models fatiados por feature, o que não for
 # importado some do `Base.metadata` e o --autogenerate gera um DROP da tabela correspondente.
-from assessor_ai.tools.agenda.models import Event  # noqa: F401
-from assessor_ai.tools.financeiro.models import Category, Transaction  # noqa: F401
-from assessor_ai.tools.infra.postgres import Base
-from assessor_ai.tools.usuarios.models import User  # noqa: F401
+from assessor_ai.graph.tools.agenda.models import Event  # noqa: F401
+from assessor_ai.graph.tools.financeiro.models import (  # noqa: F401
+    Category,
+    Transaction,
+)
+from assessor_ai.graph.tools.usuarios.models import User  # noqa: F401
+from assessor_ai.infra.postgres import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

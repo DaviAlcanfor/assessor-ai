@@ -3,8 +3,8 @@ from uuid import uuid4
 
 from faker import Faker
 
-from assessor_ai.core.limiter import can_send_message
-from assessor_ai.core.privacy import anonimizar_entrada
+from assessor_ai.api.limiter import can_send_message
+from assessor_ai.privacy import anonimizar_entrada
 from assessor_ai.repositories import chat_repository
 from assessor_ai.schemas.models import ChatMessage, Role
 from assessor_ai.services import runner

@@ -1,8 +1,8 @@
 from langchain.agents import create_agent
 
-from assessor_ai.core.prompts.loader import load_prompt
+from assessor_ai.graph.agents.prompts.loader import load_prompt
 from assessor_ai.graph.llm import llm_especialista, llm_rapido
-from assessor_ai.tools import (
+from assessor_ai.graph.tools import (
     AGENDA_TOOLS,
     FAQ_TOOLS,
     FINANCEIRO_TOOLS,

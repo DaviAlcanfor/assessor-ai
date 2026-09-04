@@ -1,4 +1,4 @@
-from assessor_ai.tools.response import Response
+from assessor_ai.graph.tools.response import Response
 
 
 def test_ok_sem_argumentos():

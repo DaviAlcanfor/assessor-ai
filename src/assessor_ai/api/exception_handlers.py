@@ -9,7 +9,7 @@ devolva stack trace pro cliente, incluindo as que ninguém lembrou de proteger.
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from assessor_ai.core.logging import get_logger
+from assessor_ai.logging import get_logger
 from assessor_ai.schemas.errors import ErrorResponse
 from assessor_ai.services.exceptions import (
     ChatDeOutroUsuario,

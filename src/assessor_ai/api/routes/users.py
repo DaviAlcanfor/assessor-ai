@@ -8,8 +8,8 @@ evitando enumeração de usuários em produção.
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from assessor_ai.core.config import settings
-from assessor_ai.core.limiter import limiter
+from assessor_ai.api.limiter import limiter
+from assessor_ai.config import settings
 from assessor_ai.schemas.user import UserCreate, UserResponse
 from assessor_ai.services import chat_service
 

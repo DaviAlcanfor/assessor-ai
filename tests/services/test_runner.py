@@ -1,8 +1,8 @@
 from langchain_core.messages import AIMessage, HumanMessage
 
+from assessor_ai.infra.postgres import current_user_id
 from assessor_ai.schemas.models import ChatMessage, Role
 from assessor_ai.services import runner
-from assessor_ai.tools.infra.postgres import current_user_id
 
 
 class _FluxoFake:

@@ -1,7 +1,5 @@
 
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_groq import ChatGroq
+from langchain_core.language_models import BaseChatModel
 
 from assessor_ai.models import API_KEYS, BUILDERS, PROVIDER_MAP, Model
 
@@ -10,7 +8,7 @@ def build_llm(
     temperature: float,
     top_p: float | None = None,
     model: Model | None = None
-) -> ChatGoogleGenerativeAI | ChatGroq | ChatAnthropic:
+) -> BaseChatModel:
     """
     Cria uma LLM com base no modelo informado.
     top_p só é aplicado para modelos Gemini.

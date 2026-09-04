@@ -2,8 +2,8 @@ import re
 
 from assessor_ai.graph.agents import router_app
 from assessor_ai.graph.agents.nodes.contexto import mensagens_com_contexto
-from assessor_ai.graph.agents.nodes.names import NodeName
-from assessor_ai.graph.state import Estado, Route
+from assessor_ai.graph.agents.nodes.names import ROTEADOR
+from assessor_ai.graph.state import Estado, EstadoUpdate, Route
 from assessor_ai.logging import get_logger
 
 log = get_logger(__name__)
@@ -30,7 +30,7 @@ def _extrair_pergunta(texto: str) -> str:
     return match.group(1).strip()
 
 
-async def no_roteador(estado: Estado) -> dict:
+async def no_roteador(estado: Estado) -> EstadoUpdate:
 
     saida = await router_app.ainvoke({"messages": mensagens_com_contexto(estado, incluir_pergunta=False)})
     texto = saida["messages"][-1].content
@@ -40,15 +40,15 @@ async def no_roteador(estado: Estado) -> dict:
     log.debug(f"Rota escolhida: {rota} | pergunta: '{pergunta}'")
 
     if rota is Route.FIM:
-        return {
-            "agentes_chamados": [NodeName.ROTEADOR],
-            "rota":             Route.FIM,
-            "pergunta_original": pergunta,
-            "messages":         [{"role": "assistant", "content": texto}],
-        }
+        return EstadoUpdate(
+            agentes_chamados=[ROTEADOR],
+            rota=Route.FIM,
+            pergunta_original=pergunta,
+            messages=[{"role": "assistant", "content": texto}],
+        )
 
-    return {
-        "agentes_chamados":  [NodeName.ROTEADOR],
-        "rota":              rota,
-        "pergunta_original": pergunta,
-    }
+    return EstadoUpdate(
+        agentes_chamados=[ROTEADOR],
+        rota=rota,
+        pergunta_original=pergunta,
+    )

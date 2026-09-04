@@ -16,10 +16,25 @@ turno pelos nós.
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TypedDict, cast
 
 _PASTA = Path(__file__).parent
 _MARCADOR_SECAO = "## "
 _MARCADOR_FRONTMATTER = "---"
+
+
+class PromptSections(TypedDict, total=False):
+    papel: str
+    shots: str
+    classificador: str
+    compliance: str
+    resumo: str
+    perfil: str
+
+
+class PromptMetadata(TypedDict, total=False):
+    usa_tools_obrigatorias: bool
+
 
 PERSONA_SISTEMA = """
 ### PERSONA
@@ -40,7 +55,7 @@ OBRIGATORIEDADE_TOOLS = """
 """
 
 
-def _parse_frontmatter(texto: str) -> tuple[dict[str, str], str]:
+def _parse_frontmatter(texto: str) -> tuple[PromptMetadata, str]:
     linhas = texto.splitlines()
 
     if not linhas or linhas[0].strip() != _MARCADOR_FRONTMATTER:
@@ -50,18 +65,19 @@ def _parse_frontmatter(texto: str) -> tuple[dict[str, str], str]:
         if linha.strip() != _MARCADOR_FRONTMATTER:
             continue
 
-        metadados = {}
+        metadados: PromptMetadata = {}
         for linha_meta in linhas[1:i]:
             if ":" in linha_meta:
                 chave, valor = linha_meta.split(":", 1)
-                metadados[chave.strip()] = valor.strip()
+                if chave.strip() == "usa_tools_obrigatorias":
+                    metadados["usa_tools_obrigatorias"] = valor.strip().lower() == "true"
 
         return metadados, "\n".join(linhas[i + 1 :])
 
     return {}, texto
 
 
-def _parse_secoes(texto: str) -> dict[str, str]:
+def _parse_secoes(texto: str) -> PromptSections:
     secoes: dict[str, str] = {}
     nome_atual: str | None = None
     linhas_atuais: list[str] = []
@@ -78,16 +94,16 @@ def _parse_secoes(texto: str) -> dict[str, str]:
     if nome_atual:
         secoes[nome_atual] = "\n".join(linhas_atuais).strip()
 
-    return secoes
+    return cast("PromptSections", secoes)
 
 
-def _ler(nome: str) -> tuple[dict[str, str], dict[str, str]]:
+def _ler(nome: str) -> tuple[PromptMetadata, PromptSections]:
     texto = (_PASTA / f"{nome}.md").read_text(encoding="utf-8")
     metadados, corpo = _parse_frontmatter(texto)
     return metadados, _parse_secoes(corpo)
 
 
-def load_sections(nome: str) -> dict[str, str]:
+def load_sections(nome: str) -> PromptSections:
     """Seções cruas do .md (sem persona), pra quem monta o prompt na mão — os templates
     de guardrail (CLASSIFICADOR/COMPLIANCE) e de resumidor (RESUMO/PERFIL)."""
 
@@ -103,7 +119,7 @@ def load_prompt(nome: str) -> str:
 
     partes = [PERSONA_SISTEMA]
 
-    if metadados.get("usa_tools_obrigatorias") == "true":
+    if metadados.get("usa_tools_obrigatorias", False):
         partes.append(OBRIGATORIEDADE_TOOLS)
 
     partes.append(f"### PAPEL\n{secoes.get('papel', '')}")
@@ -145,4 +161,11 @@ def contexto_do_turno(perfil_usuario: str = "", pergunta_original: str = "") -> 
     return "\n\n".join(blocos)
 
 
-__all__ = ["contexto_do_turno", "contexto_temporal", "load_prompt", "load_sections"]
+__all__ = [
+    "PromptMetadata",
+    "PromptSections",
+    "contexto_do_turno",
+    "contexto_temporal",
+    "load_prompt",
+    "load_sections",
+]

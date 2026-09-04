@@ -1,5 +1,6 @@
 from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_rapido
+from assessor_ai.graph.tools.chats.schemas import MessageDocument
 from assessor_ai.logging import get_logger
 
 log = get_logger(__name__)
@@ -7,7 +8,7 @@ log = get_logger(__name__)
 _RESUMIDOR = load_sections("resumidor")
 
 
-def _formatar_conversa(mensagens: list[dict]) -> str:
+def _formatar_conversa(mensagens: list[MessageDocument]) -> str:
     linhas = []
 
     for msg in mensagens:
@@ -16,7 +17,7 @@ def _formatar_conversa(mensagens: list[dict]) -> str:
     return "\n".join(linhas)
 
 
-def gerar_resumo(mensagens: list[dict]) -> str:
+def gerar_resumo(mensagens: list[MessageDocument]) -> str:
     log.info("Resumindo conversa...")
 
     conversa = _formatar_conversa(mensagens)

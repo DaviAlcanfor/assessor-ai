@@ -1,4 +1,6 @@
 from datetime import UTC, datetime
+from typing import TypedDict
+from uuid import UUID
 
 from langchain_core.tools import StructuredTool
 from sqlalchemy import or_, select
@@ -10,7 +12,7 @@ from assessor_ai.graph.tools.agenda.schemas import (
     QueryEventArgs,
     UpdateEventArgs,
 )
-from assessor_ai.graph.tools.response import Response
+from assessor_ai.graph.tools.response import Response, ToolResponse
 from assessor_ai.infra.postgres import (
     PostgresRepo,
     local_date_filter,
@@ -20,7 +22,16 @@ from assessor_ai.infra.postgres import (
 from assessor_ai.logging import get_logger
 
 
-def _serializar(e: Event) -> dict:
+class EventRecord(TypedDict):
+    id: int
+    title: str
+    start_time: str
+    end_time: str | None
+    location: str | None
+    notes: str | None
+
+
+def _serializar(e: Event) -> EventRecord:
     return {
         "id":         e.id,
         "title":      e.title,
@@ -29,6 +40,25 @@ def _serializar(e: Event) -> dict:
         "location":   e.location,
         "notes":      e.notes,
     }
+
+
+def _buscar_evento_por_texto(
+    s: Session,
+    match_text: str,
+    date_local: str,
+    user_id: UUID,
+) -> int | None:
+    like = f"%{match_text}%"
+    return s.scalar(
+        select(Event.id)
+        .where(
+            or_(Event.title.ilike(like), Event.notes.ilike(like)),
+            local_date_filter(Event.start_time, date_local),
+            Event.user_id == user_id,
+        )
+        .order_by(Event.start_time.desc())
+        .limit(1)
+    )
 
 
 class AgendaRepo(PostgresRepo):
@@ -46,7 +76,7 @@ class AgendaRepo(PostgresRepo):
         notes: str,
         end_time: str | None = None,
         location: str | None = None,
-    ) -> dict:
+    ) -> ToolResponse:
         """
         Insere um evento na agenda do usuário.
 
@@ -70,7 +100,7 @@ class AgendaRepo(PostgresRepo):
         return Response.ok(id=event.id, recorded_at=str(event.recorded_at))
 
     @transacional
-    def query_daily_events(self, s: Session, date_local: str) -> dict:
+    def query_daily_events(self, s: Session, date_local: str) -> ToolResponse:
         """
         Retorna todos os eventos de um dia específico.
 
@@ -96,7 +126,7 @@ class AgendaRepo(PostgresRepo):
         date_from_local: str | None = None,
         date_to_local: str | None = None,
         title: str | None = None,
-    ) -> dict:
+    ) -> ToolResponse:
         """
         Consulta eventos com filtros opcionais por período e título.
 
@@ -134,7 +164,7 @@ class AgendaRepo(PostgresRepo):
         end_time: str | None = None,
         location: str | None = None,
         notes: str | None = None,
-    ) -> dict:
+    ) -> ToolResponse:
         """
         Atualiza campos de um evento existente.
 
@@ -155,17 +185,7 @@ class AgendaRepo(PostgresRepo):
                     "Sem 'id': informe match_text E date_local para localizar o evento."
                 )
 
-            like = f"%{match_text}%"
-            target_id = s.scalar(
-                select(Event.id)
-                .where(
-                    or_(Event.title.ilike(like), Event.notes.ilike(like)),
-                    local_date_filter(Event.start_time, date_local),
-                    Event.user_id == self.usuario,
-                )
-                .order_by(Event.start_time.desc())
-                .limit(1)
-            )
+            target_id = _buscar_evento_por_texto(s, match_text, date_local, self.usuario)
             if not target_id:
                 return Response.error("Nenhum evento encontrado para os filtros fornecidos.")
 

@@ -9,10 +9,10 @@ from assessor_ai.graph.agents.nodes.guardrail.schemas import (
     Categoria,
     ResultadoGuardrail,
 )
-from assessor_ai.graph.agents.nodes.names import NodeName
+from assessor_ai.graph.agents.nodes.names import GUARDRAIL_ENTRADA
 from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_guardrail
-from assessor_ai.graph.state import Estado
+from assessor_ai.graph.state import Estado, EstadoUpdate
 from assessor_ai.logging import get_logger
 from assessor_ai.privacy import anonimizar_entrada
 
@@ -88,7 +88,7 @@ async def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     return _aprovado()
 
 
-async def no_guardrail_entrada(estado: Estado) -> dict:
+async def no_guardrail_entrada(estado: Estado) -> EstadoUpdate:
     logger.info("Verificando entrada com guardrail de entrada...")
     
     ultima_msg = estado["messages"][-1]
@@ -97,22 +97,22 @@ async def no_guardrail_entrada(estado: Estado) -> dict:
 
     if resultado["bloqueado"]:
         logger.warning(f"Mensagem bloqueada por guardrail: {resultado['motivo']} - {texto_anonimizado}")
-        return {
-            "agentes_chamados":   [NodeName.GUARDRAIL_ENTRADA],
-            "mensagem_bloqueada": resultado["mensagem"],
-            "messages": [
+        return EstadoUpdate(
+            agentes_chamados=[GUARDRAIL_ENTRADA],
+            mensagem_bloqueada=resultado["mensagem"],
+            messages=[
                 HumanMessage(id=ultima_msg.id, content="[mensagem bloqueada]"), # salva bloqueada
                 {"role": "assistant", "content": resultado["mensagem"]},
             ],
-        }
+        )
 
     logger.info("Mensagem aprovada pelo guardrail de entrada.")
-    return {
-        "agentes_chamados":   [NodeName.GUARDRAIL_ENTRADA],
-        "mapa_pii":           mapa_pii,
-        "messages":           [HumanMessage(id=ultima_msg.id, content=texto_anonimizado)],
-        "mensagem_bloqueada": None, # limpa mensagem bloqueada, era isso q tava fudendo tudo
-    }
+    return EstadoUpdate(
+        agentes_chamados=[GUARDRAIL_ENTRADA],
+        mapa_pii=mapa_pii,
+        messages=[HumanMessage(id=ultima_msg.id, content=texto_anonimizado)],
+        mensagem_bloqueada=None, # limpa mensagem bloqueada, era isso q tava fudendo tudo
+    )
 
 
 __all__ = ["no_guardrail_entrada"]

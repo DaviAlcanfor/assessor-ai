@@ -1,12 +1,12 @@
 import re
 
 from assessor_ai.graph.agents.nodes.guardrail.schemas import ResultadoGuardrail
-from assessor_ai.graph.agents.nodes.names import NodeName
+from assessor_ai.graph.agents.nodes.names import GUARDRAIL_SAIDA
 from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_rapido
-from assessor_ai.graph.state import Estado
+from assessor_ai.graph.state import Estado, EstadoUpdate
 from assessor_ai.logging import get_logger
-from assessor_ai.privacy import PII, PII_USUARIO
+from assessor_ai.privacy import PII, PII_USUARIO, MapaPII, PIIPattern
 
 logger = get_logger(__name__)
 
@@ -22,7 +22,7 @@ def _saida_ok(conteudo: str) -> ResultadoGuardrail:
 
 def desanonimizar_saida(
     texto: str,
-    mapa: dict,
+    mapa: MapaPII,
     restaurar: bool = False
 ) -> str:
     """
@@ -40,7 +40,7 @@ def desanonimizar_saida(
     return texto
 
 
-def _redigir_pii(texto: str, pii_list: list = PII) -> str:
+def _redigir_pii(texto: str, pii_list: list[PIIPattern] = PII) -> str:
     for tipo, padrao in pii_list:    
         texto = re.sub(padrao, f"[{tipo} OMITIDO]", texto)
     return texto
@@ -69,7 +69,7 @@ async def _revisar_compliance(resposta: str) -> str | None:
 
 async def guardrail_saida(
     resposta: str,
-    mapa_pii: dict,
+    mapa_pii: MapaPII,
     restaurar_pii: bool = False
 ) -> ResultadoGuardrail:
     """
@@ -92,7 +92,7 @@ async def guardrail_saida(
     return _saida_ok(revisada)
 
 
-async def no_guardrail_saida(estado: Estado) -> dict:
+async def no_guardrail_saida(estado: Estado) -> EstadoUpdate:
     
     logger.info("Revisando resposta do especialista com guardrail de saída...")
     resultado = await guardrail_saida(
@@ -100,10 +100,10 @@ async def no_guardrail_saida(estado: Estado) -> dict:
         estado.get("mapa_pii", {})
     )
 
-    return {
-        "agentes_chamados": [NodeName.GUARDRAIL_SAIDA],
-        "messages":         [{"role": "assistant", "content": resultado["conteudo"]}],
-    }
+    return EstadoUpdate(
+        agentes_chamados=[GUARDRAIL_SAIDA],
+        messages=[{"role": "assistant", "content": resultado["conteudo"]}],
+    )
 
 
 __all__ = ["no_guardrail_saida"]

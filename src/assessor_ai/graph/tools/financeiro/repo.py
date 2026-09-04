@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import TypedDict
+from uuid import UUID
 
 from langchain_core.tools import StructuredTool
 from sqlalchemy import case, func, or_, select
@@ -16,7 +18,7 @@ from assessor_ai.graph.tools.financeiro.schemas import (
     QueryTransactionArgs,
     UpdateTransactionArgs,
 )
-from assessor_ai.graph.tools.response import Response
+from assessor_ai.graph.tools.response import Response, ToolResponse
 from assessor_ai.infra.postgres import (
     PostgresRepo,
     local_date_filter,
@@ -57,7 +59,38 @@ def resolve_transaction_type(type_name: str | None) -> TransactionType:
     return TransactionType.EXPENSES
 
 
-def _serializar(t: Transaction) -> dict:
+class TransactionRecord(TypedDict):
+    id: int
+    amount: float
+    type: TransactionType
+    category_id: int | None
+    description: str | None
+    payment_method: PaymentType | None
+    occurred_at: str
+
+
+def _buscar_transacao_por_texto(
+    s: Session,
+    match_text: str,
+    date_local: str,
+    user_id: UUID,
+) -> int | None:
+    return s.scalar(
+        select(Transaction.id)
+        .where(
+            or_(
+                func.unaccent(Transaction.source_text).ilike(func.unaccent(f"%{match_text}%")),
+                func.unaccent(Transaction.description).ilike(func.unaccent(f"%{match_text}%")),
+            ),
+            local_date_filter(Transaction.occurred_at, date_local),
+            Transaction.user_id == user_id,
+        )
+        .order_by(Transaction.occurred_at.desc())
+        .limit(1)
+    )
+
+
+def _serializar(t: Transaction) -> TransactionRecord:
     return {
         "id":             t.id,
         "amount":         float(t.amount),
@@ -100,7 +133,7 @@ class FinanceiroRepo(PostgresRepo):
         description: str | None = None,
         payment_method: PaymentType | None = None,
         category_name: str | None = None,
-    ) -> dict:
+    ) -> ToolResponse:
         """
         Insere uma transação financeira no banco de dados.
 
@@ -128,15 +161,18 @@ class FinanceiroRepo(PostgresRepo):
         return Response.ok(id=tx.id, occurred_at=str(tx.occurred_at))
 
     @transacional
-    def total_balance(self, s: Session) -> dict:
+    def total_balance(self, s: Session) -> ToolResponse:
         """Retorna o saldo total do usuário (INCOME - EXPENSES)."""
 
         resultado = s.scalar(select(_SALDO).where(Transaction.user_id == self.usuario))
 
-        return Response.ok(amount=float(resultado) if resultado is not None else 0.0)
+        return Response.ok(
+            amount=float(resultado) 
+            if resultado is not None else 0.0
+        )
 
     @transacional
-    def daily_balance(self, s: Session, date_local: str) -> dict:
+    def daily_balance(self, s: Session, date_local: str) -> ToolResponse:
         """
         Retorna o saldo líquido do usuário em um dia específico (INCOME - EXPENSES).
 
@@ -163,7 +199,7 @@ class FinanceiroRepo(PostgresRepo):
         date_to_local: str | None = None,
         type_name: str | None = None,
         source_text: str | None = None,
-    ) -> dict:
+    ) -> ToolResponse:
         """
         Consulta transações com filtros opcionais por data, tipo e texto.
 
@@ -208,7 +244,7 @@ class FinanceiroRepo(PostgresRepo):
         description: str | None = None,
         payment_method: PaymentType | None = None,
         occurred_at: str | None = None,
-    ) -> dict:
+    ) -> ToolResponse:
         """
         Atualiza campos de uma transação existente.
 
@@ -231,19 +267,7 @@ class FinanceiroRepo(PostgresRepo):
                     "Sem 'id': informe match_text E date_local para localizar o registro."
                 )
 
-            target_id = s.scalar(
-                select(Transaction.id)
-                .where(
-                    or_(
-                        func.unaccent(Transaction.source_text).ilike(func.unaccent(f"%{match_text}%")),
-                        func.unaccent(Transaction.description).ilike(func.unaccent(f"%{match_text}%")),
-                    ),
-                    local_date_filter(Transaction.occurred_at, date_local),
-                    Transaction.user_id == self.usuario,
-                )
-                .order_by(Transaction.occurred_at.desc())
-                .limit(1)
-            )
+            target_id = _buscar_transacao_por_texto(s, match_text, date_local, self.usuario)
             if not target_id:
                 return Response.error("Nenhuma transação encontrada para os filtros fornecidos.")
 

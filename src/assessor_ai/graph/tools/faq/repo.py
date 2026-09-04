@@ -54,7 +54,10 @@ class FaqRepo:
                 if (payload := p.payload) is not None
             ]
 
-            return Response.ok(results=[r.model_dump() for r in resultados])
+            return Response.ok(
+                results=[r.model_dump() 
+                for r in resultados]
+            )
 
         except Exception as e:
             logger.error("FAQ ERRO | %s", e)

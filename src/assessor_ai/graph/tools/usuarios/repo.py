@@ -8,7 +8,6 @@ pacotes separados, quem chamava tinha que lembrar de acertar os dois na ordem ce
 """
 
 from typing import cast
-from uuid import uuid4
 
 from sqlalchemy.dialects.postgresql import insert
 
@@ -16,10 +15,12 @@ from assessor_ai.graph.tools.usuarios.models import User
 from assessor_ai.graph.tools.usuarios.schemas import (
     API_KEY_TTL_TIME,
     UserDocument,
+    UserRecord,
     chave_api_key,
     chave_api_key_lookup,
     hash_api_key,
 )
+from assessor_ai.identifiers import APIKey, UserID, novo_user_id
 from assessor_ai.infra.mongo import MongoConn, MongoRepo
 from assessor_ai.infra.postgres import PostgresConn, postgres
 from assessor_ai.infra.redis import RedisConn, redis
@@ -45,46 +46,46 @@ class UsuariosRepo(MongoRepo):
 
     # --- Mongo ---------------------------------------------------------------
 
-    def inserir(self, nome: str, email: str) -> str:
+    def inserir(self, nome: str, email: str) -> UserID:
         logger.info(f"Inserindo novo usuário: {email}")
 
-        user_id = str(uuid4())
+        user_id = novo_user_id()
         self.collection.insert_one(
             UserDocument(user_id=user_id, nome=nome, email=email).model_dump()
         )
 
         return user_id
 
-    def buscar(self, user_id: str) -> dict | None:
+    def buscar(self, user_id: UserID) -> UserRecord | None:
         logger.info(f"Buscando usuário para user_id: {user_id}")
 
         return self.collection.find_one({"user_id": user_id})
 
-    def buscar_por_email(self, email: str) -> dict | None:
+    def buscar_por_email(self, email: str) -> UserRecord | None:
         logger.info(f"Buscando usuário para email: {email}")
 
         return self.collection.find_one({"email": email})
 
-    def buscar_algum(self) -> dict | None:
+    def buscar_algum(self) -> UserRecord | None:
         logger.info("Buscando algum usuário existente")
 
         return self.collection.find_one()
 
-    def listar(self, limit: int = 50) -> list[dict]:
+    def listar(self, limit: int = 50) -> list[UserRecord]:
         logger.info("Listando usuários")
 
         return list(
             self.collection.find({}, {"_id": 0, "user_id": 1, "nome": 1, "email": 1}).limit(limit)
         )
 
-    def atualizar_perfil(self, user_id: str, perfil: str) -> None:
+    def atualizar_perfil(self, user_id: UserID, perfil: str) -> None:
         logger.info(f"Atualizando perfil para user_id: {user_id}")
 
         self.collection.update_one({"user_id": user_id}, {"$set": {"profile": perfil}})
 
     # --- Mongo + Postgres ----------------------------------------------------
 
-    def garantir_usuario(self, user_id: str, nome: str, email: str) -> None:
+    def garantir_usuario(self, user_id: UserID, nome: str, email: str) -> None:
         """
         Cria o usuário nos dois bancos com o mesmo `user_id`, se ainda não existir.
         Idempotente dos dois lados (`$setOnInsert` / `ON CONFLICT DO NOTHING`).
@@ -106,7 +107,7 @@ class UsuariosRepo(MongoRepo):
 
     # --- Redis ---------------------------------------------------------------
 
-    def alocar_api_key(self, user_id: str, api_key: str) -> bool:
+    def alocar_api_key(self, user_id: UserID, api_key: APIKey) -> bool:
         """Falha (False) se o usuário já tem uma key ativa — nunca sobrescreve."""
 
         r = self.cache.client
@@ -121,7 +122,8 @@ class UsuariosRepo(MongoRepo):
         logger.info(f"Allocated API key for user {user_id}.")
         return True
 
-    def user_id_por_api_key(self, api_key: str) -> str | None:
+
+    def user_id_por_api_key(self, api_key: APIKey) -> UserID | None:
         # a conexão usa decode_responses=True, então o retorno é str (stub do redis diz bytes | str)
         user_id = cast(
             "str | None", self.cache.client.get(chave_api_key_lookup(hash_api_key(api_key)))
@@ -130,7 +132,6 @@ class UsuariosRepo(MongoRepo):
         if user_id is None:
             logger.warning("API key not found.")
 
-        return user_id
-
+        return UserID(user_id) if user_id is not None else None
 
 __all__ = ["UsuariosRepo"]

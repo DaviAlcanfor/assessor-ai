@@ -12,7 +12,15 @@ from assessor_ai.graph.agents.nodes import (
     no_orquestrador,
     no_roteador,
 )
-from assessor_ai.graph.agents.nodes.names import NodeName
+from assessor_ai.graph.agents.nodes.names import (
+    AGENDA,
+    FAQ,
+    FINANCEIRO,
+    GUARDRAIL_ENTRADA,
+    GUARDRAIL_SAIDA,
+    ORQUESTRADOR,
+    ROTEADOR,
+)
 from assessor_ai.graph.state import Estado, Route
 from assessor_ai.infra.postgres import postgres
 
@@ -20,7 +28,7 @@ from assessor_ai.infra.postgres import postgres
 def decidir_apos_guardrail_entrada(estado: Estado) -> str:
     if estado.get("mensagem_bloqueada"):
         return Route.FIM
-    return NodeName.ROTEADOR
+    return ROTEADOR
 
 
 def decidir_especialista(estado: Estado) -> str:
@@ -32,42 +40,42 @@ def decidir_especialista(estado: Estado) -> str:
 
 grafo = StateGraph(Estado)
 
-grafo.add_node(NodeName.GUARDRAIL_ENTRADA, no_guardrail_entrada)
-grafo.add_node(NodeName.ROTEADOR,          no_roteador)
-grafo.add_node(NodeName.FINANCEIRO,        no_financeiro)
-grafo.add_node(NodeName.AGENDA,            no_agenda)
-grafo.add_node(NodeName.FAQ,               no_faq)
-grafo.add_node(NodeName.ORQUESTRADOR,      no_orquestrador)
-grafo.add_node(NodeName.GUARDRAIL_SAIDA,   no_guardrail_saida)
+grafo.add_node(GUARDRAIL_ENTRADA, no_guardrail_entrada)
+grafo.add_node(ROTEADOR,           no_roteador)
+grafo.add_node(FINANCEIRO,         no_financeiro)
+grafo.add_node(AGENDA,             no_agenda)
+grafo.add_node(FAQ,                no_faq)
+grafo.add_node(ORQUESTRADOR,       no_orquestrador)
+grafo.add_node(GUARDRAIL_SAIDA,    no_guardrail_saida)
 
 
-grafo.set_entry_point(NodeName.GUARDRAIL_ENTRADA)
+grafo.set_entry_point(GUARDRAIL_ENTRADA)
 
 grafo.add_conditional_edges(
-    source   = NodeName.GUARDRAIL_ENTRADA,
+    source   = GUARDRAIL_ENTRADA,
     path     = decidir_apos_guardrail_entrada,
     path_map = {
         Route.FIM:         END,
-        NodeName.ROTEADOR: NodeName.ROTEADOR,
+        ROTEADOR: ROTEADOR,
     },
 )
 
 grafo.add_conditional_edges(
-    source   = NodeName.ROTEADOR,
+    source   = ROTEADOR,
     path     = decidir_especialista,
     path_map = {
-        Route.FINANCEIRO: NodeName.FINANCEIRO,
-        Route.AGENDA:     NodeName.AGENDA,
-        Route.FAQ:        NodeName.FAQ,
+        Route.FINANCEIRO: FINANCEIRO,
+        Route.AGENDA:     AGENDA,
+        Route.FAQ:        FAQ,
         Route.FIM:        END,
     },
 )
 
-grafo.add_edge(NodeName.FINANCEIRO,   NodeName.ORQUESTRADOR)
-grafo.add_edge(NodeName.AGENDA,       NodeName.ORQUESTRADOR)
-grafo.add_edge(NodeName.ORQUESTRADOR, NodeName.GUARDRAIL_SAIDA)
-grafo.add_edge(NodeName.FAQ,          NodeName.GUARDRAIL_SAIDA)
-grafo.add_edge(NodeName.GUARDRAIL_SAIDA, END)
+grafo.add_edge(FINANCEIRO,      ORQUESTRADOR)
+grafo.add_edge(AGENDA,          ORQUESTRADOR)
+grafo.add_edge(ORQUESTRADOR,    GUARDRAIL_SAIDA)
+grafo.add_edge(FAQ,             GUARDRAIL_SAIDA)
+grafo.add_edge(GUARDRAIL_SAIDA, END)
 
 
 _fluxo = None

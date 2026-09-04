@@ -53,3 +53,10 @@ class FakeRedis:
 
     def pipeline(self):
         return FakePipeline(self)
+
+
+class ConnFake:
+    """Faz o papel de RedisConn/MongoConn: só expõe `.client`."""
+
+    def __init__(self, client):
+        self.client = client

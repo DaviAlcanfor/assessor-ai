@@ -1,4 +1,5 @@
-from interfaces.api.routes import health
+from assessor_ai.api.routes import health
+from tests.fakes import ConnFake
 
 
 def test_liveness_sempre_ok(client):
@@ -21,8 +22,8 @@ def test_readiness_ok_quando_redis_e_mongo_respondem(client, monkeypatch):
         def ping(self):
             return True
 
-    monkeypatch.setattr(health, "get_client", lambda: RedisOk())
-    monkeypatch.setattr(health, "banco", _MongoOk())
+    monkeypatch.setattr(health, "redis", ConnFake(RedisOk()))
+    monkeypatch.setattr(health, "mongo", _MongoOk())
 
     resposta = client.get("/health/ready")
 
@@ -36,8 +37,8 @@ def test_readiness_503_quando_redis_indisponivel(client, monkeypatch):
         def ping(self):
             raise ConnectionError("redis fora do ar")
 
-    monkeypatch.setattr(health, "get_client", lambda: RedisDown())
-    monkeypatch.setattr(health, "banco", _MongoOk())
+    monkeypatch.setattr(health, "redis", ConnFake(RedisDown()))
+    monkeypatch.setattr(health, "mongo", _MongoOk())
 
     resposta = client.get("/health/ready")
 
@@ -58,8 +59,8 @@ def test_readiness_503_quando_mongo_indisponivel(client, monkeypatch):
                 def command(_cmd):
                     raise ConnectionError("mongo fora do ar")
 
-    monkeypatch.setattr(health, "get_client", lambda: RedisOk())
-    monkeypatch.setattr(health, "banco", MongoDown())
+    monkeypatch.setattr(health, "redis", ConnFake(RedisOk()))
+    monkeypatch.setattr(health, "mongo", MongoDown())
 
     resposta = client.get("/health/ready")
 

@@ -1,7 +1,7 @@
 import pytest
 
-import assessor_ai.chat.service as chat_service
-from interfaces.a2a.agents import interface as a2a_interface
+from assessor_ai.a2a.agents import interface as a2a_interface
+from assessor_ai.services import chat_service
 
 RPC_HEADERS = {"A2A-Version": "1.0"}
 

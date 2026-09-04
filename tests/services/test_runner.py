@@ -1,8 +1,8 @@
 from langchain_core.messages import AIMessage, HumanMessage
 
-from assessor_ai.chat import runner
-from assessor_ai.chat.models import ChatMessage, Role
-from assessor_ai.tools.postgres.connection import current_user_id
+from assessor_ai.schemas.models import ChatMessage, Role
+from assessor_ai.services import runner
+from assessor_ai.tools.infra.postgres import current_user_id
 
 
 class _FluxoFake:
@@ -21,7 +21,7 @@ def _patch_fluxo(monkeypatch, fake):
     async def _fluxo():
         return fake
 
-    monkeypatch.setattr("assessor_ai.chat.runner.fluxo_agentes", _fluxo)
+    monkeypatch.setattr("assessor_ai.services.runner.fluxo_agentes", _fluxo)
 
 
 async def test_executar_extrai_ultima_resposta_da_ia(monkeypatch):

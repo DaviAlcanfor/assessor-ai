@@ -8,15 +8,14 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from assessor_ai.tools.postgres.agenda import core as agenda_core
-from assessor_ai.tools.postgres.financeiro import core as financeiro_core
-from assessor_ai.tools.postgres.models import (
-    LEGACY_USER_ID,
-    Base,
-    Category,
-    Transaction,
-    User,
+from assessor_ai.tools.agenda.models import (
+    Event,  # noqa: F401  (registra a tabela no metadata)
 )
+from assessor_ai.tools.agenda.repo import AgendaRepo
+from assessor_ai.tools.financeiro.models import Category, Transaction
+from assessor_ai.tools.financeiro.repo import FinanceiroRepo
+from assessor_ai.tools.infra.postgres import LEGACY_USER_ID, Base
+from assessor_ai.tools.usuarios.models import User
 
 
 def _timezone_sqlite(tz_name: str, timestamp: str) -> str:
@@ -38,7 +37,7 @@ def _unaccent_sqlite(value: str | None) -> str | None:
 
 
 @pytest.fixture
-def db_session(monkeypatch):
+def db_session():
     """
     Sessão real sobre SQLite in-memory no lugar do Postgres — a infra hoje é só cloud
     (ver AGENTS.md), sem container local pra apontar em teste. `timezone`/`unaccent` são
@@ -69,20 +68,37 @@ def db_session(monkeypatch):
     session.add(User(id=LEGACY_USER_ID, created_at=datetime.now(UTC)))
     session.commit()
 
-    @contextmanager
-    def _get_session():
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-
-    monkeypatch.setattr(financeiro_core, "get_session", _get_session)
-    monkeypatch.setattr(agenda_core, "get_session", _get_session)
-
     yield session
     session.close()
+
+
+class ConnFake:
+    """
+    Devolve sempre a mesma sessão SQLite. Substitui o `PostgresConn` real via construtor do
+    repo — antes isso era monkeypatch de `get_session` no módulo de cada tool.
+    """
+
+    def __init__(self, session):
+        self._session = session
+
+    @contextmanager
+    def session(self):
+        try:
+            yield self._session
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
+
+
+@pytest.fixture
+def financeiro(db_session) -> FinanceiroRepo:
+    return FinanceiroRepo(conn=ConnFake(db_session))
+
+
+@pytest.fixture
+def agenda(db_session) -> AgendaRepo:
+    return AgendaRepo(conn=ConnFake(db_session))
 
 
 @pytest.fixture

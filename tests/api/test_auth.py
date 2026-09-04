@@ -1,7 +1,8 @@
 import pytest
 from fastapi import HTTPException
 
-from interfaces.api import auth
+from assessor_ai.api import auth
+from assessor_ai.tools import usuarios
 
 
 def _async(valor):
@@ -12,13 +13,13 @@ def _async(valor):
 
 
 async def test_get_current_user_retorna_user_id_para_chave_valida(monkeypatch):
-    monkeypatch.setattr(auth, "get_user_id_by_api_key", lambda api_key: "user-1")
+    monkeypatch.setattr(usuarios, "user_id_por_api_key", lambda api_key: "user-1")
 
     assert await auth.get_current_user(api_key="chave-valida") == "user-1"
 
 
 async def test_get_current_user_rejeita_chave_invalida(monkeypatch):
-    monkeypatch.setattr(auth, "get_user_id_by_api_key", lambda api_key: None)
+    monkeypatch.setattr(usuarios, "user_id_por_api_key", lambda api_key: None)
 
     with pytest.raises(HTTPException) as exc_info:
         await auth.get_current_user(api_key="chave-invalida")
@@ -48,6 +49,6 @@ async def test_get_current_user_com_auth_desligada_usa_x_user_id_se_vier(monkeyp
 
 
 async def test_get_current_user_com_auth_ligada_ignora_x_user_id(monkeypatch):
-    monkeypatch.setattr(auth, "get_user_id_by_api_key", lambda api_key: "user-1")
+    monkeypatch.setattr(usuarios, "user_id_por_api_key", lambda api_key: "user-1")
 
     assert await auth.get_current_user(api_key="chave-valida", x_user_id="user-outro") == "user-1"

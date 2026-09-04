@@ -1,10 +1,11 @@
 import pytest
 
-import assessor_ai.chat.service as chat_service
-import interfaces.api.routes.keys as keys_route
-from config.settings import settings
-from interfaces.api.auth import verify_signup_secret
-from interfaces.api.main import app
+import assessor_ai.api.routes.keys as keys_route
+from assessor_ai.api.app import app
+from assessor_ai.api.auth import verify_signup_secret
+from assessor_ai.core.config import settings
+from assessor_ai.services import chat_service
+from assessor_ai.tools import usuarios
 
 
 def _async(valor):
@@ -27,7 +28,7 @@ def _sem_signup_secret(client):
 def test_create_key_sucesso(client, monkeypatch):
     monkeypatch.setattr(chat_service, "obter_ou_criar_usuario", _async("user-1"))
     monkeypatch.setattr(keys_route, "generate_api_key", lambda: "chave-gerada")
-    monkeypatch.setattr(keys_route, "allocate_api_key", lambda user_id, api_key: True)
+    monkeypatch.setattr(usuarios, "alocar_api_key", lambda user_id, api_key: True)
 
     resposta = client.post(
         "/v1/keys", json={"nome": "Davi", "email": "davi@example.com"}
@@ -40,7 +41,7 @@ def test_create_key_sucesso(client, monkeypatch):
 def test_create_key_usuario_ja_tem_chave_retorna_409(client, monkeypatch):
     monkeypatch.setattr(chat_service, "obter_ou_criar_usuario", _async("user-1"))
     monkeypatch.setattr(keys_route, "generate_api_key", lambda: "chave-gerada")
-    monkeypatch.setattr(keys_route, "allocate_api_key", lambda user_id, api_key: False)
+    monkeypatch.setattr(usuarios, "alocar_api_key", lambda user_id, api_key: False)
 
     resposta = client.post(
         "/v1/keys", json={"nome": "Davi", "email": "davi@example.com"}
@@ -79,12 +80,12 @@ def test_create_key_signup_secret_valido_segue_fluxo(client, monkeypatch):
     app.dependency_overrides.pop(verify_signup_secret, None)
     monkeypatch.setattr(chat_service, "obter_ou_criar_usuario", _async("user-1"))
     monkeypatch.setattr(keys_route, "generate_api_key", lambda: "chave-gerada")
-    monkeypatch.setattr(keys_route, "allocate_api_key", lambda user_id, api_key: True)
+    monkeypatch.setattr(usuarios, "alocar_api_key", lambda user_id, api_key: True)
 
     resposta = client.post(
         "/v1/keys",
         json={"nome": "Davi", "email": "davi@example.com"},
-        headers={"X-Signup-Secret": settings.SIGNUP_SECRET},
+        headers={"X-Signup-Secret": settings.SIGNUP_SECRET.get_secret_value()},
     )
 
     assert resposta.status_code == 201

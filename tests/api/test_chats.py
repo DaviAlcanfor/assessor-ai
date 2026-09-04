@@ -1,9 +1,9 @@
-import assessor_ai.chat.service as chat_service
-from assessor_ai.chat.models import ChatMessage
-from assessor_ai.chat.models import Role as DomainRole
-from assessor_ai.chat.service import LimiteDeMensagensExcedido
-from interfaces.api.auth import get_current_user
-from interfaces.api.main import app
+from assessor_ai.api.app import app
+from assessor_ai.api.auth import get_current_user
+from assessor_ai.schemas.models import ChatMessage
+from assessor_ai.schemas.models import Role as DomainRole
+from assessor_ai.services import chat_service
+from assessor_ai.services.exceptions import FalhaNoAgente, LimiteDeMensagensExcedido
 
 HEADERS = {"X-API-Key": "irrelevante-porque-a-dependencia-e-mockada"}
 
@@ -33,7 +33,7 @@ def test_create_chat_retorna_chat_id(client, monkeypatch):
     assert resposta.json() == {"chat_id": "chat-123"}
 
 
-def test_create_chat_erro_interno_vira_500(client, monkeypatch):
+def test_create_chat_erro_interno_vira_500(client_sem_reraise, monkeypatch):
     _autenticar_como("user-1")
 
     async def _explode(user_id):
@@ -41,9 +41,12 @@ def test_create_chat_erro_interno_vira_500(client, monkeypatch):
 
     monkeypatch.setattr(chat_service, "create_chat", _explode)
 
-    resposta = client.post("/v1/chats", headers=HEADERS)
+    resposta = client_sem_reraise.post("/v1/chats", headers=HEADERS)
 
     assert resposta.status_code == 500
+    # o texto cru da exceção não pode vazar pro cliente
+    assert resposta.json() == {"detail": "Erro interno inesperado.", "code": "erro_interno"}
+    assert "mongo fora do ar" not in resposta.text
 
 
 def test_send_message_chat_inexistente_retorna_404(client, monkeypatch):
@@ -99,7 +102,7 @@ def test_send_message_limite_excedido_retorna_429(client, monkeypatch):
     assert resposta.status_code == 429
 
 
-def test_send_message_erro_interno_retorna_500(client, monkeypatch):
+def test_send_message_erro_interno_retorna_500(client_sem_reraise, monkeypatch):
     _autenticar_como("user-1")
     monkeypatch.setattr(chat_service, "obter_dono_chat", _async("user-1"))
 
@@ -108,11 +111,31 @@ def test_send_message_erro_interno_retorna_500(client, monkeypatch):
 
     monkeypatch.setattr(chat_service, "send_message", _explode)
 
-    resposta = client.post(
+    resposta = client_sem_reraise.post(
         "/v1/chats/chat-123/messages", json={"content": "oi"}, headers=HEADERS
     )
 
     assert resposta.status_code == 500
+    assert "llm indisponível" not in resposta.text
+
+
+def test_send_message_falha_no_agente_retorna_502(client, monkeypatch):
+    """Falha do grafo é caso esperado: vira 502, não 500 genérico."""
+
+    _autenticar_como("user-1")
+    monkeypatch.setattr(chat_service, "obter_dono_chat", _async("user-1"))
+
+    async def _explode(user_id, chat_id, content):
+        raise FalhaNoAgente("Não foi possível processar a mensagem.")
+
+    monkeypatch.setattr(chat_service, "send_message", _explode)
+
+    resposta = client.post(
+        "/v1/chats/chat-123/messages", json={"content": "oi"}, headers=HEADERS
+    )
+
+    assert resposta.status_code == 502
+    assert resposta.json()["code"] == "falha_no_agente"
 
 
 def test_send_message_conteudo_vazio_e_rejeitado_pelo_schema(client, monkeypatch):

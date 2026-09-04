@@ -1,13 +1,13 @@
 import pytest
 from sqlalchemy import column
 
-from assessor_ai.tools.postgres.helpers import (
+from assessor_ai.tools.financeiro.models import TransactionType
+from assessor_ai.tools.financeiro.repo import resolve_transaction_type
+from assessor_ai.tools.infra.postgres import (
     local_date,
     local_date_filter,
     local_date_range_filter,
-    resolve_transaction_type,
 )
-from assessor_ai.tools.postgres.models import TransactionType
 
 
 @pytest.mark.parametrize("type_name", [None, ""])

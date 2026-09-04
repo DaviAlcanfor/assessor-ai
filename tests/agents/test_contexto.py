@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
 from assessor_ai.agents.nodes.contexto import mensagens_com_contexto
-from assessor_ai.agents.prompts import loader
-from assessor_ai.agents.prompts.loader import contexto_do_turno, contexto_temporal
+from assessor_ai.core.prompts import loader
+from assessor_ai.core.prompts.loader import contexto_do_turno, contexto_temporal
 
 
 class _DatetimeFake:

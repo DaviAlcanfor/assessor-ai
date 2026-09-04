@@ -1,10 +1,12 @@
+from langchain_core.messages import AIMessage
+
 from assessor_ai.agents.nodes.guardrail.saida import (
     _FALLBACK_COMPLIANCE,
     _redigir_pii,
     desanonimizar_saida,
     guardrail_saida,
 )
-from assessor_ai.agents.nodes.guardrail.schemas import PII_USUARIO
+from assessor_ai.core.privacy import PII_USUARIO
 
 
 def test_desanonimizar_saida_omite_por_padrao():
@@ -56,12 +58,9 @@ async def test_guardrail_saida_nao_repassa_resposta_sem_compliance_revisar(monke
 
     resposta_arriscada = "Pode comprar essa ação, garanto que vai subir 20% este mês."
 
-    class _RespostaSemFormato:
-        content = "desculpa, não vou seguir esse formato"
-
     class _LLMFake:
         async def ainvoke(self, *_args, **_kwargs):
-            return _RespostaSemFormato()
+            return AIMessage(content="desculpa, não vou seguir esse formato")
 
     monkeypatch.setattr(
         "assessor_ai.agents.nodes.guardrail.saida.llm_rapido", _LLMFake()
@@ -74,12 +73,9 @@ async def test_guardrail_saida_nao_repassa_resposta_sem_compliance_revisar(monke
 
 
 async def test_guardrail_saida_usa_resposta_revisada_quando_formato_ok(monkeypatch):
-    class _RespostaComFormato:
-        content = "STATUS: CORRIGIDO\nRESPOSTA:\ntexto revisado e seguro"
-
     class _LLMFake:
         async def ainvoke(self, *_args, **_kwargs):
-            return _RespostaComFormato()
+            return AIMessage(content="STATUS: CORRIGIDO\nRESPOSTA:\ntexto revisado e seguro")
 
     monkeypatch.setattr(
         "assessor_ai.agents.nodes.guardrail.saida.llm_rapido", _LLMFake()

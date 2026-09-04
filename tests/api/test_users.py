@@ -1,5 +1,5 @@
-import assessor_ai.chat.service as chat_service
-from interfaces.api.routes import users as users_route
+from assessor_ai.api.routes import users as users_route
+from assessor_ai.services import chat_service
 
 
 def _async(valor):

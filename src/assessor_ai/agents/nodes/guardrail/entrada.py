@@ -1,26 +1,24 @@
 import re
-import uuid
 
 from langchain_core.messages import HumanMessage
-
-from assessor_ai.agents.nodes.names import NodeName
-from assessor_ai.agents.prompts.loader import load_sections
-from assessor_ai.graph.llm import llm_guardrail
-from assessor_ai.graph.state import Estado
-from config.logging import get_logger
-
-logger = get_logger(__name__)
-
-_GUARDRAIL = load_sections("guardrail")
 
 from assessor_ai.agents.nodes.guardrail.schemas import (
     _KEYWORDS_DADOS_INTERNOS,
     _PADROES_INJECAO,
     _RESPOSTAS_BLOQUEIO,
-    PII,
     Categoria,
     ResultadoGuardrail,
 )
+from assessor_ai.agents.nodes.names import NodeName
+from assessor_ai.core.logging import get_logger
+from assessor_ai.core.privacy import anonimizar_entrada
+from assessor_ai.core.prompts.loader import load_sections
+from assessor_ai.graph.llm import llm_guardrail
+from assessor_ai.graph.state import Estado
+
+logger = get_logger(__name__)
+
+_GUARDRAIL = load_sections("guardrail")
 
 
 def _bloquear(motivo: str, mensagem: str) -> ResultadoGuardrail:
@@ -36,18 +34,6 @@ def _aprovado() -> ResultadoGuardrail:
         bloqueado=False,
         motivo="aprovado"
     )
-
-
-def anonimizar_entrada(texto: str) -> tuple[str, dict]:
-    mapa = {}
-
-    for tipo, padrao in PII:
-        for valor in re.findall(padrao, texto):
-            token = f"[PII_{tipo}_{uuid.uuid4().hex[:6]}]"
-            mapa[token] = valor
-            texto = texto.replace(valor, token, 1)
-
-    return texto, mapa
 
 
 def _extrair_categoria(resposta: str) -> str:
@@ -93,9 +79,7 @@ async def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     resposta = await llm_guardrail.ainvoke(
         _GUARDRAIL["classificador"].format(mensagem=mensagem_anonimizada)
     )
-    mensagem = resposta.content
-    
-    categoria = _extrair_categoria(mensagem)
+    categoria = _extrair_categoria(resposta.text)
 
     if categoria in _RESPOSTAS_BLOQUEIO:
         motivo, mensagem = _RESPOSTAS_BLOQUEIO[categoria]
@@ -108,7 +92,7 @@ async def no_guardrail_entrada(estado: Estado) -> dict:
     logger.info("Verificando entrada com guardrail de entrada...")
     
     ultima_msg = estado["messages"][-1]
-    texto_anonimizado, mapa_pii = anonimizar_entrada(ultima_msg.content)
+    texto_anonimizado, mapa_pii = anonimizar_entrada(ultima_msg.text)
     resultado = await guardrail_entrada(texto_anonimizado)
 
     if resultado["bloqueado"]:

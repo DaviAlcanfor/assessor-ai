@@ -1,15 +1,12 @@
 import re
 
-from assessor_ai.agents.nodes.guardrail.schemas import (
-    PII,
-    PII_USUARIO,
-    ResultadoGuardrail,
-)
+from assessor_ai.agents.nodes.guardrail.schemas import ResultadoGuardrail
 from assessor_ai.agents.nodes.names import NodeName
-from assessor_ai.agents.prompts.loader import load_sections
+from assessor_ai.core.logging import get_logger
+from assessor_ai.core.privacy import PII, PII_USUARIO
+from assessor_ai.core.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_rapido
 from assessor_ai.graph.state import Estado
-from config.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -61,7 +58,7 @@ async def _revisar_compliance(resposta: str) -> str | None:
     revisao = await llm_rapido.ainvoke(
         _GUARDRAIL["compliance"].format(resposta=resposta)
     )
-    saida = revisao.content.strip()
+    saida = revisao.text.strip()
 
     if "RESPOSTA:" not in saida:
         return None

@@ -19,22 +19,6 @@ class Categoria(StrEnum):
     INJECAO_PROMPT   = "INJECAO_PROMPT"
     ACESSO_INTERNO   = "ACESSO_INTERNO"
 
-
-
-# PII do usuário — redige na entrada E na saída
-PII_USUARIO = [
-    ("CPF",     r"\d{3}\.?\d{3}\.?\d{3}-?\d{2}"),
-    ("CNPJ",    r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}"),
-    ("CONTA", r"\b\d{5,6}-\d{1}\b"),
-    ("CARTAO",  r"\d{4}\s?\d{4}\s?\d{4}\s?\d{4}"),
-]
-
-PII = PII_USUARIO + [
-    ("EMAIL",    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"),
-    ("TELEFONE", r"\(?\d{2}\)?\s?\d{4,5}-?\d{4}"),
-]
-
-
 # Padroes para detectar tentativas de jailbreak/injeção
 _PADROES_INJECAO = [
     r"ignore\s+(as\s+)?instru[çc][oõ]es",

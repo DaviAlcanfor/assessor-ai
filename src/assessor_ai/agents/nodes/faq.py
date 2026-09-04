@@ -1,5 +1,5 @@
 from assessor_ai.agents.nodes.names import NodeName
-from assessor_ai.agents.prompts.loader import contexto_do_turno
+from assessor_ai.core.prompts.loader import contexto_do_turno
 from assessor_ai.graph.agents import faq_app
 from assessor_ai.graph.state import Estado
 

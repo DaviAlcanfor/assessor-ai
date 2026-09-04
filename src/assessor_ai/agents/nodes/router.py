@@ -2,9 +2,9 @@ import re
 
 from assessor_ai.agents.nodes.contexto import mensagens_com_contexto
 from assessor_ai.agents.nodes.names import NodeName
+from assessor_ai.core.logging import get_logger
 from assessor_ai.graph.agents import router_app
 from assessor_ai.graph.state import Estado, Route
-from config.logging import get_logger
 
 log = get_logger(__name__)
 

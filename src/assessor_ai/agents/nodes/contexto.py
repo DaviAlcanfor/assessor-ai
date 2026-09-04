@@ -6,7 +6,7 @@ Contexto por turno para os agentes compilados.
 especialista nunca enxerga nem o perfil nem a pergunta que o roteador encaminhou.
 """
 
-from assessor_ai.agents.prompts.loader import contexto_do_turno
+from assessor_ai.core.prompts.loader import contexto_do_turno
 from assessor_ai.graph.state import Estado
 
 

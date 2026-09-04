@@ -1,5 +1,5 @@
 """
-Único módulo Python em agents/prompts/ — o resto da pasta é só .md.
+Único módulo Python em core/prompts/ — o resto da pasta é só .md.
 
 Cada .md pode ter um header `---\nchave: valor\n---` (metadados, hoje só
 `usa_tools_obrigatorias`) seguido de seções `## NOME` (PAPEL, SHOTS, CLASSIFICADOR...).

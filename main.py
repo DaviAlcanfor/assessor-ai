@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import warnings
 
@@ -10,12 +11,18 @@ warnings.filterwarnings(
     message=r".*allowed_objects.*",
 )
 
-from interfaces.tui import app as tui_app
+from assessor_ai.tui import app as tui_app
+
+if sys.platform == "win32":
+    # O checkpointer do grafo usa psycopg3 async, que recusa o ProactorEventLoop (padrão do
+    # asyncio no Windows) — o pool não consegue abrir conexão e todo turno morre num PoolTimeout
+    # de 30s. Vale pra TUI e pra API: as duas caem no mesmo pool.
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def run_api() -> None:
     uvicorn.run(
-        "interfaces.api.main:app", 
+        "assessor_ai.api.app:app",
         host="0.0.0.0", 
         port=8000, 
         reload=True

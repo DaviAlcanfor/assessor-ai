@@ -1,10 +1,13 @@
+from collections.abc import Mapping
 from enum import StrEnum
+from typing import Literal
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 
-from .settings import settings
+from assessor_ai.core.config import settings
 
+type Provider = Literal["gemini", "groq", "claude"]
 
 class Model(StrEnum):
     GEMINI_2_5_FLASH    = "gemini-2.5-flash"
@@ -16,7 +19,7 @@ class Model(StrEnum):
     
 
 
-PROVIDER_MAP = {
+PROVIDER_MAP: Mapping[Model, Provider] = {
     Model.GEMINI_2_5_FLASH:    "gemini",
     Model.GPT_OSS_120B:        "groq",
     Model.QWEN_2_5_PRO:        "groq",
@@ -25,8 +28,8 @@ PROVIDER_MAP = {
 }
 
 API_KEYS = {
-    "gemini": settings.GEMINI_API_KEY,
-    "groq":   settings.GROQ_API_KEY,
+    "gemini": settings.GEMINI_API_KEY.get_secret_value(),
+    "groq":   settings.GROQ_API_KEY.get_secret_value(),
 }
 
 BUILDERS = {

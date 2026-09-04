@@ -16,59 +16,74 @@ e tools estão no [README.md](README.md) — leia-o antes de mexer em `agents/` 
 - Python 3.13+, gerenciado com `uv` (`uv venv`, `uv sync`, `uv add <pkg>`)
 - LangChain 1.2 / LangGraph 1.1 para orquestração de agentes
 - LLMs: Gemini (`gemini-2.5-flash`), Groq (`llama-3.3-70b-versatile`), com Claude e Qwen mapeados em
-  `config/models.py` mas ainda não usados por nenhum agente
-- PostgreSQL para transações e eventos, acessado via SQLAlchemy ORM (`tools/postgres/models.py`) +
+  `core/models.py` mas ainda não usados por nenhum agente
+- PostgreSQL para transações e eventos, acessado via SQLAlchemy ORM (`tools/{financeiro,agenda,usuarios}/models.py`) +
   Alembic pra migrations
 - MongoDB para histórico de conversa, perfil de usuário e checkpoint do LangGraph (`MongoDBSaver`)
-- Qdrant para RAG do FAQ (`tools/qdrant/faq/`) — substituiu o FAISS local
-- Redis para rate limit por usuário, alocação de API key e cache de perfil (`tools/redis/`)
+- Qdrant para RAG do FAQ (`tools/faq/`) — substituiu o FAISS local
+- Redis para rate limit por usuário, alocação de API key e cache de perfil (`tools/infra/redis.py`)
 - Postgres/Mongo/Redis/Qdrant são todos serviços em nuvem — não há infra local via Docker
   (`config/docker.py` e `docker-compose.yml` foram removidos no commit `16479fa`); `.env` aponta
   direto para os serviços hospedados
-- FastAPI (`interfaces/api/`) com auth por API key, rate limiting (`slowapi` por IP + Redis por
-  `user_id`) e `fastapi-guard`; Textual (`interfaces/tui/`) pra TUI
+- FastAPI (`api/`) com auth por API key, rate limiting (`slowapi` por IP + Redis por
+  `user_id`) e `fastapi-guard`; o grafo é compilado uma vez no `lifespan`, nunca por request.
+  Textual (`tui/`) pra TUI
 - `pytest` (`tests/`, espelhando a estrutura de `tools/`) + `ruff` (lint/format) + CI no GitHub
   Actions
 
 ## Estrutura
 
 ```
-chat/       service.py (API pública), runner.py (invoca o grafo), repositories.py (Mongo/Postgres), models.py
-interfaces/ um pacote por forma de uso: terminal/{app.py,display.py}, tui/{app.py,display.py,app.tcss}, api/{main.py,auth.py,routes/,schemas/}
-agents/     prompts (agents/prompts) e nós de grafo (agents/nodes) — um arquivo por agente
+src/assessor_ai/   o pacote (layout src/); `main.py` na raiz é só o dispatcher de modo
+chat/       service.py (API pública), runner.py (invoca o grafo), repositories.py (Mongo/Postgres), models.py, exceptions.py (erros de domínio)
+api/        camada HTTP: app.py, lifespan.py, exception_handlers.py, auth.py, gen_key.py, routes/
+services/   casos de uso, sem HTTP: chat_service.py, runner.py, exceptions.py
+repositories/ chat_repository.py — fachada sobre tools/chats, tools/usuarios e core/cache
+schemas/    contratos de dados: models.py (ChatMessage/Role, interno), chat.py, errors.py, health.py, key.py, user.py
+tui/        interface Textual; a2a/ protocolo A2A montado no mesmo app FastAPI
+agents/     nós de grafo (agents/nodes) — um arquivo por agente
 graph/      state.py (estado + Route), llm.py (builders), agents.py (apps compilados), builder.py (grafo)
-tools/      integrações externas: tools/postgres/{financeiro,agenda,users}, tools/mongo/{chats,users}, tools/qdrant/faq, tools/redis
-config/     settings.py (env vars via pydantic-settings), models.py (Model enum + providers), logging.py
-tests/      espelha tools/ e demais pacotes — só funções puras e serviços com grafo/I/O mockado (ver TODO.md)
+tools/      uma pasta por feature (financeiro, agenda, faq, chats, usuarios) com models.py + schemas.py + repo.py;
+            tools/infra/ guarda as conexões (postgres, mongo, redis, qdrant) e as bases PostgresRepo/MongoRepo
+core/       infra transversal, sem dependência de camada: config.py (env vars), models.py (Model enum + providers),
+            logging.py (get_logger + log_tool), privacy.py (PII), prompts/ (.md + loader), cache.py (perfil no Redis),
+            limiter.py (slowapi por IP + cota por user_id), middleware.py (fastapi-guard)
+tests/      espelha src/assessor_ai/ — só funções puras e serviços com grafo/I/O mockado (ver TODO.md)
 data/       documents/ — PDFs para RAG
 ```
 
-Nenhuma interface (`interfaces/*`) deve chamar `graph/builder.py`, `tools/mongo/*` ou
-`tools/postgres/*` diretamente — sempre via `chat/service.py`. É esse limite que permite TUI e API
-existirem sem duplicar a lógica de montar estado, invocar o grafo e persistir histórico.
+Nenhuma camada de entrega (`api/`, `tui/`, `a2a/`) deve chamar `graph/builder.py` nem os `*Repo`
+de `tools/` diretamente — sempre via `services/chat_service.py`, que por sua vez fala com
+`repositories/` e `services/runner.py`. É esse limite que permite TUI, API e A2A existirem sem
+duplicar a lógica de montar estado, invocar o grafo e persistir histórico.
 
-Padrão de cada domínio de tool: `schemas.py` (Pydantic) + `core.py` (as tools em si) + `connection.py`
-(conexão lazy, só inicializa no primeiro uso). Siga esse padrão para qualquer tool nova (redis, qdrant, etc).
+Padrão de cada feature: `models.py` (ORM, se usa Postgres) + `schemas.py` (Pydantic) + `repo.py` (uma
+classe `*Repo`, conexão injetada no construtor). Quem tem tool do LLM expõe `as_tools()`; quem é
+interno (chats, usuarios) é só chamado por `repositories/`. Conexão nova vai em `tools/infra/`, nunca
+numa pasta de feature.
 
 ## Ciclo de vida de uma mensagem
 
 Vale pras três interfaces; o caminho abaixo é o da API, que é o mais longo:
 
 1. **HTTP** — `SecurityMiddleware` (`fastapi-guard`) e `slowapi` (limite por IP) rodam antes da rota.
-2. **Auth** — `get_current_user` (`interfaces/api/auth.py`) troca o header `X-API-Key` por um
+2. **Auth** — `get_current_user` (`api/auth.py`) troca o header `X-API-Key` por um
    `user_id` guardado no Redis. `user_id` nunca vem do corpo nem da query da request.
-3. **Ownership** — `_validar_ownership` (`routes/chats.py`) confere que o `chat_id` é do usuário,
-   **fora** do `try` (dentro dele, o 403/404 viraria 500 — ver `.agents/skills/fastapi.md`).
-4. **Caso de uso** — `chat/service.py:send_message`: rate limit por `user_id` no Redis
+3. **Ownership** — `chat_service.validar_ownership` confere que o `chat_id` é do usuário e
+   levanta `ChatNaoEncontrado`/`ChatDeOutroUsuario`; a rota não trata, quem traduz pra 404/403 é
+   `api/exception_handlers.py`.
+4. **Caso de uso** — `services/chat_service.py:send_message`: rate limit por `user_id` no Redis
    (`LimiteDeMensagensExcedido` → 429), carrega histórico/perfil e persiste a mensagem.
-5. **Escopo** — `chat/runner.py:executar` seta o `ContextVar` de `user_id` e chama
+5. **Escopo** — `services/runner.py:executar` seta o `ContextVar` de `user_id` e chama
    `fluxo_agentes().invoke(...)`. Toda tool lê o usuário daí, nunca dos args escolhidos pelo LLM.
 6. **Grafo** — guardrail de entrada → router → especialista (tools) → orquestrador → guardrail de
    saída (fluxo detalhado no README).
 7. **Persistência** — a resposta volta pro `service`, que grava no Mongo (histórico + checkpoint do
    LangGraph); `encerrar_sessao` gera resumo/perfil e invalida o cache de perfil no Redis.
-8. **Resposta** — a rota devolve o schema de `interfaces/api/schemas/`; exceção não tratada vira 500
-   genérico com `logger.exception`.
+8. **Resposta** — a rota devolve o schema de `schemas/`. Erro é sempre
+   `ErrorResponse{detail, code}`: os erros de domínio de `services/exceptions.py` viram 404/403/429/502
+   pelos handlers de `api/exception_handlers.py`, e o handler de `Exception` fecha a lista com um 500
+   genérico — loga o traceback real, nunca devolve `str(exc)` pro cliente.
 
 Quebrar esse encadeamento (interface chamando grafo/tool direto, tool recebendo `user_id` por
 argumento) é o tipo de mudança que passa nos testes e vaza dado entre usuários.
@@ -84,17 +99,28 @@ argumento) é o tipo de mudança que passa nos testes e vaza dado entre usuário
 - Tools retornam a classe `Response` (`tools/response.py`) para padronizar sucesso/erro.
 - **Tools do LLM nunca recebem `user_id` como argumento.** Args de tool são escolhidos pelo LLM via
   tool-calling — qualquer dado de escopo/permissão (ex. `user_id`) não pode vir por ali. O padrão é
-  um `contextvars.ContextVar` setado uma vez por request (`chat/runner.py:executar`, a partir do
-  `user_id` já conhecido em `chat/service.py`) e lido dentro da tool
-  (`tools/postgres/connection.py:current_user_id()`). Ver uso em `tools/postgres/{financeiro,agenda}/core.py`.
+  um `contextvars.ContextVar` setado uma vez por request (`services/runner.py:executar`, a partir do
+  `user_id` já conhecido em `services/chat_service.py`) e lido dentro da tool
+  (`tools/infra/postgres.py:current_user_id()`, exposto como `self.usuario` no `PostgresRepo`). Ver uso em `tools/{financeiro,agenda}/repo.py`.
 - Não commitar `.env`; usar `.env.example` como referência de variáveis novas.
-- **Simplicidade acima de tudo.** Projeto pessoal em estágio inicial — prefira a solução direta à
-  abstração "flexível para o futuro". Sem camada genérica, sem config plugável, sem interface para
-  uma única implementação. Se dá pra resolver com uma função e um `if`, não vira classe/padrão de
-  projeto. Isso vale tanto para código de domínio quanto para infra.
+- **Simplicidade com coesão.** A régua é "a coisa mais simples que ainda é navegável e coesa", não
+  "menor número de linhas". Classe é bem-vinda quando agrupa estado + comportamento que andam juntos
+  (ex. ciclo de vida de conexão: init lazy + health + dispose). Continua barrado: interface/factory
+  com uma única implementação, camada plugável, config pra valor que nunca muda, e "manager" que só
+  guarda referência sem comportamento próprio. Sinal de que falta um objeto/módulo (não mais uma
+  função): a função fica órfã sem lugar óbvio, ou o arquivo já passou de ~15 funções soltas de
+  contextos diferentes. Vale para código de domínio e infra.
 
 ## Regras de operação para agentes
 
+- **Não escrever nem editar código sem permissão explícita.** Investigar, ler, buscar, propor
+  diff/plano é livre — mas só encoste em arquivo de código depois de um "pode fazer" literal do
+  usuário. Vale para qualquer arquivo versionado (código, config, doc); rascunho em scratchpad é livre.
+- **Antes de escrever código: ler, verificar, planejar.** Leia os arquivos que a mudança toca e
+  trace o fluxo real de ponta a ponta; confirme versão de lib e API na doc atual (`.agents/skills/`);
+  monte um plano do que vai mudar e onde. Só então escreva — pensando na qualidade da implementação
+  (menor diff que resolve de fato, encaixe nos padrões do repo, sem abstração especulativa), não na
+  primeira coisa que compila.
 - **Não deletar arquivo ou pasta sem permissão explícita** — inclusive arquivo que o próprio agente
   criou. Se algo parece obsoleto, diga qual é e por quê, e espere a resposta.
 - **Comando destrutivo só com autorização literal:** `git reset --hard`, `git clean -fd`, `rm -rf`,
@@ -130,54 +156,58 @@ argumento) é o tipo de mudança que passa nos testes e vaza dado entre usuário
 
 Padrões já em uso no repo — mantenha-os ao adicionar código novo:
 
-- **Package by feature, não por camada técnica.** `tools/postgres/{financeiro,agenda}`,
-  `tools/mongo/{chats,users}` — cada domínio é uma pasta com tudo que ele precisa, em vez de um
+- **Package by feature nas tools.** `tools/{financeiro,agenda,faq,chats,usuarios}` — uma pasta por
+  domínio, não por banco (`usuarios` sozinho fala com os três), em vez de um
   `models/`, `services/`, `schemas/` genéricos misturando domínios. Ao criar Redis/Qdrant, seguir o
   mesmo corte: `tools/<sistema>/<domínio>/`.
 - **Repository leve por domínio.** `core.py` expõe as operações (`buscar`, `criar`, `atualizar_*`)
   como funções de módulo, não classes — é o repository pattern sem cerimônia de classe/interface.
-  `schemas.py` ao lado define o contrato de dados (Pydantic) separado da lógica.
-- **Infra isolada e lazy.** Toda conexão externa (`tools/postgres/connection.py`,
-  `tools/mongo/connection.py`, `tools/qdrant/faq/connection.py`) inicializa só no primeiro uso — nunca há
+  `schemas.py` ao lado define o contrato de dados (Pydantic) separado da lógica. Exceção: quando o
+  módulo carrega estado de ciclo de vida (conexão lazy + pool + health + dispose), aí uma classe que
+  encapsula esse estado + comportamento (`infra/postgres.py:PostgresConn`) é preferível a globais
+  soltas + funções.
+- **Infra isolada e lazy.** Toda conexão externa (`tools/infra/{postgres,mongo,redis,qdrant}.py`)
+  inicializa só no primeiro uso — nunca há
   side effect de I/O no import de um módulo. Isso é o que torna o projeto testável sem mockar tudo
   na importação.
 - **ORM sobre Postgres, mas cada tool continua com seu próprio `try/except`.**
-  `tools/postgres/models.py` tem os models declarativos; `connection.py:get_session()` já faz
+  `tools/{financeiro,agenda,usuarios}/models.py` tem os models declarativos; `connection.py:get_session()` já faz
   `commit()`/`rollback()` automático (a tool não chama mais isso na mão). Mas o `try/except Exception
   as e: return Response.error(e)` dentro de cada tool continua obrigatório — `log_tool`
-  (`config/decorators.py`) não captura exceção nenhuma, só inspeciona `result["status"]`, então uma
+  (`core/logging.py`) não captura exceção nenhuma, só inspeciona `result["status"]`, então uma
   tool que deixar uma exception escapar quebra o turno inteiro no `except` genérico do chamador em
   vez de devolver um erro estruturado pro LLM reagir.
 - **Single responsibility por nó de agente.** `agents/nodes/` (execução) fica separado de
-  `agents/prompts/` (conteúdo/persona) — mudar o texto de um prompt nunca deveria exigir tocar na
+  `core/prompts/` (conteúdo/persona) — mudar o texto de um prompt nunca deveria exigir tocar na
   lógica de roteamento do grafo, e vice-versa. Prompt é `.md`, não Python: cada arquivo tem
   seções `## PAPEL` / `## SHOTS` (ou templates nomeados, como `## CLASSIFICADOR`) e um frontmatter
-  opcional (`usa_tools_obrigatorias: true`). `prompts/loader.py` é o único `.py` da pasta —
+  opcional (`usa_tools_obrigatorias: true`). `core/prompts/loader.py` é o único `.py` da pasta —
   `load_prompt(nome)` monta persona + papel + shots, `load_sections(nome)` devolve as seções cruas.
-- **Tudo async da ponta ao fim.** Nós do grafo, `chat/runner.py`, `chat/service.py`,
-  `chat/repositories.py` e as rotas da API são `async def`. O grafo roda por `ainvoke` (por isso o
+- **Tudo async da ponta ao fim.** Nós do grafo, `services/runner.py`, `services/chat_service.py`,
+  `repositories/chat_repository.py` e as rotas da API são `async def`. O grafo roda por `ainvoke` (por isso o
   checkpointer é `AsyncPostgresSaver`, não o síncrono). Os drivers de Mongo/Redis/SQLAlchemy
-  continuam síncronos e são chamados via `asyncio.to_thread` em `chat/repositories.py` — função nova
+  continuam síncronos e são chamados via `asyncio.to_thread` em `repositories/chat_repository.py` — função nova
   que faça I/O bloqueante entra pelo mesmo caminho, nunca direto no event loop.
 - **Contrato de retorno único.** Tools não retornam dict cru nem deixam exception vazar para o
   agente — usam `Response` (`tools/response.py`) como envelope padrão de sucesso/erro. Ao criar
   tool nova, reusar essa classe em vez de inventar outro formato de retorno.
-- **Config centralizada.** Uma única fonte de env vars (`config/settings.py`, `pydantic-settings`)
-  e um único enum fechado de modelos/providers (`config/models.py:Model`/`PROVIDER_MAP`). Não ler
+- **Config centralizada.** Uma única fonte de env vars (`core/config.py`, `pydantic-settings`, com
+  toda credencial — inclusive URLs de conexão — como `SecretStr`) e um único enum fechado de
+  modelos/providers (`core/models.py:Model`/`PROVIDER_MAP`). Não ler
   `os.environ` direto em outros módulos.
 - **Entrypoint fino.** `main.py` só faz dispatch por argv (`terminal`/`tui`/`api`) — nenhuma lógica
   de negócio nele. Lógica de negócio nova vai em `chat/`, nunca de volta pra `main.py`.
-- **Camadas de `chat/` + `interfaces/`** seguem uma separação tipo clean architecture bem
-  simplificada: `interfaces/*` (I/O — terminal, TUI, HTTP) → `chat/service.py` (casos de uso) →
-  `chat/runner.py` + `chat/repositories.py` (LangGraph e persistência). `chat/models.py` define o
-  contrato (`ChatMessage`, `Role`) independente dos schemas do Mongo — `chat/repositories.py` é
+- **Camadas por responsabilidade** seguem uma separação tipo clean architecture bem
+  simplificada: `api/`/`tui/`/`a2a/` (I/O) → `services/chat_service.py` (casos de uso) →
+  `services/runner.py` + `repositories/chat_repository.py` (LangGraph e persistência). `schemas/models.py` define o
+  contrato (`ChatMessage`, `Role`) independente dos schemas do Mongo — `repositories/chat_repository.py` é
   quem converte entre os dois.
 
 ## Comandos
 
 ```bash
 uv venv && uv sync        # instalar dependências
-python main.py terminal   # rodar o assistente (terminal | tui | api)
+python main.py tui        # rodar o assistente (tui | api)
 fastapi dev               # subir só a API (entrypoint já está no pyproject.toml)
 just check                # ruff check — mesmo lint que roda no CI em push/PR pra main
 just fix                  # ruff check --fix
@@ -194,13 +224,18 @@ Teste novo cobre caminho feliz, borda (lista vazia, valor no limite, data virand
 
 ## Ao adicionar uma tool nova
 
-1. Criar `tools/<sistema>/schemas.py` com os modelos Pydantic de entrada/saída.
-2. Criar `tools/<sistema>/core.py` com as funções decoradas como tool (ver `config/decorators.py:log_tool`).
-3. Se for um serviço externo com estado de conexão, criar `connection.py` com init lazy.
-4. Se a tool precisa ser escopada por usuário, usar `current_user_id()`
-   (`tools/postgres/connection.py`) — nunca adicionar `user_id` ao `args_schema` da tool.
-5. Registrar a tool no agente correspondente em `agents/nodes/`.
-6. Atualizar a tabela de tools no README.md.
+1. Criar `tools/<feature>/schemas.py` com os modelos Pydantic de entrada/saída (e `models.py`, se
+   usar Postgres — nesse caso importar o model no `alembic/env.py`).
+2. Criar `tools/<feature>/repo.py` com uma classe `*Repo`. Se for Postgres, herdar de `PostgresRepo`
+   e decorar os métodos com `@transacional` (sessão, commit/rollback e `Response.error` de graça).
+3. Expor as tools em `as_tools()` com `StructuredTool.from_function(self.metodo, name=...)` —
+   **nunca** `@tool` no método, que vaza `self` pro schema mandado ao LLM.
+4. Se for um banco/serviço novo, criar a conexão em `tools/infra/` com init lazy — nunca dentro da
+   pasta da feature.
+5. Se a tool precisa ser escopada por usuário, usar `self.usuario` — nunca adicionar `user_id` ao
+   `args_schema` da tool.
+6. Instanciar o repo em `tools/__init__.py` e registrar a lista no agente em `graph/agents.py`.
+7. Atualizar a tabela de tools no README.md.
 
 ## Encerrando a sessão
 

@@ -2,7 +2,7 @@
 
 Duas partes: **práticas oficiais** (do skill oficial do FastAPI, adaptadas ao que este repo faz de
 fato) e **pegadinhas deste repo** (achados reais, quase todos vindos de bug já corrigido). Consulte
-antes de mexer em `interfaces/api/`.
+antes de mexer em `api/`.
 
 ## Referências
 
@@ -62,7 +62,7 @@ reaproveitar a dependência como alias.
 Do this — alias de tipo reaproveitável, declarado uma vez ao lado da dependência:
 
 ```python
-# interfaces/api/auth.py
+# api/auth.py
 from typing import Annotated
 
 from fastapi import Depends, Security
@@ -79,7 +79,7 @@ CurrentUserDep = Annotated[str, Depends(get_current_user)]
 ```
 
 ```python
-# interfaces/api/routes/chats.py
+# api/routes/chats.py
 @router.post("/{chat_id}/messages")
 def send_message(request: Request, chat_id: str, payload: MessageCreate, user_id: CurrentUserDep):
     ...
@@ -154,7 +154,7 @@ Mesma regra pra `Query()`/`Path()`/`Body()`. E não use `RootModel`: pra body qu
 router = APIRouter(prefix="/v1/keys", tags=["keys"], dependencies=[Depends(verify_signup_secret)])
 ```
 
-`interfaces/api/main.py` então só faz `app.include_router(keys_router)`, sem repetir configuração.
+`api/app.py` então só faz `app.include_router(keys_router)`, sem repetir configuração.
 Uma operação HTTP por função — não misture `GET` e `POST` no mesmo handler.
 
 ## Serialização: sem `ORJSONResponse`/`UJSONResponse`
@@ -260,7 +260,7 @@ def send_message(chat_id: str, user_id: str = Depends(get_current_user)):
 
 ## `fastapi-guard` (`SecurityMiddleware`): configurar `redis_url` e nunca combinar CORS wildcard com credentials
 
-Dois defaults do `SecurityConfig` que já causaram incidente real neste repo (`interfaces/api/main.py`):
+Dois defaults do `SecurityConfig` que já causaram incidente real neste repo (hoje em `core/middleware.py`):
 
 - Sem `redis_url` explícito, o `fastapi-guard` aponta pro Redis **local** por padrão, não pro Redis
   do projeto. Com `redis_fail_open=False` (o padrão mais seguro), isso derruba toda request com

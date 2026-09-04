@@ -7,32 +7,44 @@ Próximos passos planejados. Contexto do projeto em [AGENTS.md](AGENTS.md).
 Regra transversal: classe é pra segurar dependência injetada. Classe sem estado com um método é
 função de fantasia — não converter por estética.
 
-- [ ] **mypy + ruff estrito** — nenhum type checker revisa o código hoje. Adicionar `mypy` ao dev
+- [~] **mypy + ruff estrito** — `mypy` está configurado (`[tool.mypy]` no pyproject, `files=["src"]`)
+      e passa limpo: `Success: no issues found in 89 source files`. **Falta o job no CI** — `ci.yml`
+      roda só `ruff check` e `pytest`. Original: nenhum type checker revisa o código hoje. Adicionar `mypy` ao dev
       group, um job no CI, e endurecer o ruff (hoje é quase default). Consertar o que aparecer
       (ex.: `Estado.mensagem_bloqueada: str` recebendo `None` em `graph/state.py`; retornos `-> dict`
       genéricos). Zero mudança de estrutura; é só instalar o crítico. **Faz isso primeiro.**
-- [ ] **Matar efeito colateral de import** — `config/settings.py` instancia `Settings()` e **muta
+- [~] **Matar efeito colateral de import** — o grafo agora é compilado no `lifespan` da API, não
+      mais na primeira mensagem. Mas as duas causas originais continuam de pé: `core/config.py`
+      ainda muta `os.environ` no import e `graph/builder.py` ainda monta `grafo` no import com
+      `_fluxo`/`_lock` global. Original: `config/settings.py` instancia `Settings()` e **muta
       `os.environ`** só de importar o módulo (linhas ~44-49); `graph/builder.py` monta `grafo` no
       import e tem `_fluxo`/`_lock` como global de módulo. Mover pra função chamada uma vez no
       startup (lifespan da API / bootstrap da TUI). Diff pequeno e isolado.
-- [ ] **`SecretStr` nos segredos** — `config/settings.py`: trocar `str` por `SecretStr` em
+- [x] **`SecretStr` nos segredos** — feito, e mais amplo que o pedido: as URLs de conexão também
+      viraram `SecretStr`, porque carregam usuário e senha embutidos. Original: `config/settings.py`: trocar `str` por `SecretStr` em
       `GEMINI_API_KEY`, `GROQ_API_KEY`, `POSTGRES_URL`, `MONGO_URL`, `QDRANT_API_KEY`,
       `SIGNUP_SECRET`. Evita vazamento acidental em log/traceback/`/docs`. **Não** embrulhar o que
       não é segredo (nomes de coleção, `A2A_BASE_URL`, `LANGSMITH_PROJECT`).
-- [ ] **Extrair redação de PII pra módulo neutro** — `chat/repositories.py` importa
+- [x] **Extrair redação de PII pra módulo neutro** — virou `core/privacy.py`. Original: `chat/repositories.py` importa
       `anonimizar_entrada` de `agents/nodes/guardrail/entrada.py`: a persistência reachando dentro
       da camada de agentes. Mover `anonimizar_entrada` (+ os padrões PII) pra um módulo neutro tipo
       `src/assessor_ai/privacy/` que persistência e guardrail importam. Remove a violação de camada.
-- [ ] **`repositories.py` → classes injetadas** — hoje é um módulo de ~15 funções que fala com
+- [~] **`repositories.py` → classes injetadas** — feito na camada de dados: `ChatsRepo`,
+      `UsuariosRepo`, `FinanceiroRepo`, `AgendaRepo`, `FaqRepo`, cada um recebendo a conexão no
+      `__init__` (o `monkeypatch` frágil dos testes morreu junto). `UserRepository`/`ProfileCache`
+      saíram como `tools/usuarios/` e `core/cache.py`. Falta só `repositories/chat_repository.py`,
+      que hoje é fachada fina de funções sobre esses repos. Original: hoje é um módulo de ~15 funções que fala com
       Mongo + Postgres + Redis ao mesmo tempo (são 3 repositórios colados). Quebrar em
       `ChatRepository` / `UserRepository` (talvez `ProfileCache` pro Redis), cada uma recebendo seu
       client no `__init__`. Um de cada vez. Destrava teste com fake e mata o `monkeypatch` frágil.
-- [ ] **`chat/service.py` → classe** — `ChatService(chat_repo, user_repo, graph, rate_limiter)` em
-      vez de funções soltas importando `repositories`. Depende do item acima. Os testes em
-      `tests/chat/test_service.py` passam a injetar fakes em vez de `monkeypatch.setattr` em string.
-- [ ] **`chat/` — não reduzir número de arquivo** — `models`/`repositories`/`runner`/`service` é uma
-      divisão sã. A pasta precisa de *mais* separação (itens acima), não menos. Confusão ≠ contagem
-      de arquivo.
+- [ ] **`services/chat_service.py` → classe** — `ChatService(chat_repo, user_repo, graph,
+      rate_limiter)` em vez de funções soltas importando o repositório. Depende do item acima. Os
+      testes em `tests/services/test_chat_service.py` passam a injetar fakes em vez de
+      `monkeypatch.setattr` em string.
+- [x] **Não reduzir número de arquivo** — respeitado: a divisão virou `services/` +
+      `repositories/` + `schemas/` (mais separação, não menos). Original: `models`/`repositories`/
+      `runner`/`service` é uma divisão sã. A pasta precisa de *mais* separação (itens acima), não
+      menos. Confusão ≠ contagem de arquivo.
 - [ ] **Nodes → classe só se ganharem dependência injetada** — hoje são `async def(estado) -> dict`
       puxando colaborador de global (`llm_guardrail`, `financeiro_app`). Se o LLM/tools/clock
       passarem a ser injetados, a classe vira o container natural (é o que o outro projeto faz:
@@ -41,7 +53,9 @@ função de fantasia — não converter por estética.
 - [ ] **Graph → função que retorna, não módulo com global** — o smell real é `grafo`/`_fluxo`/`_lock`
       no topo de `builder.py`, não "falta ser classe". `build_graph(deps) -> CompiledGraph` chamada
       uma vez no startup basta. Vira classe (`AgentGraph` como porta) só se adotar DI a sério.
-- [ ] **API robusta** — independente do resto, pode ser a qualquer momento:
+- [~] **API robusta** — taxonomia de exceção + exception handler saiu (`services/exceptions.py` +
+      `api/exception_handlers.py`). Faltam: validar `chat_id` como UUID na fronteira, logging
+      estruturado com request id, e o bypass gritar no log no startup. Original: independente do resto, pode ser a qualquer momento:
       taxonomia de exceção + um exception handler, no lugar de `except Exception` em toda rota;
       validar `chat_id` como UUID na fronteira (422 pra lixo); logging estruturado com request id;
       o bypass `API_KEY_AUTH_ENABLED=false` que injeta usuário aleatório precisa **gritar no log no
@@ -50,6 +64,130 @@ função de fantasia — não converter por estética.
 Referências pra estudar o padrão: livro **"Architecture Patterns with Python"** (grátis em
 cosmicpython.com — ports/adapters, repository, service layer, DI), canal **ArjanCodes**, fonte da
 org **encode** no GitHub (FastAPI/Starlette/httpx).
+
+## `tools/` por feature, com um `*Repo` por domínio — concluída
+
+Antes: uma pasta por banco (`postgres/`, `mongo/`, `redis/`, `qdrant/`), tools como funções soltas de
+módulo. Depois: uma pasta por feature, um `*Repo` por feature, conexões em `tools/infra/`.
+
+| antes | depois |
+|---|---|
+| `postgres/financeiro/core.py` (5 funções `@tool`) | `financeiro/repo.py:FinanceiroRepo` |
+| `postgres/agenda/core.py` (4 funções `@tool`) | `agenda/repo.py:AgendaRepo` |
+| `qdrant/faq/core.py` | `faq/repo.py:FaqRepo` |
+| `mongo/chats/core.py` + `mongo/helpers.py` | `chats/repo.py:ChatsRepo` |
+| `mongo/users/` + `postgres/users/` + `redis/api_key.py` | `usuarios/repo.py:UsuariosRepo` |
+| `postgres/models.py` (todos os models juntos) | `financeiro/models.py`, `agenda/models.py`, `usuarios/models.py` |
+| `*/connection.py` (4 arquivos, funções + globais) | `infra/{postgres,mongo,redis,qdrant}.py` (uma classe cada) |
+| `postgres/helpers.py` | datas → `infra/postgres.py`; `resolve_transaction_type` → `financeiro/repo.py` |
+
+O que morreu de repetição: 10 `with get_session()`, 10 `try/except → Response.error`, e a
+serialização linha→dict duplicada (4 cópias → 1 `_serializar` por feature). Tudo isso virou
+`@transacional` em `infra/postgres.py`.
+
+Duas pegadinhas de LangChain verificadas na mão antes de escrever o código, ambas do mesmo tipo
+(parâmetro interno vazando pro JSON schema que vai pro LLM):
+
+- `@tool` num método deixa `self` no schema (`['self', 'a', 'b']`). Por isso o bind é
+  `StructuredTool.from_function(repo.metodo)` dentro de `as_tools()`, com a instância já ligada.
+- `functools.wraps` no `@transacional` deixa `s` (a sessão) no schema, porque `inspect.signature`
+  segue `__wrapped__`. O decorator reescreve `__signature__` — corrige para toda tool, inclusive as
+  que não passam `args_schema` (`total_balance`, `query_daily_events`).
+
+Conferido que os 10 tools expõem exatamente os mesmos parâmetros de antes, sem `self` nem `s`.
+
+- [x] `infra/` com `PostgresConn`, `MongoConn`, `RedisConn`, `QdrantConn` — todas lazy. O
+      `GoogleGenerativeAIEmbeddings` do FAQ saiu de dentro da tool (era reconstruído a cada
+      pergunta) e virou property da conexão
+- [x] `mongo/connection.py` conectava no import (`banco = _conectar()`), violando o "nenhum I/O no
+      import" do CODE_STYLE — a classe lazy corrige
+- [x] Testes: `ConnFake` injetado no construtor no lugar do monkeypatch de `get_session`; os testes
+      chamam `repo.metodo(...)` em vez de `tool.func(...)`
+- [x] **Alembic**: `env.py` importava um caminho morto (`assessor_ai.config.settings`) e passava
+      `POSTGRES_URL` como `SecretStr` pro `set_main_option` — as migrations estavam quebradas desde
+      o refactor anterior. Agora importa os três módulos de models (senão o autogenerate dropa as
+      tabelas que sumiram do metadata) e `alembic check` diz "No new upgrade operations detected"
+- [x] **Mina desarmada no `env.py`**: as tabelas `checkpoint*` são criadas pelo `setup()` do
+      LangGraph, não pelo Alembic. Sem `include_object` elas ficavam fora do `target_metadata` e um
+      `--autogenerate` gerava um DROP delas — apagando o histórico de conversa de todos os usuários.
+      Era pré-existente (o `env.py` nunca teve o filtro), apareceu ao rodar `alembic check`
+- [ ] **Isolamento por usuário continua explícito em cada query** (`user_id == self.usuario`). Não
+      inventei filtro implícito no ORM: o fix estrutural pra "esqueci o WHERE" é RLS no Postgres,
+      não esperteza na camada de aplicação. Amarrado ao item de IDOR da seção Segurança
+
+## Estrutura por camada no fluxo de chat — concluída
+
+`chat/` e `interfaces/` foram dissolvidos: o fluxo de chat agora é `api/` → `services/` →
+`repositories/`, com `schemas/` guardando os contratos. `tui/` e `a2a/` subiram um nível.
+`core/`, `graph/`, `agents/` e `tools/` não mudaram — as tools continuam *package by feature*
+(a razão de as duas réguas coexistirem está no CODE_STYLE.md).
+
+| antes | depois |
+|---|---|
+| `interfaces/api/main.py` | `api/app.py` + `api/lifespan.py` (o lifespan saiu do corpo da app) |
+| `interfaces/api/errors.py` | `api/exception_handlers.py` |
+| `interfaces/api/{auth,gen_key}.py`, `routes/` | `api/` |
+| `interfaces/api/schemas/` | `schemas/` |
+| `chat/service.py` | `services/chat_service.py` |
+| `chat/runner.py` | `services/runner.py` |
+| `chat/exceptions.py` | `services/exceptions.py` |
+| `chat/repositories.py` | `repositories/chat_repository.py` |
+| `chat/models.py` | `schemas/models.py` |
+| `interfaces/{tui,a2a}/` | `tui/`, `a2a/` |
+
+- [x] Imports reescritos em `src/` e `tests/`; `pyproject.toml` (`entrypoint`) e `main.py`
+      (alvo do uvicorn) apontando pra `assessor_ai.api.app:app`
+- [x] Testes espelharam a mudança: `tests/api/`, `tests/services/test_chat_service.py`
+- [x] README (árvore inteira), AGENTS.md e CODE_STYLE.md atualizados
+- [ ] `repositories/` tem só `chat_repository.py`. Se aparecer um segundo repositório com domínio
+      próprio, vale reavaliar se ele não deveria ser `repositories/<domínio>.py` em vez de um
+      arquivo gordo
+
+## Refatoração `config/` → `core/` + erros de domínio na API — concluída
+
+A movimentação de `config/` e `interfaces/` pra dentro de `src/assessor_ai/` tinha ficado pela
+metade: os arquivos novos existiam (`core/config.py`, `core/logging.py`, `core/privacy.py`,
+`core/prompts/`, `core/cache.py`, `core/limiter.py`, `core/middleware.py`, `core/models.py`), mas
+~40 módulos ainda importavam dos caminhos velhos — o pacote não importava, `just api` não subia e
+o pytest não coletava. Fechado:
+
+- [x] Imports atualizados em `src/` e `tests/` (`config.settings`→`core.config`,
+      `config.logging`/`config.decorators`→`core.logging`, `agents.prompts`→`core.prompts`,
+      `interfaces.api.rate_limiting` e `tools.redis.chat`→`core.limiter`,
+      `tools.redis.perfil`→`core.cache`, `config.models`→`core.models`)
+- [x] PII deduplicada: as regex viviam em `agents/nodes/guardrail/schemas.py` **e** em
+      `core/privacy.py`. Ficou só a de `core/`; `chat/` e `core/logging.py` não importam mais de
+      `agents/nodes/`
+- [x] `REDIS_TOOLS` (em `tools/__init__.py`) removida — nenhum agente usava, e os dois consumidores
+      importam direto do módulo
+- [x] Testes que seguiram os módulos: `tests/core/{test_limiter,test_cache,test_logging}.py`
+- [x] **Grafo compilado no `lifespan`**, não na primeira mensagem — `setup()` do checkpointer cria
+      tabelas no Postgres, e o processo agora falha ao subir (em vez de aceitar tráfego e errar
+      502 por mensagem) se o banco estiver fora
+- [x] **Erros de domínio** em `chat/exceptions.py` + tradução pra HTTP em `interfaces/api/errors.py`
+      (404/403/429/502 + handler de `Exception` que loga o traceback e devolve
+      `ErrorResponse{detail, code}` genérico). `routes/chats.py` perdeu os `try/except`; ownership
+      virou `chat_service.validar_ownership`
+- [x] **`SecretStr`** em toda credencial de `core/config.py`, incluindo as URLs de conexão
+- [x] **`WindowsSelectorEventLoopPolicy` em `main.py`** — psycopg3 async recusa o
+      ProactorEventLoop (padrão do asyncio no Windows), então o pool do checkpointer nunca abria e
+      todo turno morria num `PoolTimeout` de 30s em dev local. Só afeta Windows
+
+Pendências que ficaram fora, de propósito:
+
+- [ ] **Falha de upstream (Mongo/Postgres fora) devolve 500 genérico, não 503.** Só `send_message`
+      converte falha em erro de domínio (`FalhaNoAgente` → 502); as outras rotas caem no handler
+      de `Exception`. Mapear pra 503 exige embrulhar ~10 funções de `chat/repositories.py` — só
+      vale se o front precisar distinguir "instável, tente de novo" de "quebrado"
+- [ ] **Código morto pra apagar** (nada mais importa, tudo verificado): as 19 sobras de
+      `tools/{postgres,mongo,redis,qdrant}/`, mais as pastas vazias `src/assessor_ai/config/`,
+      `src/assessor_ai/interfaces/`, `src/assessor_ai/chat/`, `tests/interfaces/`, `tests/chat/`,
+      `tests/tools/{postgres,redis}/`. Não removi por conta própria — deletar arquivo precisa de OK
+      explícito, ver AGENTS.md
+- [ ] **E2E real da API não rodou nesta máquina**: o Atlas recusa o handshake TLS daqui
+      (`TLSV1_ALERT_INTERNAL_ERROR` nos três nós do shard — pinta como allowlist de IP, o mesmo
+      diagnóstico que já está em `.agents/skills/mongo.md`). Verificado o que dava: `lifespan`
+      compila grafo + checkpointer contra o Postgres real, e os 172 testes passam
 
 ## Refatoração: camada de serviço compartilhada — concluída (terminal)
 
@@ -328,7 +466,7 @@ do Textual em vez de CSS como string Python).
 - [ ] Tela/painel lateral opcional mostrando qual agente está ativo (`agentes_chamados` do
       estado) — adiado deliberadamente, fora do escopo da primeira versão. **Único item
       funcionalmente pendente da TUI** neste momento
-- [ ] Avaliar `textual-serve` pra servir a TUI atual (`interfaces/tui/app.py`) no navegador em vez
+- [ ] Avaliar `textual-serve` pra servir a TUI atual (`tui/app.py`) no navegador em vez
       de um frontend React/JS — reaproveita `Bubble`/`MessageRow`/`Pensando` sem código novo de
       frontend; trade-off é ficar preso à estética/interação de terminal (sem componentes HTML
       ricos, layout mobile limitado). Suficiente pro estágio pessoal do projeto; revisitar se um dia
@@ -730,7 +868,7 @@ que pediu essa decisão antes de mais um pacote entrar: a divisão vira `config/
      mesma flag dos itens 2 e 3, é mais direto que fazer o front carregar o signup secret.
      **Implementado** (`interfaces/api/routes/users.py:create_user`) — reaproveita
      `chat_service.obter_ou_criar_usuario` já existente, sem endpoint novo de repositório.
-5. - [ ] **CORS na prática** — `SecurityConfig` (`interfaces/api/main.py:28`) já tem
+5. - [ ] **CORS na prática** — `SecurityConfig` (`core/middleware.py`) já tem
      `cors_allow_origins=["*"]` e `cors_allow_methods=["GET", "POST"]`. Falta conferir preflight real
      de browser passando pelo `SecurityMiddleware` do fastapi-guard, que roda `ip_security` antes
      (o mesmo check que `tests/interfaces/api/conftest.py` precisa desligar porque rejeita host que
@@ -1160,12 +1298,19 @@ existente correspondente) quando sair do "a triar".
       um prompt que cresce a cada turno com as N memórias
 - [ ] **Versão do projeto está em três lugares diferentes e discordando** — tag git `1.0.0`
       (no commit `965e33f`), `pyproject.toml` `version = "0.1.0"` e o app FastAPI
-      (`interfaces/api/main.py`) `version="0.5.0"`, que é o número que aparece no `/docs` e no
+      (`api/app.py`) `version="0.5.0"`, que é o número que aparece no `/docs` e no
       OpenAPI. Escolher o `pyproject.toml` como fonte única e fazer o FastAPI ler dali
       (`importlib.metadata.version("assessor-ai")`) resolve dois dos três; a tag passa a ser
       consequência do release, não um número solto. Pré-requisito pra qualquer coisa de changelog/
       release notes fazer sentido
-- [ ] **Avaliar a estrutura antes de continuar adicionando** — a maior parte do backlog abaixo
+- [x] **Avaliar a estrutura antes de continuar adicionando** — decidido e executado em 2026-09-04
+      (ver "Estrutura por camada no fluxo de chat" no topo): tudo passou pra dentro de
+      `src/assessor_ai/`, `interfaces/` foi dissolvido (A2A e TUI viraram pacotes de topo, no mesmo
+      nível de `api/`), e o fluxo de chat virou `api/` → `services/` → `repositories/` + `schemas/`.
+      O ponto (4) — `chat/service.py` virando god module — continua de pé sob o nome novo
+      (`services/chat_service.py`), agora só mais visível. Texto original do item abaixo:
+
+      **Avaliar a estrutura antes de continuar adicionando** — a maior parte do backlog abaixo
       (A2A, fila de tasks, MCP, frontend, sessões) adiciona pacote novo, então vale decidir a
       estrutura **antes**, não depois de cinco features enfiadas no formato atual. Pontos concretos
       pra revisar: (1) hoje são três pacotes de topo (`config/`, `interfaces/`, `src/assessor_ai/`) —
@@ -1317,9 +1462,10 @@ existente correspondente) quando sair do "a triar".
       é dependência). Os arquivos de referência oficiais (`dependencies.md`, `responses.md`,
       `streaming.md`, `path-operations.md`, `pydantic.md`, `other-tools.md`) já estavam em
       `.agents/skills/` e agora são linkados a partir do `fastapi.md`
-- [ ] **Alinhar `interfaces/api/` com a skill do FastAPI** — três divergências concretas do código
+- [ ] **Alinhar `api/` com a skill do FastAPI** — três divergências concretas do código
       atual, todas registradas na skill: (1) dependências no estilo antigo
       (`user_id: str = Depends(get_current_user)`) em vez de `Annotated` + alias `CurrentUserDep`
-      (`routes/chats.py`, `auth.py`); (2) `response_model=X` onde a anotação de retorno bastaria, e
-      rotas sem anotação de retorno nenhuma; (3) `Field(..., min_length=1)` com Ellipsis em
-      `schemas/chat.py`. Nada quebrado, é alinhamento de estilo — fazer num PR só
+      (`api/routes/chats.py`, `api/auth.py`); (2) `response_model=X` onde a anotação de retorno
+      bastaria — as rotas de chats já ganharam anotação de retorno, as outras não; (3)
+      `Field(..., min_length=1)` com Ellipsis em `schemas/chat.py`. Nada quebrado, é alinhamento de
+      estilo — fazer num PR só

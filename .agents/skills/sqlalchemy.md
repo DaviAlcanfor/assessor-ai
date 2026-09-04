@@ -36,7 +36,7 @@ class Transaction(Base):
 `func.date(coluna)` sobre uma coluna `timestamptz` converte pro timezone da *sessão* do Postgres
 (normalmente UTC), não pro timezone que o domínio espera. Um registro às 22h em São Paulo é 01h UTC
 do dia seguinte — filtrar/agrupar por `func.date()` cru coloca esse registro no dia errado (bug
-real em produção, `financeiro/core.py`, corrigido reusando os helpers abaixo).
+real em produção, `graph/tools/financeiro/repo.py`, corrigido reusando os helpers abaixo).
 
 Do this, converter explicitamente antes de extrair a data:
 

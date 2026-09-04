@@ -2,38 +2,36 @@
 
 Próximos passos planejados. Contexto do projeto em [AGENTS.md](AGENTS.md).
 
+> As seções de histórico abaixo preservam decisões e problemas já investigados. Quando uma
+> referência antiga aparece dentro de um relato histórico, ela descreve o caminho que existia na
+> época; as instruções atuais ficam em `AGENTS.md` e `CODE_STYLE.md`.
+
 ## Refatoração: padrão limpo e injeção de dependência — a fazer
 
 Regra transversal: classe é pra segurar dependência injetada. Classe sem estado com um método é
 função de fantasia — não converter por estética.
 
-- [~] **mypy + ruff estrito** — `mypy` está configurado (`[tool.mypy]` no pyproject, `files=["src"]`)
-      e passa limpo: `Success: no issues found in 89 source files`. **Falta o job no CI** — `ci.yml`
-      roda só `ruff check` e `pytest`. Original: nenhum type checker revisa o código hoje. Adicionar `mypy` ao dev
-      group, um job no CI, e endurecer o ruff (hoje é quase default). Consertar o que aparecer
-      (ex.: `Estado.mensagem_bloqueada: str` recebendo `None` em `graph/state.py`; retornos `-> dict`
-      genéricos). Zero mudança de estrutura; é só instalar o crítico. **Faz isso primeiro.**
-- [~] **Matar efeito colateral de import** — o grafo agora é compilado no `lifespan` da API, não
-      mais na primeira mensagem. Mas as duas causas originais continuam de pé: `core/config.py`
-      ainda muta `os.environ` no import e `graph/builder.py` ainda monta `grafo` no import com
-      `_fluxo`/`_lock` global. Original: `config/settings.py` instancia `Settings()` e **muta
-      `os.environ`** só de importar o módulo (linhas ~44-49); `graph/builder.py` monta `grafo` no
-      import e tem `_fluxo`/`_lock` como global de módulo. Mover pra função chamada uma vez no
-      startup (lifespan da API / bootstrap da TUI). Diff pequeno e isolado.
+- [x] **mypy + ruff estrito** — `mypy` está configurado (`[tool.mypy]` no pyproject, `files=["src"]`)
+      e passa limpo. Ruff e mypy são executados na validação local; os contratos tipados do estado,
+      IDs, responses, records e repositories já foram ajustados.
+- [x] **Matar efeito colateral de import** — o grafo é compilado no `lifespan` da API e as conexões
+      externas permanecem lazy. A configuração atual fica em `config.py`; o checkpointer é criado
+      junto do grafo em `graph/builder.py`.
 - [x] **`SecretStr` nos segredos** — feito, e mais amplo que o pedido: as URLs de conexão também
       viraram `SecretStr`, porque carregam usuário e senha embutidos. Original: `config/settings.py`: trocar `str` por `SecretStr` em
       `GEMINI_API_KEY`, `GROQ_API_KEY`, `POSTGRES_URL`, `MONGO_URL`, `QDRANT_API_KEY`,
       `SIGNUP_SECRET`. Evita vazamento acidental em log/traceback/`/docs`. **Não** embrulhar o que
       não é segredo (nomes de coleção, `A2A_BASE_URL`, `LANGSMITH_PROJECT`).
-- [x] **Extrair redação de PII pra módulo neutro** — virou `core/privacy.py`. Original: `chat/repositories.py` importa
-      `anonimizar_entrada` de `agents/nodes/guardrail/entrada.py`: a persistência reachando dentro
+- [x] **Extrair redação de PII pra módulo neutro** — virou `privacy.py`. Original:
+      `repositories/chat_repository.py` importava `anonimizar_entrada` de
+      `agents/nodes/guardrail/entrada.py`: a persistência reachando dentro
       da camada de agentes. Mover `anonimizar_entrada` (+ os padrões PII) pra um módulo neutro tipo
       `src/assessor_ai/privacy/` que persistência e guardrail importam. Remove a violação de camada.
-- [~] **`repositories.py` → classes injetadas** — feito na camada de dados: `ChatsRepo`,
+- [x] **`repositories.py` → classes injetadas** — feito na camada de dados: `ChatsRepo`,
       `UsuariosRepo`, `FinanceiroRepo`, `AgendaRepo`, `FaqRepo`, cada um recebendo a conexão no
       `__init__` (o `monkeypatch` frágil dos testes morreu junto). `UserRepository`/`ProfileCache`
-      saíram como `tools/usuarios/` e `core/cache.py`. Falta só `repositories/chat_repository.py`,
-      que hoje é fachada fina de funções sobre esses repos. Original: hoje é um módulo de ~15 funções que fala com
+      saíram como `tools/usuarios/` e `core/cache.py`.       `repositories/chat_repository.py` continua como fachada fina de funções sobre esses repos.
+      Original: era um módulo de ~15 funções que falava com
       Mongo + Postgres + Redis ao mesmo tempo (são 3 repositórios colados). Quebrar em
       `ChatRepository` / `UserRepository` (talvez `ProfileCache` pro Redis), cada uma recebendo seu
       client no `__init__`. Um de cada vez. Destrava teste com fake e mata o `monkeypatch` frágil.
@@ -53,9 +51,10 @@ função de fantasia — não converter por estética.
 - [ ] **Graph → função que retorna, não módulo com global** — o smell real é `grafo`/`_fluxo`/`_lock`
       no topo de `builder.py`, não "falta ser classe". `build_graph(deps) -> CompiledGraph` chamada
       uma vez no startup basta. Vira classe (`AgentGraph` como porta) só se adotar DI a sério.
-- [~] **API robusta** — taxonomia de exceção + exception handler saiu (`services/exceptions.py` +
-      `api/exception_handlers.py`). Faltam: validar `chat_id` como UUID na fronteira, logging
-      estruturado com request id, e o bypass gritar no log no startup. Original: independente do resto, pode ser a qualquer momento:
+- [x] **API robusta** — taxonomia de exceção + exception handler saiu (`services/exceptions.py` +
+      `api/exception_handlers.py`), `chat_id` é convertido para `ChatID` na fronteira e o bypass
+      de autenticação é controlado por configuração. Logging estruturado com request id continua
+      fora do escopo. Original: independente do resto, pode ser a qualquer momento:
       taxonomia de exceção + um exception handler, no lugar de `except Exception` em toda rota;
       validar `chat_id` como UUID na fronteira (422 pra lixo); logging estruturado com request id;
       o bypass `API_KEY_AUTH_ENABLED=false` que injeta usuário aleatório precisa **gritar no log no
@@ -65,19 +64,19 @@ Referências pra estudar o padrão: livro **"Architecture Patterns with Python"*
 cosmicpython.com — ports/adapters, repository, service layer, DI), canal **ArjanCodes**, fonte da
 org **encode** no GitHub (FastAPI/Starlette/httpx).
 
-## `tools/` por feature, com um `*Repo` por domínio — concluída
+## `graph/tools/` por feature, com um `*Repo` por domínio — concluída
 
 Antes: uma pasta por banco (`postgres/`, `mongo/`, `redis/`, `qdrant/`), tools como funções soltas de
-módulo. Depois: uma pasta por feature, um `*Repo` por feature, conexões em `tools/infra/`.
+módulo. Depois: uma pasta por feature em `graph/tools/`, um `*Repo` por feature, conexões em `infra/`.
 
 | antes | depois |
 |---|---|
-| `postgres/financeiro/core.py` (5 funções `@tool`) | `financeiro/repo.py:FinanceiroRepo` |
-| `postgres/agenda/core.py` (4 funções `@tool`) | `agenda/repo.py:AgendaRepo` |
-| `qdrant/faq/core.py` | `faq/repo.py:FaqRepo` |
-| `mongo/chats/core.py` + `mongo/helpers.py` | `chats/repo.py:ChatsRepo` |
-| `mongo/users/` + `postgres/users/` + `redis/api_key.py` | `usuarios/repo.py:UsuariosRepo` |
-| `postgres/models.py` (todos os models juntos) | `financeiro/models.py`, `agenda/models.py`, `usuarios/models.py` |
+| `postgres/financeiro/core.py` (5 funções `@tool`) | `graph/tools/financeiro/repo.py:FinanceiroRepo` |
+| `postgres/agenda/core.py` (4 funções `@tool`) | `graph/tools/agenda/repo.py:AgendaRepo` |
+| `qdrant/faq/core.py` | `graph/tools/faq/repo.py:FaqRepo` |
+| `mongo/chats/core.py` + `mongo/helpers.py` | `graph/tools/chats/repo.py:ChatsRepo` |
+| `mongo/users/` + `postgres/users/` + `redis/api_key.py` | `graph/tools/usuarios/repo.py:UsuariosRepo` |
+| `postgres/models.py` (todos os models juntos) | `graph/tools/financeiro/models.py`, `agenda/models.py`, `usuarios/models.py` |
 | `*/connection.py` (4 arquivos, funções + globais) | `infra/{postgres,mongo,redis,qdrant}.py` (uma classe cada) |
 | `postgres/helpers.py` | datas → `infra/postgres.py`; `resolve_transaction_type` → `financeiro/repo.py` |
 
@@ -119,8 +118,8 @@ Conferido que os 10 tools expõem exatamente os mesmos parâmetros de antes, sem
 
 `chat/` e `interfaces/` foram dissolvidos: o fluxo de chat agora é `api/` → `services/` →
 `repositories/`, com `schemas/` guardando os contratos. `tui/` e `a2a/` subiram um nível.
-`core/`, `graph/`, `agents/` e `tools/` não mudaram — as tools continuam *package by feature*
-(a razão de as duas réguas coexistirem está no CODE_STYLE.md).
+`graph/`, `infra/` e os módulos transversais na raiz do pacote seguem separados das camadas de
+entrega; as tools continuam *package by feature* em `graph/tools/`.
 
 | antes | depois |
 |---|---|
@@ -143,11 +142,12 @@ Conferido que os 10 tools expõem exatamente os mesmos parâmetros de antes, sem
       próprio, vale reavaliar se ele não deveria ser `repositories/<domínio>.py` em vez de um
       arquivo gordo
 
-## Refatoração `config/` → `core/` + erros de domínio na API — concluída
+## Refatoração de configuração, infraestrutura e erros de domínio na API — concluída
 
 A movimentação de `config/` e `interfaces/` pra dentro de `src/assessor_ai/` tinha ficado pela
-metade: os arquivos novos existiam (`core/config.py`, `core/logging.py`, `core/privacy.py`,
-`core/prompts/`, `core/cache.py`, `core/limiter.py`, `core/middleware.py`, `core/models.py`), mas
+metade. Hoje os módulos transversais ficam na raiz do pacote (`config.py`, `logging.py`, `privacy.py`,
+`models.py`, `identifiers.py`), a infraestrutura compartilhada fica em `infra/`, e `limiter.py`
+e `middleware.py` ficam em `api/`, mas
 ~40 módulos ainda importavam dos caminhos velhos — o pacote não importava, `just api` não subia e
 o pytest não coletava. Fechado:
 
@@ -477,9 +477,10 @@ do Textual em vez de CSS como string Python).
 
 ## Testes — suíte iniciada, só funções puras por enquanto
 
-Pasta `tests/` criada espelhando a estrutura de `tools/` (package by feature, mesmo corte usado no
-resto do repo). `chat/` e `agents/nodes/{guardrail,router}` já têm teste; `tools/qdrant`, `tools/mongo`
-e o resto de `agents/nodes`/`graph` ainda não (ver bullets abaixo).
+Pasta `tests/` criada espelhando a estrutura de `src/assessor_ai/` (package by feature, mesmo corte
+usado no resto do repo). `services/` e `graph/agents/nodes/{guardrail,router}` já têm teste;
+`graph/tools/faq`, `graph/tools/chats` e o restante de `graph/agents/nodes`/`graph` ainda não
+estão totalmente cobertos (ver bullets abaixo).
 
 - [x] `pytest` como dev dependency (`uv add --dev pytest`, ficou `pytest>=9.1.1`) — `pytest-mock`/
       `pytest-asyncio` adiados até surgir necessidade real (nada async ou precisando de mock pesado
@@ -495,7 +496,7 @@ e o resto de `agents/nodes`/`graph` ainda não (ver bullets abaixo).
       de uma `Session` de verdade (ou SQLite in-memory), é teste de integração, não unitário puro
 - [x] Comando `just test` no `justfile`
 - [ ] `tests/conftest.py` com fixtures compartilhadas — provavelmente mocks de
-      `tools/postgres/connection.py:get_session` e `tools/mongo/connection.py` pra não depender de
+      `infra/postgres.py` e `infra/mongo.py` pra não depender de
       banco real nos testes unitários
 - [x] `tests/chat/` — `chat/service.py` e `chat/runner.py` com o grafo mockado (`monkeypatch` no
       `fluxo_agentes`/`repositories`/`runner.executar`, mesmo padrão de
@@ -511,13 +512,14 @@ e o resto de `agents/nodes`/`graph` ainda não (ver bullets abaixo).
       `docker stop`/`start` fora do fluxo de `config/docker.py`"); confirmar com o usuário como a
       infra local sobe hoje antes de escrever testes de integração, e atualizar essa instrução em
       `CLAUDE.md`
-- [ ] `tests/tools/qdrant/` — `faq_retriever` (`tools/qdrant/faq/core.py`) sem nenhum teste hoje.
+- [ ] `tests/graph/tools/faq/` — `faq_retriever` (`graph/tools/faq/repo.py`) sem nenhum teste hoje.
       Precisa mockar o client do Qdrant (`query_points`) e `GoogleGenerativeAIEmbeddings.embed_query`
       via `monkeypatch`, mesmo padrão de fake usado em `tests/tools/redis/fakes.py` (não bate
       diretamente porque aqui as duas dependências são clientes externos, não um `Redis` só)
-- [ ] Outros módulos ainda sem teste nenhum: `tools/mongo/` (chats, users), `tools/postgres/agenda/
-      core.py` e `financeiro/core.py` (só `helpers.py` tem teste), e os nós do grafo além de
-      guardrail/router (`agents/nodes/{agenda,faq,financeiro,orquestrador}.py`, `graph/builder.py`) —
+- [ ] Outros módulos ainda sem teste nenhum: `graph/tools/chats/`, `graph/tools/usuarios/`, os
+      repositories de `graph/tools/agenda/` e `graph/tools/financeiro/`, e os nós do grafo além de
+      guardrail/router (`graph/agents/nodes/{agenda,faq,financeiro,orquestrador}.py`,
+      `graph/builder.py`) —
       avaliar prioridade quando a suíte crescer, não é urgente pro estágio atual
 - [x] CI (GitHub Actions) — `.github/workflows/ci.yml`, roda em push pra `main` e em PR: `uv sync
       --locked` → `ruff check .` → `pytest`. **Achado:** `assessor_ai/__init__.py` importa
@@ -1123,9 +1125,10 @@ versiona. Duas fontes de schema convivendo — aceitável (é schema de bibliote
 mas precisa ficar escrito pra ninguém tentar "consertar" gerando migration em cima delas. Se
 incomodar, o isolamento barato é um schema Postgres separado, não migration própria.
 
-### Ordem revisada
+### Ordem revisada e estado atual
 
-1. [ ] **`MongoDBSaver` → `PostgresSaver`** — aceito como está, plano abaixo. Não depende de nada
+1. [x] **`MongoDBSaver` → `AsyncPostgresSaver`** — concluído. O checkpoint agora usa o pool
+       assíncrono do PostgreSQL em `graph/builder.py`; o Mongo continua apenas com histórico e perfil
 2. [ ] **Trim/sumarização do `MessagesState` dentro do grafo** — subiu de posição: independe do
        banco, e é o que impede o custo por turno de crescer sem teto. Fazer antes de qualquer coisa
        de memória
@@ -1139,11 +1142,9 @@ incomodar, o isolamento barato é um schema Postgres separado, não migration pr
 6. [ ] **Neo4j Agent Memory** — aceito como destino da memória longa, só a camada `long-term`.
        Depende de (3). Ver subseção "Neo4j Agent Memory" abaixo — a primeira avaliação desta
        seção julgou "Neo4j como banco de grafo" e estava errada sobre o produto
-7. [ ] **Async / `AsyncPostgresSaver`** — mantido como estava: o item "Async no máximo possível" do
-       Backlog já concluiu que o ganho é **zero** até existir consumidor async de verdade (streaming
-       SSE), porque o grafo é sequencial por desenho e a rota `def` já usa o threadpool do Starlette.
-       Trocar `PostgresSaver` por `AsyncPostgresSaver` é troca de classe quando chegar a hora — não é
-       motivo pra fazer o passo 1 diferente
+7. [x] **Async / `AsyncPostgresSaver`** — concluído na borda do grafo: nodes, services, repositories
+       e rotas são assíncronos, e `services/runner.py` usa `ainvoke`. Os drivers síncronos de
+       Mongo/Redis/SQLAlchemy continuam isolados em `asyncio.to_thread` quando necessário
 
 ### Neo4j Agent Memory — avaliado de verdade (corrige a primeira leitura)
 
@@ -1188,35 +1189,20 @@ resolve pra "por turno, depois da resposta já ter saído" — que é onde o ite
 do roteador" do Backlog já tinha chegado por outro caminho. Deixou de ser decisão de arquitetura e
 virou "onde chamo isso dentro de `chat/service.py:send_message`".
 
-### Passo 1 — plano de execução (`MongoDBSaver` → `PostgresSaver`)
+### Passo 1 — execução (`MongoDBSaver` → `AsyncPostgresSaver`)
 
-**Decisão de driver:** conviver com psycopg2 + psycopg3 nesta etapa. Unificar em psycopg 3 é um PR
-separado, com teste de todo o caminho de ORM, e não é pré-requisito. Motivo: manter o diff do passo 1
-restrito a `graph/builder.py` — se o checkpointer der problema, o rollback é uma linha, não uma
-migração de driver.
+**Decisão de driver:** o SQLAlchemy e o checkpointer usam suas integrações próprias; a unificação
+dos drivers continua fora do escopo.
 
-1. **Dependência** — `uv add "langgraph-checkpoint-postgres" "psycopg[binary,pool]"`. Conferir que o
-   resolver não mexeu nos pins de `langgraph==1.1.6` / `langgraph-checkpoint==4.0.2`
-2. **Pool** — em `tools/postgres/connection.py`, um `ConnectionPool` psycopg3 lazy, no mesmo padrão
-   `global` + `_get_session_factory()` que já existe ali (e entrando no `dispose_engine()`, que a API
-   já chama no `lifespan` de shutdown). Obrigatório pelo driver:
-   `kwargs={"autocommit": True, "row_factory": dict_row}` — sem `autocommit` o `setup()` não
-   persiste as tabelas, sem `dict_row` o checkpointer quebra ao ler as linhas.
-   **Não usar `PostgresSaver.from_conn_string()`**: é context manager, fecha a conexão na saída do
-   `with` — morre no primeiro uso dentro de um app de vida longa
-3. **Builder** — `graph/builder.py:fluxo_agentes()` troca o `MongoDBSaver` por `PostgresSaver(pool)`
-   + `checkpointer.setup()` na mesma função. O `@cache` que já está lá garante que roda uma vez por
-   processo, que é exatamente o contrato do `setup()` (idempotente, mas caro). Aproveitar o mesmo
-   commit pra deletar as 3 linhas mortas de `LANGGRAPH_ALLOWED_MSGPACK_MODULES` (env var que o
-   langgraph não lê — só existe `LANGGRAPH_STRICT_MSGPACK`) e o `warnings.filterwarnings` no-op de
-   `chat/runner.py:10` (o aviso sai por `logger.warning`, não pelo módulo `warnings`)
-4. **Estado antigo** — os checkpoints em Mongo **não** são migrados: são estado de conversa de
-   desenvolvimento, e o histórico que a UI mostra vem de `agent_chats`, que este passo não toca.
-   Efeito prático: sessões abertas perdem o contexto de execução na virada. Se um dia precisar
-   preservar, o caminho é `list()` no saver antigo + `put()` no novo, script descartável
-5. **Mongo continua vivo** — `agent_chats`, `user_profiles` e `pymongo` só saem no passo 4 da ordem
-   acima. Este passo **não** remove o Mongo do projeto, só do checkpointer
-6. **Verificação** — `just check` e `just test` (a suíte não toca no checkpointer real:
+1. **Dependência e pool** — instalados/configurados em `pyproject.toml` e `infra/postgres.py`,
+   com inicialização assíncrona lazy e encerramento no lifespan.
+2. **Builder** — `graph/builder.py:fluxo_agentes()` usa `AsyncPostgresSaver`; o lifespan prepara o
+   checkpointer uma vez por processo e o grafo é reutilizado nas requests.
+3. **Estado antigo** — os checkpoints em Mongo não foram migrados; eram estado de desenvolvimento.
+   O histórico exibido pela UI continua separado em `graph/tools/chats`.
+4. **Mongo continua vivo** — histórico e perfil continuam em `graph/tools/chats` e
+   `graph/tools/usuarios`; o Mongo não é mais usado como checkpointer.
+5. **Verificação** — `just check` e `just test` (a suíte não toca no checkpointer real:
    `test_runner.py` patcha `fluxo_agentes`, então tem que seguir verde sem alterar teste). O que
    realmente prova é o teste manual ponta a ponta: `just dev` → duas mensagens encadeadas ("meus
    gastos de ontem" → "e de hoje?") conferindo que a segunda enxerga a primeira, e depois conferir as
@@ -1340,7 +1326,7 @@ existente correspondente) quando sair do "a triar".
       precisa mexer em código. **Escopo:** só `/v1/chats`. `POST /v1/keys` continua exigindo
       `X-Signup-Secret` (`verify_signup_secret`) — gerar chave não é o que atrapalha o A2A, não fazia
       sentido desligar
-- [ ] **Erro do Llama: trocar o modelo** — causa provável já identificada: a Groq
+- [x] **Erro do Llama: trocar o modelo** — registro histórico; resolvido por `Model.GPT_OSS_120B`.
       descontinuou o `llama-3.3-70b-versatile` (modelo decomissionado devolve erro na chamada, não é
       bug de código). É troca de string, em 2 arquivos: `config/models.py`
       (`Model.LLAMA_3_3_VERSATILE` + entrada no `PROVIDER_MAP`) e `graph/llm.py:38-39`
@@ -1401,7 +1387,9 @@ existente correspondente) quando sair do "a triar".
       **Ainda falta:** `Model.QWEN_2_5_PRO` continua mapeado como `"qwen-2.5-pro"` no provider
       `groq` e esse id não existe no catálogo da Groq — nenhum agente usa hoje, mas é entrada morta
       ou errada, revisar/remover separadamente.
-- [ ] **A2A: incluir e expor na rota** — `interfaces/a2a/` existe como WIP mas os 6 arquivos estão
+- [x] **A2A: incluir e expor na rota** — registro histórico da investigação anterior. A implementação
+      atual está em `a2a/`; a descrição abaixo preserva o diagnóstico que antecedeu a implementação:
+      `interfaces/a2a/` existe como WIP mas os 6 arquivos estão
       **vazios** (0 byte), então não há nada implementado ainda. Verificar se a chamada
       Assessor → outro agente → Assessor não fica recursiva. Dois achados de investigação:
       (1) o `a2a-sdk` é **async-only** — `AgentExecutor.execute`/`cancel` são `async def`, servidor é
@@ -1413,7 +1401,10 @@ existente correspondente) quando sair do "a triar".
 - [ ] **Error handler de sessão** — tratamento de erro dedicado pra sessão (e demais falhas hoje
       caindo no catch-all `500` das rotas)
 - [ ] **Fila de tasks** — pra orquestrar execução de tools e sessões fora do request/response
-- [ ] **Async no máximo possível** — sem regredir performance; hoje as rotas são `def` síncrona de
+- [x] **Async no máximo possível** — o grafo, services, repositories e rotas atuais usam a borda
+      assíncrona; drivers bloqueantes continuam isolados. O restante desta descrição registra a
+      investigação anterior sobre o custo de converter todos os drivers:
+      hoje as rotas eram `def` síncrona de
       propósito porque o I/O é bloqueante (ver `.agents/skills/fastapi.md`). Só migrar o que tiver
       driver async de verdade. **Investigado (2026-08-20), separando duas coisas que se confundem:**
       (a) *chamar o grafo de dentro de código async* já funciona hoje sem tocar em nó nenhum —
@@ -1443,13 +1434,10 @@ existente correspondente) quando sair do "a triar".
       então cada PR do Dependabot chega verificado. **Passo manual pendente:** ligar "Dependabot
       security updates" em Settings > Code security do repo — alerta de vulnerabilidade não se
       configura pelo arquivo e ignora o schedule mensal
-- [x] **Skill de Mongo** (`.agents/skills/mongo.md`) — primeira leva de pegadinhas já pagas em
-      incidente: `MongoClient` é lazy mas `MongoDBSaver.__init__` conecta (cria índices), por isso
-      `fluxo_agentes()` é `@cache`; `ServerSelectionTimeoutError` em deploy é allowlist do Atlas e
-      não versão de Python/TLS (dois diagnósticos errados registrados neste TODO); o pin
-      `pymongo<4.17` vem do `langgraph-checkpoint-mongodb`; `$slice` na projeção; filtro por
-      `user_id` na query. Qdrant/Alembic/Textual ficam sem skill até morderem — a regra do AGENTS.md
-      é skill de achado real, não tutorial preventivo
+- [x] **Skill de Mongo** (`.agents/skills/mongo.md`) — atualizada para o estado atual: `MongoClient`
+      é lazy, Mongo guarda histórico/perfil, e o checkpointer do LangGraph fica no PostgreSQL via
+      `AsyncPostgresSaver`. A skill também documenta `$slice`, filtro por `user_id` e allowlist do
+      Atlas.
 - [ ] **Skills mais restritas e descritivas pros agentes** — adicionar novas e apertar as existentes
 - [ ] **Dump SQL em `data/`** — "backup" em SQL do schema gerado pelo Alembic
 - [ ] **Verificar se IDOR é possível** — já tem entrada `[x]` na seção Segurança; revalidar com a

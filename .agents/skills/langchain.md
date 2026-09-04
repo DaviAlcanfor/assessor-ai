@@ -72,13 +72,13 @@ class Estado(MessagesState):
 ## `system_prompt` de `create_agent` congela no import — contexto dinâmico vai por mensagem
 
 `create_agent(..., system_prompt=X.system_prompt())` avalia a string **uma vez**, quando o módulo é
-importado (`graph/agents.py` roda no import). Qualquer coisa que mude com o tempo embutida ali fica
+importado (`graph/agents/__init__.py` roda no import). Qualquer coisa que mude com o tempo embutida ali fica
 congelada pelo tempo de vida do processo: data/hora, perfil do usuário, contexto do turno. No
 terminal e na TUI passa despercebido porque reiniciam a cada uso — a API fica dias com o mesmo
 valor. Já aconteceu aqui com o bloco de data (a API interpretava "hoje" como a data do deploy).
 
 Do this — o que muda por turno entra como mensagem de sistema no `invoke` (ver
-`agents/nodes/contexto.py`):
+`graph/agents/nodes/contexto.py`):
 
 ```python
 mensagens = [{"role": "system", "content": contexto_do_turno(perfil, pergunta)}, *estado["messages"]]

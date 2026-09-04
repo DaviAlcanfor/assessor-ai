@@ -260,7 +260,7 @@ def send_message(chat_id: str, user_id: str = Depends(get_current_user)):
 
 ## `fastapi-guard` (`SecurityMiddleware`): configurar `redis_url` e nunca combinar CORS wildcard com credentials
 
-Dois defaults do `SecurityConfig` que já causaram incidente real neste repo (hoje em `core/middleware.py`):
+Dois defaults do `SecurityConfig` que já causaram incidente real neste repo (hoje em `api/middleware.py`):
 
 - Sem `redis_url` explícito, o `fastapi-guard` aponta pro Redis **local** por padrão, não pro Redis
   do projeto. Com `redis_fail_open=False` (o padrão mais seguro), isso derruba toda request com

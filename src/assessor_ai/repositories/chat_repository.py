@@ -1,10 +1,13 @@
 import asyncio
+from typing import TypedDict, cast
 
 from langsmith import traceable
 
 from assessor_ai.graph.tools import chats, usuarios
-from assessor_ai.graph.tools.chats.schemas import Mensagem
+from assessor_ai.graph.tools.chats.schemas import ChatRecord, Mensagem
 from assessor_ai.graph.tools.chats.schemas import Role as MongoRole
+from assessor_ai.graph.tools.usuarios.schemas import UserRecord
+from assessor_ai.identifiers import ChatID, UserID
 from assessor_ai.infra.cache import (
     buscar_perfil_cache,
     invalidar_perfil_cache,
@@ -12,6 +15,12 @@ from assessor_ai.infra.cache import (
 )
 from assessor_ai.privacy import anonimizar_entrada
 from assessor_ai.schemas.models import ChatMessage, Role
+
+
+class RedactedMessage(TypedDict):
+    role: str
+    content: str
+
 
 # Os drivers de Mongo/Redis/SQLAlchemy usados aqui são todos síncronos e bloqueantes. Como a
 # cadeia acima (service -> rotas/TUI/A2A) é async, cada chamada vai pra thread via
@@ -27,40 +36,50 @@ def _de_mensagem(msg: Mensagem) -> ChatMessage:
     return ChatMessage(role=Role(msg.role), content=msg.content)
 
 
-def _mensagens_redigidas(mensagens: list[ChatMessage]) -> list[dict]:
+def _mensagens_redigidas(mensagens: list[ChatMessage]) -> list[RedactedMessage]:
     return [
-        {
-            "role": m.role.value, 
-            "content": anonimizar_entrada(m.content)[0]
-        }
+        RedactedMessage(
+            role=m.role.value,
+            content=anonimizar_entrada(m.content)[0],
+        )
         for m in mensagens
     ]
 
 
-def _redigir_saida_perfil(perfil: str | None) -> dict:
+def _redigir_saida_perfil(perfil: str | None) -> dict[str, str]:
     texto, _ = anonimizar_entrada(perfil or "")
-    return {"perfil": texto}
+    return {
+        "perfil": texto
+    }
 
 
-def _redigir_entrada_mensagens(inputs: dict) -> dict:
+def _redigir_entrada_mensagens(inputs: dict[str, object]) -> dict[str, object]:
     redigido = dict(inputs)
 
     if "mensagens" in redigido:
-        redigido["mensagens"] = _mensagens_redigidas(redigido["mensagens"])
+        redigido["mensagens"] = _mensagens_redigidas(
+            cast("list[ChatMessage]", redigido["mensagens"])
+        )
 
     return redigido
 
 
-def _redigir_saida_historico(historico: list[ChatMessage] | None) -> dict:
-    return {"mensagens": _mensagens_redigidas(historico) if historico else []}
+def _redigir_saida_historico(
+    historico: list[ChatMessage] | None,
+) -> dict[str, list[RedactedMessage]]:
+    return {
+        "mensagens": _mensagens_redigidas(historico) 
+        if historico else []
+    }
 
 
-async def garantir_usuario(user_id: str, nome: str, email: str) -> None:
+
+async def garantir_usuario(user_id: UserID, nome: str, email: str) -> None:
     await asyncio.to_thread(usuarios.garantir_usuario, user_id, nome=nome, email=email)
 
 
 @traceable(run_type="tool", name="buscar_perfil", process_outputs=_redigir_saida_perfil)
-async def buscar_perfil(user_id: str) -> str:
+async def buscar_perfil(user_id: UserID) -> str:
     """
     Busca o perfil do usuário no cache Redis.
     Se não estiver no cache, busca no MongoDB e salva no cache.
@@ -78,36 +97,47 @@ async def buscar_perfil(user_id: str) -> str:
     return perfil
 
 
-async def buscar_usuario_existente() -> dict | None:
+
+
+
+async def buscar_usuario_existente() -> UserRecord | None:
     return await asyncio.to_thread(usuarios.buscar_algum)
 
 
-async def buscar_usuario_por_email(email: str) -> dict | None:
+async def buscar_usuario_por_email(email: str) -> UserRecord | None:
     return await asyncio.to_thread(usuarios.buscar_por_email, email)
 
 
-async def listar_usuarios() -> list[dict]:
+async def listar_usuarios() -> list[UserRecord]:
     return await asyncio.to_thread(usuarios.listar)
 
 
-async def criar_chat(user_id: str, session_id: str) -> None:
+async def criar_chat(user_id: UserID, session_id: ChatID) -> None:
     await asyncio.to_thread(chats.criar, user_id, session_id, [])
 
 
-async def listar_chats(user_id: str) -> list[dict]:
+async def listar_chats(user_id: UserID) -> list[ChatRecord]:
     return await asyncio.to_thread(chats.listar_por_usuario, user_id)
 
 
-async def buscar_dono_chat(session_id: str) -> str | None:
+async def buscar_dono_chat(session_id: ChatID) -> UserID | None:
     doc = await asyncio.to_thread(chats.buscar, session_id)
 
     return doc["user_id"] if doc else None
 
 
+
+
+
+
 @traceable(
-    run_type="tool", name="buscar_historico", process_outputs=_redigir_saida_historico
+    run_type="tool", 
+    name="buscar_historico", 
+    process_outputs=_redigir_saida_historico
 )
-async def buscar_historico(session_id: str, user_id: str) -> list[ChatMessage] | None:
+async def buscar_historico(
+    session_id: ChatID, user_id: UserID
+) -> list[ChatMessage] | None:
     """
     Busca o histórico de mensagens do chat no MongoDB.
     Retorna uma lista de mensagens, ou None se o chat não existir ou não pertencer a user_id.
@@ -117,14 +147,19 @@ async def buscar_historico(session_id: str, user_id: str) -> list[ChatMessage] |
     if not doc:
         return None
 
-    return [_de_mensagem(m) for m in Mensagem.de_dict(doc["messages"])]
+    return [
+        _de_mensagem(m) 
+        for m in Mensagem.de_dict(doc["messages"])
+    ]
 
 
 @traceable(
-    run_type="tool", name="salvar_mensagens", process_inputs=_redigir_entrada_mensagens
+    run_type="tool", 
+    name="salvar_mensagens", 
+    process_inputs=_redigir_entrada_mensagens
 )
 async def salvar_mensagens(
-    user_id: str, session_id: str, mensagens: list[ChatMessage]
+    user_id: UserID, session_id: ChatID, mensagens: list[ChatMessage]
 ) -> None:
     """
     Salva as mensagens do chat no MongoDB.
@@ -139,7 +174,7 @@ async def salvar_mensagens(
         await asyncio.to_thread(chats.atualizar_mensagens, session_id, mensagens_mongo)
 
 
-async def encerrar_sessao(session_id: str, user_id: str) -> None:
+async def encerrar_sessao(session_id: ChatID, user_id: UserID) -> None:
     await asyncio.to_thread(chats.encerrar_sessao, session_id, user_id)
     await asyncio.to_thread(invalidar_perfil_cache, user_id)
 

@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from assessor_ai.logging import get_logger
-from assessor_ai.schemas.errors import ErrorResponse
+from assessor_ai.schemas.errors import ErrorCode, ErrorResponse
 from assessor_ai.services.exceptions import (
     ChatDeOutroUsuario,
     ChatError,
@@ -23,22 +23,22 @@ logger = get_logger(__name__)
 
 # (exceção, status HTTP, code do ErrorResponse) — a mensagem vem do `str(exc)` do domínio,
 # que é escrita pra ser lida pelo usuário final.
-_MAPA: list[tuple[type[ChatError], int, str]] = [
-    (ChatNaoEncontrado,         status.HTTP_404_NOT_FOUND,         "chat_nao_encontrado"),
-    (ChatDeOutroUsuario,        status.HTTP_403_FORBIDDEN,         "chat_de_outro_usuario"),
-    (LimiteDeMensagensExcedido, status.HTTP_429_TOO_MANY_REQUESTS, "limite_de_mensagens"),
-    (FalhaNoAgente,             status.HTTP_502_BAD_GATEWAY,       "falha_no_agente"),
+_MAPA: list[tuple[type[ChatError], int, ErrorCode]] = [
+    (ChatNaoEncontrado,         status.HTTP_404_NOT_FOUND,         ErrorCode.CHAT_NAO_ENCONTRADO),
+    (ChatDeOutroUsuario,        status.HTTP_403_FORBIDDEN,         ErrorCode.CHAT_DE_OUTRO_USUARIO),
+    (LimiteDeMensagensExcedido, status.HTTP_429_TOO_MANY_REQUESTS, ErrorCode.LIMITE_DE_MENSAGENS),
+    (FalhaNoAgente,             status.HTTP_502_BAD_GATEWAY,       ErrorCode.FALHA_NO_AGENTE),
 ]
 
 
-def _resposta(status_code: int, detail: str, code: str) -> JSONResponse:
+def _resposta(status_code: int, detail: str, code: ErrorCode) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
         content=ErrorResponse(detail=detail, code=code).model_dump(),
     )
 
 
-def _handler(status_code: int, code: str):
+def _handler(status_code: int, code: ErrorCode):
     async def handle(request: Request, exc: Exception) -> JSONResponse:
         return _resposta(status_code, str(exc), code)
 
@@ -51,7 +51,9 @@ async def _handle_inesperado(request: Request, exc: Exception) -> JSONResponse:
     logger.exception(f"Erro não tratado em {request.method} {request.url.path}")
 
     return _resposta(
-        status.HTTP_500_INTERNAL_SERVER_ERROR, "Erro interno inesperado.", "erro_interno"
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
+        "Erro interno inesperado.",
+        ErrorCode.ERRO_INTERNO,
     )
 
 
@@ -61,7 +63,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     # `ChatError` cobre subclasse nova que ninguém mapeou ainda; `Exception`, o resto do mundo.
     app.add_exception_handler(
-        ChatError, _handler(status.HTTP_502_BAD_GATEWAY, "erro_no_chat")
+        ChatError, _handler(status.HTTP_502_BAD_GATEWAY, ErrorCode.ERRO_NO_CHAT)
     )
     app.add_exception_handler(Exception, _handle_inesperado)
 

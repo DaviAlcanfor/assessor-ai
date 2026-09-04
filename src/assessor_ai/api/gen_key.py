@@ -1,5 +1,7 @@
 import secrets
 
+from assessor_ai.identifiers import APIKey
 
-def generate_api_key() -> str:
-    return secrets.token_urlsafe(32)
+
+def generate_api_key() -> APIKey:
+    return APIKey(secrets.token_urlsafe(32))

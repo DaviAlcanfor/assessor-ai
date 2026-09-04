@@ -10,6 +10,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from assessor_ai.config import settings
+from assessor_ai.identifiers import UserID
 from assessor_ai.infra.redis import redis
 from assessor_ai.logging import get_logger
 
@@ -19,7 +20,7 @@ CHAT_TTL_TIME = 60
 N_MESSAGES_ACCEPTED = 10
 
 
-def _chave_mensagem(user_id: str) -> str:
+def _chave_mensagem(user_id: UserID) -> str:
     return f"chat:{user_id}:message"
 
 
@@ -35,7 +36,7 @@ limiter = Limiter(
 )
 
 
-def can_send_message(user_id: str) -> bool:
+def can_send_message(user_id: UserID) -> bool:
     r = redis.client
     key = _chave_mensagem(user_id)
 

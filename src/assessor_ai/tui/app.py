@@ -8,6 +8,7 @@ from textual.app import App, ComposeResult
 from textual.containers import VerticalScroll
 from textual.widgets import Footer, Input, RichLog, Static
 
+from assessor_ai.identifiers import ChatID, UserID
 from assessor_ai.services import chat_service
 from assessor_ai.tui.display import Bubble, MessageRow, Pensando
 
@@ -29,8 +30,8 @@ class AssessorTUI(App):
 
     def __init__(self) -> None:
         super().__init__()
-        self.user_id = ""
-        self.session_id = ""
+        self.user_id: UserID | None = None
+        self.session_id: ChatID | None = None
 
     def compose(self) -> ComposeResult:
         arte = pyfiglet.figlet_format("ASSESSOR.AI", font="doom")
@@ -88,6 +89,8 @@ class AssessorTUI(App):
     @work
     async def _processar(self, texto: str, indicador: Pensando) -> None:
         try:
+            assert self.user_id is not None
+            assert self.session_id is not None
             resposta = await chat_service.send_message(self.user_id, self.session_id, texto)
         except Exception as e:
             resposta = f"Erro: {e}"
@@ -107,7 +110,7 @@ class AssessorTUI(App):
         input_widget.focus()
 
     async def action_sair(self) -> None:
-        if self.session_id:
+        if self.session_id is not None and self.user_id is not None:
             await chat_service.encerrar_sessao(self.session_id, self.user_id)
         self.exit()
 

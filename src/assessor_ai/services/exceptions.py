@@ -6,19 +6,21 @@ TUI) e cada um apresenta a falha do seu jeito — o serviço não pode conhecer 
 A tradução pra status HTTP mora em `api/exception_handlers.py`.
 """
 
+from assessor_ai.identifiers import ChatID
+
 
 class ChatError(Exception):
     """Erro base do domínio de chat."""
 
 
 class ChatNaoEncontrado(ChatError):
-    def __init__(self, session_id: str) -> None:
+    def __init__(self, session_id: ChatID) -> None:
         self.session_id = session_id
         super().__init__("Chat não encontrado.")
 
 
 class ChatDeOutroUsuario(ChatError):
-    def __init__(self, session_id: str) -> None:
+    def __init__(self, session_id: ChatID) -> None:
         self.session_id = session_id
         super().__init__("Chat pertence a outro usuário.")
 

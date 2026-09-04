@@ -4,15 +4,16 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.types import InvalidParamsError, Message, Part, Role, TaskNotCancelableError
 
+from assessor_ai.identifiers import ChatID, UserID
 from assessor_ai.services import chat_service
 from assessor_ai.services.exceptions import LimiteDeMensagensExcedido
 
 # ponytail: mapa em memória (perdido no restart, não compartilhado entre workers) — troca por
 # Redis (mesmo padrão de core/limiter.py) se o A2A rodar com múltiplos processos/instâncias
-_sessoes: dict[str, tuple[str, str]] = {}
+_sessoes: dict[str, tuple[UserID, ChatID]] = {}
 
 
-async def _sessao_para(context_id: str) -> tuple[str, str]:
+async def _sessao_para(context_id: str) -> tuple[UserID, ChatID]:
     if context_id not in _sessoes:
         _sessoes[context_id] = await chat_service.iniciar_sessao()
     return _sessoes[context_id]

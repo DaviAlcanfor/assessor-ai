@@ -11,22 +11,27 @@ de `agents/nodes/` — inversão de dependência que forçava import lazy pra n�
 import re
 import uuid
 
+type MapaPII = dict[str, str]
+type PIIPattern = tuple[str, str]
+
+
+
 # PII do usuário — redige na entrada E na saída
-PII_USUARIO = [
+PII_USUARIO: list[PIIPattern] = [
     ("CPF",     r"\d{3}\.?\d{3}\.?\d{3}-?\d{2}"),
     ("CNPJ",    r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}"),
     ("CONTA",   r"\b\d{5,6}-\d{1}\b"),
     ("CARTAO",  r"\d{4}\s?\d{4}\s?\d{4}\s?\d{4}"),
 ]
 
-PII = PII_USUARIO + [
+PII: list[PIIPattern] = PII_USUARIO + [
     ("EMAIL",    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"),
     ("TELEFONE", r"\(?\d{2}\)?\s?\d{4,5}-?\d{4}"),
 ]
 
 
-def anonimizar_entrada(texto: str) -> tuple[str, dict]:
-    mapa = {}
+def anonimizar_entrada(texto: str) -> tuple[str, MapaPII]:
+    mapa: MapaPII = {}
 
     for tipo, padrao in PII:
         for valor in re.findall(padrao, texto):
@@ -37,4 +42,4 @@ def anonimizar_entrada(texto: str) -> tuple[str, dict]:
     return texto, mapa
 
 
-__all__ = ["PII", "PII_USUARIO", "anonimizar_entrada"]
+__all__ = ["PII", "PII_USUARIO", "MapaPII", "PIIPattern", "anonimizar_entrada"]

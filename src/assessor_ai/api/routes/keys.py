@@ -4,6 +4,7 @@ from assessor_ai.api.auth import verify_signup_secret
 from assessor_ai.api.gen_key import generate_api_key
 from assessor_ai.api.limiter import limiter
 from assessor_ai.graph.tools import usuarios
+from assessor_ai.identifiers import APIKey
 from assessor_ai.schemas.key import KeyCreate, KeyCreateResponse
 from assessor_ai.services import chat_service
 
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/v1/keys", tags=["keys"])
 async def create_key(request: Request, payload: KeyCreate):
     user_id = await chat_service.obter_ou_criar_usuario(payload.nome, payload.email)
 
-    api_key = generate_api_key()
+    api_key: APIKey = generate_api_key()
     if not usuarios.alocar_api_key(user_id, api_key):
         raise HTTPException(
             status.HTTP_409_CONFLICT,

@@ -5,6 +5,7 @@ from fastapi.security import APIKeyHeader
 
 from assessor_ai.config import settings
 from assessor_ai.graph.tools import usuarios
+from assessor_ai.identifiers import APIKey, UserID
 from assessor_ai.services import chat_service
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -14,16 +15,16 @@ _signup_secret_header = APIKeyHeader(name="X-Signup-Secret")
 async def get_current_user(
     api_key: str | None = Security(_api_key_header),
     x_user_id: str | None = Header(None, alias="X-User-Id"),
-) -> str:
+) -> UserID:
     if not settings.API_KEY_AUTH_ENABLED:
         # ponytail: bypass de auth deliberado — só vale enquanto API_KEY_AUTH_ENABLED=false.
         # Permite o frontend em modo dev escolher o usuário sem precisar de API key.
-        return x_user_id or await chat_service.obter_usuario_padrao()
+        return UserID(x_user_id) if x_user_id else await chat_service.obter_usuario_padrao()
 
     if api_key is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid API key")
 
-    user_id = usuarios.user_id_por_api_key(api_key)
+    user_id = usuarios.user_id_por_api_key(APIKey(api_key))
 
     if user_id is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid API key")

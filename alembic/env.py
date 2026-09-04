@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from assessor_ai.core.config import settings
+from assessor_ai.config import settings
 
 # Todo model precisa ser importado aqui: com os models fatiados por feature, o que não for
 # importado some do `Base.metadata` e o --autogenerate gera um DROP da tabela correspondente.

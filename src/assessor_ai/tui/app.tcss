@@ -1,0 +1,113 @@
+/*
+ * Tokens do design system da Kobana, convertidos pra hex a partir de `web/src/styles/tokens.css`
+ * — Textual CSS não tem `oklch()`/`hsl()` nem `var()`, então os valores são resolvidos aqui.
+ * Só o modo escuro: TUI roda em terminal.
+ *
+ * Prefixo `$kb-` de propósito, pra não sobrescrever as variáveis de tema do próprio Textual
+ * ($primary, $surface, $text-muted...), que outros widgets consomem.
+ *
+ * Papel das cores é o mesmo do web (`web/src/components/chat/message-bubble.tsx`):
+ * lime = assistente, purple = usuário.
+ */
+
+$kb-lime:       #d9fe52;
+$kb-purple:     #b229e0;
+$kb-black:      #000000;
+$kb-background: #0a0a0a;
+$kb-card:       #141414;
+$kb-foreground: #fafafa;
+$kb-muted-fg:   #a1a1a1;
+$kb-border:     #262626;
+
+Screen {
+    align: center top;
+    background: $kb-background;
+    color: $kb-foreground;
+}
+
+#banner {
+    width: 90%;
+    max-width: 120;
+    height: auto;
+    margin: 1 0 0 0;
+    content-align: center middle;
+}
+
+#historico {
+    width: 90%;
+    max-width: 120;
+    padding: 1 2;
+    background: $kb-background;
+}
+
+Input {
+    width: 90%;
+    max-width: 120;
+    margin: 0 0 1 0;
+    background: $kb-card;
+    color: $kb-foreground;
+    border: round $kb-border;
+}
+
+Input:focus {
+    border: round $kb-lime;
+}
+
+MessageRow {
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+MessageRow.usuario {
+    align-horizontal: right;
+}
+
+MessageRow.assistente {
+    align-horizontal: left;
+}
+
+/* Bolha preenchida com padding, em vez do Panel com borda e título que o terminal usava —
+   é o análogo mais próximo do `rounded-lg` preenchido do web num terminal. */
+Bubble {
+    width: auto;
+    max-width: 70%;
+    padding: 0 2;
+}
+
+Bubble.usuario {
+    background: $kb-purple;
+    color: $kb-foreground;
+}
+
+Bubble.assistente {
+    background: $kb-lime;
+    color: $kb-black;
+}
+
+Pensando {
+    width: 12;
+    height: 1;
+    margin-bottom: 1;
+}
+
+Pensando LoadingIndicator {
+    height: 1;
+    color: $kb-lime;
+    background: $kb-background;
+}
+
+Footer {
+    background: $kb-card;
+    color: $kb-muted-fg;
+}
+
+#logs {
+    width: 90%;
+    max-width: 120;
+    height: 8;
+    border: round $kb-border;
+    color: $kb-muted-fg;
+    background: $kb-card;
+    padding: 0 1;
+}

@@ -3,16 +3,19 @@ from uuid import uuid4
 
 from faker import Faker
 
-from assessor_ai.agents.nodes.guardrail.entrada import anonimizar_entrada
-from assessor_ai.chat import repositories, runner
-from assessor_ai.chat.models import ChatMessage, Role
-from assessor_ai.tools.redis.chat import can_send_message
+from assessor_ai.core.limiter import can_send_message
+from assessor_ai.core.privacy import anonimizar_entrada
+from assessor_ai.repositories import chat_repository
+from assessor_ai.schemas.models import ChatMessage, Role
+from assessor_ai.services import runner
+from assessor_ai.services.exceptions import (
+    ChatDeOutroUsuario,
+    ChatNaoEncontrado,
+    FalhaNoAgente,
+    LimiteDeMensagensExcedido,
+)
 
 _fake = Faker()
-
-
-class LimiteDeMensagensExcedido(Exception):
-    pass
 
 
 def _gerar_usuario_mock() -> dict:
@@ -21,24 +24,39 @@ def _gerar_usuario_mock() -> dict:
 
 async def create_chat(user_id: str) -> str:
     session_id = str(uuid4())
-    await repositories.criar_chat(user_id, session_id)
+    await chat_repository.criar_chat(user_id, session_id)
     return session_id
 
 
 async def obter_dono_chat(session_id: str) -> str | None:
-    return await repositories.buscar_dono_chat(session_id)
+    return await chat_repository.buscar_dono_chat(session_id)
+
+
+async def validar_ownership(session_id: str, user_id: str) -> None:
+    """
+    Garante que o chat existe e pertence a `user_id`.
+    Levanta `ChatNaoEncontrado` ou `ChatDeOutroUsuario` — quem chama decide como apresentar.
+    """
+
+    dono = await obter_dono_chat(session_id)
+
+    if dono is None:
+        raise ChatNaoEncontrado(session_id)
+
+    if dono != user_id:
+        raise ChatDeOutroUsuario(session_id)
 
 
 async def garantir_usuario(user_id: str, nome: str, email: str) -> None:
-    await repositories.garantir_usuario(user_id, nome=nome, email=email)
+    await chat_repository.garantir_usuario(user_id, nome=nome, email=email)
 
 
 async def buscar_usuario_existente() -> dict | None:
-    return await repositories.buscar_usuario_existente()
+    return await chat_repository.buscar_usuario_existente()
 
 
 async def obter_ou_criar_usuario(nome: str, email: str) -> str:
-    usuario = await repositories.buscar_usuario_por_email(email)
+    usuario = await chat_repository.buscar_usuario_por_email(email)
 
     if usuario:
         return usuario["user_id"]
@@ -50,11 +68,11 @@ async def obter_ou_criar_usuario(nome: str, email: str) -> str:
 
 
 async def listar_usuarios() -> list[dict]:
-    return await repositories.listar_usuarios()
+    return await chat_repository.listar_usuarios()
 
 
 async def listar_chats(user_id: str) -> list[dict]:
-    return await repositories.listar_chats(user_id)
+    return await chat_repository.listar_chats(user_id)
 
 
 async def obter_usuario_padrao() -> str:
@@ -93,9 +111,12 @@ async def send_message(user_id: str, session_id: str, content: str) -> str:
         )
 
     mensagem = ChatMessage(role=Role.HUMAN, content=content)
-    perfil = await repositories.buscar_perfil(user_id)
+    perfil = await chat_repository.buscar_perfil(user_id)
 
-    resposta = await runner.executar(mensagem, session_id, perfil, user_id)
+    try:
+        resposta = await runner.executar(mensagem, session_id, perfil, user_id)
+    except Exception as e:
+        raise FalhaNoAgente("Não foi possível processar a mensagem.") from e
 
     if not resposta:
         return "Sem resposta."
@@ -105,20 +126,23 @@ async def send_message(user_id: str, session_id: str, content: str) -> str:
         ChatMessage(role=Role.HUMAN, content=conteudo_redigido),
         ChatMessage(role=Role.AI, content=resposta),
     ]
-    await repositories.salvar_mensagens(user_id, session_id, novas)
+    await chat_repository.salvar_mensagens(user_id, session_id, novas)
 
     return resposta
 
 
 async def get_history(session_id: str, user_id: str) -> list[ChatMessage] | None:
-    return await repositories.buscar_historico(session_id, user_id)
+    return await chat_repository.buscar_historico(session_id, user_id)
 
 
 async def encerrar_sessao(session_id: str, user_id: str) -> None:
-    await repositories.encerrar_sessao(session_id, user_id)
+    await chat_repository.encerrar_sessao(session_id, user_id)
 
 
 __all__ = [
+    "ChatDeOutroUsuario",
+    "ChatNaoEncontrado",
+    "FalhaNoAgente",
     "LimiteDeMensagensExcedido",
     "buscar_usuario_existente",
     "create_chat",
@@ -132,4 +156,5 @@ __all__ = [
     "obter_ou_criar_usuario",
     "obter_usuario_padrao",
     "send_message",
+    "validar_ownership",
 ]

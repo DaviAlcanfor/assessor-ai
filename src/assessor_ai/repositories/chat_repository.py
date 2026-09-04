@@ -2,18 +2,16 @@ import asyncio
 
 from langsmith import traceable
 
-import assessor_ai.tools.mongo.chats.core as chats
-import assessor_ai.tools.mongo.users.core as mongo_users
-import assessor_ai.tools.postgres.users.core as pg_users
-from assessor_ai.agents.nodes.guardrail.entrada import anonimizar_entrada
-from assessor_ai.chat.models import ChatMessage, Role
-from assessor_ai.tools.mongo.chats.schemas import Mensagem
-from assessor_ai.tools.mongo.chats.schemas import Role as MongoRole
-from assessor_ai.tools.redis.perfil import (
+from assessor_ai.core.cache import (
     buscar_perfil_cache,
     invalidar_perfil_cache,
     salvar_perfil_cache,
 )
+from assessor_ai.core.privacy import anonimizar_entrada
+from assessor_ai.schemas.models import ChatMessage, Role
+from assessor_ai.tools import chats, usuarios
+from assessor_ai.tools.chats.schemas import Mensagem
+from assessor_ai.tools.chats.schemas import Role as MongoRole
 
 # Os drivers de Mongo/Redis/SQLAlchemy usados aqui são todos síncronos e bloqueantes. Como a
 # cadeia acima (service -> rotas/TUI/A2A) é async, cada chamada vai pra thread via
@@ -58,8 +56,7 @@ def _redigir_saida_historico(historico: list[ChatMessage] | None) -> dict:
 
 
 async def garantir_usuario(user_id: str, nome: str, email: str) -> None:
-    await asyncio.to_thread(mongo_users.garantir_usuario, user_id, nome=nome, email=email)
-    await asyncio.to_thread(pg_users.garantir_usuario, user_id)
+    await asyncio.to_thread(usuarios.garantir_usuario, user_id, nome=nome, email=email)
 
 
 @traceable(run_type="tool", name="buscar_perfil", process_outputs=_redigir_saida_perfil)
@@ -74,7 +71,7 @@ async def buscar_perfil(user_id: str) -> str:
     if perfil_cache is not None:
         return perfil_cache
 
-    usuario = await asyncio.to_thread(mongo_users.buscar, user_id)
+    usuario = await asyncio.to_thread(usuarios.buscar, user_id)
     perfil = usuario.get("profile", "") if usuario else ""
 
     await asyncio.to_thread(salvar_perfil_cache, user_id, perfil)
@@ -82,15 +79,15 @@ async def buscar_perfil(user_id: str) -> str:
 
 
 async def buscar_usuario_existente() -> dict | None:
-    return await asyncio.to_thread(mongo_users.buscar_algum)
+    return await asyncio.to_thread(usuarios.buscar_algum)
 
 
 async def buscar_usuario_por_email(email: str) -> dict | None:
-    return await asyncio.to_thread(mongo_users.buscar_por_email, email)
+    return await asyncio.to_thread(usuarios.buscar_por_email, email)
 
 
 async def listar_usuarios() -> list[dict]:
-    return await asyncio.to_thread(mongo_users.listar)
+    return await asyncio.to_thread(usuarios.listar)
 
 
 async def criar_chat(user_id: str, session_id: str) -> None:

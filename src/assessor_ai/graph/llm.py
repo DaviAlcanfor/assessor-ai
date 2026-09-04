@@ -3,21 +3,24 @@ from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 
-from config.models import API_KEYS, BUILDERS, PROVIDER_MAP, Model
+from assessor_ai.core.models import API_KEYS, BUILDERS, PROVIDER_MAP, Model
 
 
 def build_llm(
     temperature: float,
     top_p: float | None = None,
-    model: str | None = None
+    model: Model | None = None
 ) -> ChatGoogleGenerativeAI | ChatGroq | ChatAnthropic:
     """
     Cria uma LLM com base no modelo informado.
     top_p só é aplicado para modelos Gemini.
     """
 
+    if model is None:
+        raise ValueError("Modelo não informado")
+
     provider = PROVIDER_MAP.get(model)
-    
+
     if provider is None:
         raise ValueError(f"Modelo desconhecido: {model}")
 

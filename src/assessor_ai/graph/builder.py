@@ -14,7 +14,7 @@ from assessor_ai.agents.nodes import (
 )
 from assessor_ai.agents.nodes.names import NodeName
 from assessor_ai.graph.state import Estado, Route
-from assessor_ai.tools.postgres.connection import get_checkpointer_pool
+from assessor_ai.tools.infra.postgres import postgres
 
 
 def decidir_apos_guardrail_entrada(estado: Estado) -> str:
@@ -92,7 +92,7 @@ async def fluxo_agentes():
 
     async with _lock:
         if _fluxo is None:
-            checkpointer = AsyncPostgresSaver(await get_checkpointer_pool())
+            checkpointer = AsyncPostgresSaver(await postgres.checkpointer_pool())
             await checkpointer.setup()
             _fluxo = grafo.compile(checkpointer=checkpointer)
 

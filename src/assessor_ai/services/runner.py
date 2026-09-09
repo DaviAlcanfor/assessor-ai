@@ -56,7 +56,7 @@ async def executar(
     token = set_current_user(user_id)
     token_usuario = set_usuario_atual(user_id)
     try:
-        grafo = await fluxo_agentes()
+        grafo = await fluxo_agentes.get()
         estado_final = await grafo.ainvoke(estado_inicial, config=config)
     finally:
         reset_current_user(token)

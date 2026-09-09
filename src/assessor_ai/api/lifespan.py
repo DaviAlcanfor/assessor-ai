@@ -22,11 +22,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # `setup()` cria tabelas no Postgres, e pagar isso dentro de um request faz o primeiro
     # usuário do deploy esperar por infra. Falhar aqui também é melhor — o processo não sobe
     # com o Postgres fora do ar em vez de aceitar tráfego e errar 502 em cada mensagem.
-    await fluxo_agentes()
+    await fluxo_agentes.get()
     logger.info("Grafo de agentes compilado e checkpointer pronto.")
 
     yield
 
+    await fluxo_agentes.aclose()
     await postgres.dispose()
 
 

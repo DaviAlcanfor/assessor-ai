@@ -1,7 +1,14 @@
-import type { ChatSummary, Message, User } from "../types";
+import type { ChatSummary, Message, PerfilFinanceiro, User } from "../types";
 import { loadUser } from "./storage";
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const user = loadUser();
@@ -15,7 +22,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new ApiError(body?.detail ?? `Erro ${res.status}`);
+    throw new ApiError(body?.detail ?? `Erro ${res.status}`, res.status);
   }
 
   if (res.status === 204) return undefined as T;
@@ -47,4 +54,17 @@ export function sendMessage(
     method: "POST",
     body: JSON.stringify({ content }),
   });
+}
+
+export async function getPerfil(): Promise<PerfilFinanceiro | null> {
+  try {
+    return await request<PerfilFinanceiro>("/v1/perfil");
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+export function savePerfil(perfil: PerfilFinanceiro): Promise<PerfilFinanceiro> {
+  return request("/v1/perfil", { method: "PUT", body: JSON.stringify(perfil) });
 }

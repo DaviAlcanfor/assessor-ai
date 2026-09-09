@@ -1,12 +1,19 @@
 """
-Contexto por turno para os agentes compilados.
+Glue entre os nós do grafo e os agentes compilados.
 
-`perfil_usuario` e `pergunta_original` vivem no Estado do grafo, mas os agentes
-(`graph/agents.py`) são compilados no import com system_prompt fixo — sem isso o
-especialista nunca enxerga nem o perfil nem a pergunta que o roteador encaminhou.
+`mensagens_com_contexto` monta a entrada: `perfil_usuario` e `pergunta_original` vivem no Estado
+do grafo, mas os agentes (`graph/agents/`) são compilados no import com system_prompt fixo — sem
+isso o especialista nunca enxerga nem o perfil nem a pergunta que o roteador encaminhou.
+
+`responder` roda o agente e devolve o texto da última mensagem — todo nó fazia
+`ainvoke({"messages": ...})["messages"][-1].content` na mão.
 """
 
-from langchain_core.messages import AnyMessage
+from collections.abc import Sequence
+from typing import Any, cast
+
+from langchain_core.messages import AnyMessage, SystemMessage
+from langchain_core.runnables import Runnable
 
 from assessor_ai.graph.agents.prompts.loader import contexto_do_turno
 from assessor_ai.graph.state import Estado
@@ -14,7 +21,7 @@ from assessor_ai.graph.state import Estado
 
 def mensagens_com_contexto(
     estado: Estado, incluir_pergunta: bool = True
-) -> list[dict[str, str] | AnyMessage]:
+) -> list[AnyMessage]:
     """
     Histórico do turno precedido de uma mensagem de sistema com data/hora atual,
     perfil do usuário e (opcionalmente) a pergunta encaminhada pelo roteador.
@@ -25,7 +32,15 @@ def mensagens_com_contexto(
         pergunta_original=estado.get("pergunta_original", "") if incluir_pergunta else "",
     )
 
-    return [{"role": "system", "content": contexto}, *estado["messages"]]
+    return [SystemMessage(content=contexto), *estado["messages"]]
 
 
-__all__ = ["mensagens_com_contexto"]
+async def responder(app: Runnable[Any, Any], mensagens: Sequence[AnyMessage]) -> str:
+    """Roda o agente com `mensagens` e devolve o texto da última mensagem que ele produziu."""
+
+    saida = await app.ainvoke({"messages": list(mensagens)})
+
+    return cast(str, saida["messages"][-1].content)
+
+
+__all__ = ["mensagens_com_contexto", "responder"]

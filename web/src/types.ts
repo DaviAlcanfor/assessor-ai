@@ -16,3 +16,12 @@ export interface Message {
   role: Role;
   content: string;
 }
+
+export type ToleranciaRisco = "baixa" | "media" | "alta";
+
+export interface PerfilFinanceiro {
+  renda_mensal: number;
+  objetivo: string;
+  tolerancia_risco: ToleranciaRisco;
+  preferencias: string | null;
+}

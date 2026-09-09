@@ -4,6 +4,10 @@ from faker import Faker
 
 from assessor_ai.api.limiter import can_send_message
 from assessor_ai.graph.tools.chats.schemas import ChatRecord
+from assessor_ai.graph.tools.perfil.schemas import (
+    PerfilFinanceiroRecord,
+    ToleranciaRisco,
+)
 from assessor_ai.graph.tools.usuarios.schemas import UserRecord
 from assessor_ai.identifiers import ChatID, UserID, novo_chat_id, novo_user_id
 from assessor_ai.privacy import anonimizar_entrada
@@ -145,6 +149,22 @@ async def encerrar_sessao(session_id: ChatID, user_id: UserID) -> None:
     await chat_repository.encerrar_sessao(session_id, user_id)
 
 
+async def salvar_perfil_financeiro(
+    user_id: UserID,
+    renda_mensal: float,
+    objetivo: str,
+    tolerancia_risco: ToleranciaRisco,
+    preferencias: str | None,
+) -> PerfilFinanceiroRecord:
+    return await chat_repository.salvar_perfil_financeiro(
+        user_id, renda_mensal, objetivo, tolerancia_risco, preferencias
+    )
+
+
+async def obter_perfil_financeiro(user_id: UserID) -> PerfilFinanceiroRecord | None:
+    return await chat_repository.obter_perfil_financeiro(user_id)
+
+
 __all__ = [
     "ChatDeOutroUsuario",
     "ChatNaoEncontrado",
@@ -160,7 +180,9 @@ __all__ = [
     "listar_usuarios",
     "obter_dono_chat",
     "obter_ou_criar_usuario",
+    "obter_perfil_financeiro",
     "obter_usuario_padrao",
+    "salvar_perfil_financeiro",
     "send_message",
     "validar_ownership",
 ]

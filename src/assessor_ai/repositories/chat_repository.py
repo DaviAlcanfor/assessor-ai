@@ -3,9 +3,14 @@ from typing import TypedDict, cast
 
 from langsmith import traceable
 
-from assessor_ai.graph.tools import chats, usuarios
+from assessor_ai.graph.tools import chats, perfil, usuarios
 from assessor_ai.graph.tools.chats.schemas import ChatRecord, Mensagem
 from assessor_ai.graph.tools.chats.schemas import Role as MongoRole
+from assessor_ai.graph.tools.perfil.schemas import (
+    PerfilFinanceiroDocument,
+    PerfilFinanceiroRecord,
+    ToleranciaRisco,
+)
 from assessor_ai.graph.tools.usuarios.schemas import UserRecord
 from assessor_ai.identifiers import ChatID, UserID
 from assessor_ai.infra.cache import (
@@ -179,6 +184,29 @@ async def encerrar_sessao(session_id: ChatID, user_id: UserID) -> None:
     await asyncio.to_thread(invalidar_perfil_cache, user_id)
 
 
+async def salvar_perfil_financeiro(
+    user_id: UserID,
+    renda_mensal: float,
+    objetivo: str,
+    tolerancia_risco: ToleranciaRisco,
+    preferencias: str | None,
+) -> PerfilFinanceiroRecord:
+    """Escreve no Mongo (estruturado) e no Qdrant (preferências) a partir do mesmo ponto."""
+
+    dados = PerfilFinanceiroDocument(
+        user_id=user_id,
+        renda_mensal=renda_mensal,
+        objetivo=objetivo,
+        tolerancia_risco=tolerancia_risco,
+        preferencias=preferencias,
+    )
+    return await asyncio.to_thread(perfil.salvar, dados)
+
+
+async def obter_perfil_financeiro(user_id: UserID) -> PerfilFinanceiroRecord | None:
+    return await asyncio.to_thread(perfil.buscar, user_id)
+
+
 __all__ = [
     "buscar_dono_chat",
     "buscar_historico",
@@ -190,5 +218,7 @@ __all__ = [
     "garantir_usuario",
     "listar_chats",
     "listar_usuarios",
+    "obter_perfil_financeiro",
     "salvar_mensagens",
+    "salvar_perfil_financeiro",
 ]

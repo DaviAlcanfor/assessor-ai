@@ -11,6 +11,7 @@ from assessor_ai.api.routes import (
     chats_router,
     health_router,
     keys_router,
+    perfil_router,
     users_router,
 )
 
@@ -31,5 +32,6 @@ adicionar_middleware(app)
 app.include_router(health_router)
 app.include_router(chats_router)
 app.include_router(keys_router)
+app.include_router(perfil_router)
 app.include_router(users_router)
 montar_rotas_a2a(app)

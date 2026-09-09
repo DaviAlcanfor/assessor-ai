@@ -6,7 +6,12 @@ from langchain_core.runnables import RunnableConfig
 
 from assessor_ai.graph.builder import fluxo_agentes
 from assessor_ai.graph.state import Estado
-from assessor_ai.identifiers import ChatID, UserID
+from assessor_ai.identifiers import (
+    ChatID,
+    UserID,
+    reset_usuario_atual,
+    set_usuario_atual,
+)
 from assessor_ai.infra.postgres import reset_current_user, set_current_user
 from assessor_ai.schemas.models import ChatMessage, Role
 
@@ -46,14 +51,16 @@ async def executar(
         "metadata": {"user_id": user_id, "session_id": session_id},
     }
 
-    # As tools síncronas de Postgres rodam em thread do executor do LangChain, que copia o
-    # contextvar da task atual — por isso o `set_current_user` aqui continua valendo lá dentro.
+    # As tools síncronas de Postgres/Mongo/Qdrant rodam em thread do executor do LangChain, que
+    # copia o contextvar da task atual — por isso os `set_*` aqui continuam valendo lá dentro.
     token = set_current_user(user_id)
+    token_usuario = set_usuario_atual(user_id)
     try:
         grafo = await fluxo_agentes()
         estado_final = await grafo.ainvoke(estado_inicial, config=config)
     finally:
         reset_current_user(token)
+        reset_usuario_atual(token_usuario)
 
     # ainvoke() sem version="v2" devolve tipo fraco no stub do langgraph — v2 muda semântica de
     # streaming/durability, então não vale o custo só pra tipagem.

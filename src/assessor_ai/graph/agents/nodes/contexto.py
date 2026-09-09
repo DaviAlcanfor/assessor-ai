@@ -6,11 +6,15 @@ Contexto por turno para os agentes compilados.
 especialista nunca enxerga nem o perfil nem a pergunta que o roteador encaminhou.
 """
 
+from langchain_core.messages import AnyMessage
+
 from assessor_ai.graph.agents.prompts.loader import contexto_do_turno
 from assessor_ai.graph.state import Estado
 
 
-def mensagens_com_contexto(estado: Estado, incluir_pergunta: bool = True) -> list:
+def mensagens_com_contexto(
+    estado: Estado, incluir_pergunta: bool = True
+) -> list[dict[str, str] | AnyMessage]:
     """
     Histórico do turno precedido de uma mensagem de sistema com data/hora atual,
     perfil do usuário e (opcionalmente) a pergunta encaminhada pelo roteador.

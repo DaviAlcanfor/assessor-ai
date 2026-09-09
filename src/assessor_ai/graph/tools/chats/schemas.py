@@ -55,7 +55,11 @@ class Mensagem(BaseModel):
         ]
 
     def para_langchain(self) -> HumanMessage | AIMessage:
-        return ROLE_MAP[self.role](content=self.content)
+        match self.role:
+            case Role.HUMAN:
+                return HumanMessage(content=self.content)
+            case Role.AI:
+                return AIMessage(content=self.content)
 
     @staticmethod
     def de_dict(msgs: list[MessageDocument]) -> list["Mensagem"]:

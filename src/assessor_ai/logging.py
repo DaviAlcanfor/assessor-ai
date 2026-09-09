@@ -1,6 +1,7 @@
 import functools
 import logging
 import time
+from collections.abc import Callable
 from enum import StrEnum
 
 from assessor_ai.privacy import anonimizar_entrada
@@ -23,12 +24,10 @@ LEVEL_COLORS = {
 }
 
 
-class ColorFormatter(logging.Formatter):
-    def format(self, record):
-        color = LEVEL_COLORS.get(record.levelname, 
-                                 Colors.WHITE)
-        
-        return f"{color}{super().format(record)}{Colors.RESET}"
+def _injetar_cor(record: logging.LogRecord) -> bool:
+    record.color = LEVEL_COLORS.get(record.levelname, Colors.WHITE)
+    record.reset = Colors.RESET
+    return True
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -36,7 +35,8 @@ def get_logger(name: str) -> logging.Logger:
 
     if not logger.handlers:
         handler = logging.StreamHandler()
-        handler.setFormatter(ColorFormatter("%(levelname)s | %(name)s | %(message)s"))
+        handler.addFilter(_injetar_cor)
+        handler.setFormatter(logging.Formatter("%(color)s%(levelname)s | %(name)s | %(message)s%(reset)s"))
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
 
@@ -46,15 +46,15 @@ def get_logger(name: str) -> logging.Logger:
 _tool_logger = get_logger("pg_tools")
 
 
-def _redigir(valor) -> str:
+def _redigir(valor: object) -> str:
     texto, _ = anonimizar_entrada(str(valor))
     return texto
 
 
-def log_tool(func):
+def log_tool[**P, R](func: Callable[P, R]) -> Callable[P, R]:
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
 
         _tool_logger.info("CHAMANDO | %s | args=%s kwargs=%s", func.__name__, _redigir(args), _redigir(kwargs))
 

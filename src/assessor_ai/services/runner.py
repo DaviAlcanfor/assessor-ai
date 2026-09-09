@@ -1,6 +1,8 @@
 import logging
+from typing import cast
 
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
 
 from assessor_ai.graph.builder import fluxo_agentes
 from assessor_ai.graph.state import Estado
@@ -32,10 +34,16 @@ def _extrair_resposta(estado_final: Estado) -> str | None:
 async def executar(
     mensagem: ChatMessage, session_id: ChatID, perfil_usuario: str, user_id: UserID
 ) -> str | None:
-    estado_inicial = {
+    estado_inicial: Estado = {
         "messages": [_PARA_LANGCHAIN[mensagem.role](content=mensagem.content)],
         "agentes_chamados": [],
         "perfil_usuario": perfil_usuario,
+    }
+
+    config: RunnableConfig = {
+        "configurable": {"thread_id": session_id},
+        "tags": ["chat"],
+        "metadata": {"user_id": user_id, "session_id": session_id},
     }
 
     # As tools síncronas de Postgres rodam em thread do executor do LangChain, que copia o
@@ -43,18 +51,13 @@ async def executar(
     token = set_current_user(user_id)
     try:
         grafo = await fluxo_agentes()
-        estado_final = await grafo.ainvoke(
-            estado_inicial,
-            config={
-                "configurable": {"thread_id": session_id},
-                "tags": ["chat"],
-                "metadata": {"user_id": user_id, "session_id": session_id},
-            },
-        )
+        estado_final = await grafo.ainvoke(estado_inicial, config=config)
     finally:
         reset_current_user(token)
 
-    return _extrair_resposta(estado_final)
+    # ainvoke() sem version="v2" devolve tipo fraco no stub do langgraph — v2 muda semântica de
+    # streaming/durability, então não vale o custo só pra tipagem.
+    return _extrair_resposta(cast(Estado, estado_final))
 
 
 __all__ = ["executar"]

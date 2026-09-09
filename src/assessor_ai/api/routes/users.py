@@ -23,7 +23,7 @@ def _garantir_modo_dev() -> None:
 
 @router.get("", response_model=list[UserResponse])
 @limiter.limit("20/minute")
-async def list_users(request: Request):
+async def list_users(request: Request) -> list[UserResponse]:
     _garantir_modo_dev()
 
     return [UserResponse(**u) for u in await chat_service.listar_usuarios()]
@@ -31,7 +31,7 @@ async def list_users(request: Request):
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
-async def create_user(request: Request, payload: UserCreate):
+async def create_user(request: Request, payload: UserCreate) -> UserResponse:
     _garantir_modo_dev()
 
     user_id = await chat_service.obter_ou_criar_usuario(payload.nome, payload.email)

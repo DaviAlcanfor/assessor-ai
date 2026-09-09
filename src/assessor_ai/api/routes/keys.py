@@ -18,7 +18,7 @@ router = APIRouter(prefix="/v1/keys", tags=["keys"])
     dependencies=[Depends(verify_signup_secret)],
 )
 @limiter.limit("5/minute")
-async def create_key(request: Request, payload: KeyCreate):
+async def create_key(request: Request, payload: KeyCreate) -> KeyCreateResponse:
     user_id = await chat_service.obter_ou_criar_usuario(payload.nome, payload.email)
 
     api_key: APIKey = generate_api_key()

@@ -2,6 +2,7 @@ import asyncio
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from assessor_ai.graph.agents.nodes import (
     no_agenda,
@@ -78,11 +79,11 @@ grafo.add_edge(FAQ,             GUARDRAIL_SAIDA)
 grafo.add_edge(GUARDRAIL_SAIDA, END)
 
 
-_fluxo = None
+_fluxo: CompiledStateGraph[Estado] | None = None
 _lock = asyncio.Lock()
 
 
-async def fluxo_agentes():
+async def fluxo_agentes() -> CompiledStateGraph[Estado]:
     """
     Adia a conexão com o Postgres e o `setup()` do checkpointer (que cria as tabelas
     `checkpoints`/`checkpoint_blobs`/`checkpoint_writes`/`checkpoint_migrations`) para o primeiro

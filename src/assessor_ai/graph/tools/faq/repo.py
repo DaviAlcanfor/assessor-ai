@@ -2,7 +2,7 @@ from langchain_core.tools import StructuredTool
 
 from assessor_ai.config import settings
 from assessor_ai.graph.tools.faq.schemas import FaqRetrieverArgs, SearchResponse
-from assessor_ai.graph.tools.response import Response
+from assessor_ai.graph.tools.response import Response, ToolResponse
 from assessor_ai.infra.qdrant import QdrantConn, qdrant
 from assessor_ai.logging import get_logger
 
@@ -22,7 +22,7 @@ class FaqRepo:
     def __init__(self, conn: QdrantConn | None = None) -> None:
         self.conn = conn or qdrant
 
-    def faq_retriever(self, question: str) -> dict:
+    def faq_retriever(self, question: str) -> ToolResponse:
         """
         Consulta o PDF de FAQ com as perguntas de funcionamento do Assessor AI.
         """

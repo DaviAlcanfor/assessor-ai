@@ -6,6 +6,8 @@ elas — e porque o handler genérico de `Exception` no fim é a rede que garant
 devolva stack trace pro cliente, incluindo as que ninguém lembrou de proteger.
 """
 
+from collections.abc import Awaitable, Callable
+
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
@@ -38,7 +40,7 @@ def _resposta(status_code: int, detail: str, code: ErrorCode) -> JSONResponse:
     )
 
 
-def _handler(status_code: int, code: ErrorCode):
+def _handler(status_code: int, code: ErrorCode) -> Callable[[Request, Exception], Awaitable[JSONResponse]]:
     async def handle(request: Request, exc: Exception) -> JSONResponse:
         return _resposta(status_code, str(exc), code)
 

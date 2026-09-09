@@ -29,7 +29,7 @@ from assessor_ai.logging import get_logger
 logger = get_logger("usuarios")
 
 
-class UsuariosRepo(MongoRepo):
+class UsuariosRepo(MongoRepo[UserRecord]):
     """Cadastro e perfil (Mongo) + linha espelho no Postgres + API key no Redis."""
 
     collection_name = "users"
@@ -51,7 +51,7 @@ class UsuariosRepo(MongoRepo):
 
         user_id = novo_user_id()
         self.collection.insert_one(
-            UserDocument(user_id=user_id, nome=nome, email=email).model_dump()
+            cast("UserRecord", UserDocument(user_id=user_id, nome=nome, email=email).model_dump())
         )
 
         return user_id

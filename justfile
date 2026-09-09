@@ -30,6 +30,7 @@ web:
 check:
     @echo "Running pre-commit checks"
     ruff check
+    {{python}} -m mypy
 
 fix:
     @echo "Running pre-commit fixes"

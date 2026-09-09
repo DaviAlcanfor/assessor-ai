@@ -12,28 +12,36 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
-from sqlalchemy import ColumnElement, Engine, create_engine, func
+from sqlalchemy import (
+    ColumnElement,
+    ColumnExpressionArgument,
+    Engine,
+    create_engine,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from assessor_ai.config import settings
-from assessor_ai.graph.tools.response import Response
+from assessor_ai.graph.tools.response import Response, ToolResponse
 from assessor_ai.logging import get_logger
 from assessor_ai.privacy import anonimizar_entrada
 
 
-def _redigir(valor: Any) -> str:
+def _redigir(valor: object) -> str:
     """Argumento de tool pode carregar PII (o LLM repassa o texto do usuário)."""
 
     texto, _ = anonimizar_entrada(str(valor))
     return texto
 
 
-def local_date(column):
+def local_date(column: ColumnExpressionArgument[datetime]) -> ColumnElement[datetime]:
     """
     Expressão de data local (America/Sao_Paulo) a partir de uma coluna timestamptz.
 
@@ -43,14 +51,16 @@ def local_date(column):
     return func.date(func.timezone("America/Sao_Paulo", column))
 
 
-def local_date_filter(column, date_local: str) -> ColumnElement[bool]:
+def local_date_filter(
+    column: ColumnExpressionArgument[datetime], date_local: str
+) -> ColumnElement[bool]:
     """Expressão booleana pra filtrar registros por uma data local específica."""
 
     return local_date(column) == date_local
 
 
 def local_date_range_filter(
-    column, date_from_local: str, date_to_local: str
+    column: ColumnExpressionArgument[datetime], date_from_local: str, date_to_local: str
 ) -> ColumnElement[bool]:
     """Expressão booleana pra filtrar registros por um intervalo de datas locais."""
 
@@ -74,11 +84,11 @@ LEGACY_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 _current_user_id: ContextVar[UUID] = ContextVar("current_user_id", default=LEGACY_USER_ID)
 
 
-def set_current_user(user_id: UUID | str) -> Token:
+def set_current_user(user_id: UUID | str) -> Token[UUID]:
     return _current_user_id.set(UUID(str(user_id)))
 
 
-def reset_current_user(token: Token) -> None:
+def reset_current_user(token: Token[UUID]) -> None:
     _current_user_id.reset(token)
 
 
@@ -92,7 +102,7 @@ class PostgresConn:
     def __init__(self) -> None:
         self._engine: Engine | None = None
         self._session_factory: sessionmaker[Session] | None = None
-        self._pool: AsyncConnectionPool | None = None
+        self._pool: AsyncConnectionPool[AsyncConnection[dict[str, Any]]] | None = None
 
     @property
     def _factory(self) -> sessionmaker[Session]:
@@ -116,7 +126,7 @@ class PostgresConn:
         finally:
             session.close()
 
-    async def checkpointer_pool(self) -> AsyncConnectionPool:
+    async def checkpointer_pool(self) -> AsyncConnectionPool[AsyncConnection[dict[str, Any]]]:
         """
         Pool async psycopg3 usado só pelo checkpointer do LangGraph (`graph/builder.py`), em paralelo
         ao engine SQLAlchemy acima, que continua em psycopg2 síncrono — unificar os dois drivers é PR
@@ -152,7 +162,7 @@ class PostgresConn:
 postgres = PostgresConn()
 
 
-def transacional(metodo: Callable[..., Any]) -> Callable[..., Any]:
+def transacional(metodo: Callable[..., ToolResponse]) -> Callable[..., ToolResponse]:
     """
     Abre a sessão, injeta como 2º argumento do método, faz commit/rollback e converte exceção
     em `Response.error` — o corpo do método fica só com a query.
@@ -164,7 +174,7 @@ def transacional(metodo: Callable[..., Any]) -> Callable[..., Any]:
     """
 
     @functools.wraps(metodo)
-    def wrapper(self: "PostgresRepo", *args: Any, **kwargs: Any) -> dict:
+    def wrapper(self: "PostgresRepo", *args: Any, **kwargs: Any) -> ToolResponse:
         nome = metodo.__name__
         self.log.info("CHAMANDO | %s | %s", nome, _redigir(kwargs))
         inicio = time.perf_counter()

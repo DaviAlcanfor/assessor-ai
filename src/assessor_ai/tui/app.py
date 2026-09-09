@@ -24,7 +24,7 @@ class _LogWidgetHandler(logging.Handler):
         self._widget.write(self.format(record))
 
 
-class AssessorTUI(App):
+class AssessorTUI(App[None]):
     CSS_PATH = "app.tcss"
     BINDINGS: ClassVar = [("ctrl+c", "sair", "Sair")]
 

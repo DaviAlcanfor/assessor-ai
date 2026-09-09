@@ -9,12 +9,12 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("/live", status_code=status.HTTP_200_OK, response_model=HealthCheckResponse)
-def liveness():
+def liveness() -> HealthCheckResponse:
     return HealthCheckResponse(status="ok", message="service is running")
 
 
 @router.get("/ready", status_code=status.HTTP_200_OK, response_model=HealthCheckResponse)
-def readiness():
+def readiness() -> HealthCheckResponse | JSONResponse:
     checks = {"redis": False, "mongo": False}
 
     try:

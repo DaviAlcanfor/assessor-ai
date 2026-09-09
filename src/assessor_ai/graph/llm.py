@@ -1,4 +1,6 @@
 
+from typing import cast
+
 from langchain_core.language_models import BaseChatModel
 
 from assessor_ai.models import API_KEYS, BUILDERS, PROVIDER_MAP, Model
@@ -36,7 +38,7 @@ def build_llm(
     if provider == "groq":
         kwargs["reasoning_format"] = "hidden"
 
-    return BUILDERS[provider](**kwargs)
+    return cast(BaseChatModel, BUILDERS[provider](**kwargs))
 
 
 

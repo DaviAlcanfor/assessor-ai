@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import NAMESPACE_DNS, uuid5
 
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.documents import Document
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
@@ -28,7 +29,7 @@ _EMBED_BATCH = 20
 _EMBED_PAUSE_S = 20  # gemini-embedding-001 tem cota por minuto baixa; pausa entre lotes
 
 
-def _load_faq_pdf() -> tuple[GoogleGenerativeAIEmbeddings, list]:
+def _load_faq_pdf() -> tuple[GoogleGenerativeAIEmbeddings, list[Document]]:
     loader = PyPDFLoader(_PDF_PATH)
 
     text_splitter = RecursiveCharacterTextSplitter(
@@ -68,7 +69,7 @@ def _ensure_collection_exists(client: QdrantClient) -> None:
 def _store_documents_in_qdrant(
     client: QdrantClient,
     embeddings: GoogleGenerativeAIEmbeddings,
-    chunks: list,
+    chunks: list[Document],
 ) -> None:
     textos = [chunk.page_content for chunk in chunks]
     vetores = _embed_em_lotes(embeddings, textos)

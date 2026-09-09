@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import cast
 
 from assessor_ai.graph.tools.chats.helpers import gerar_perfil, gerar_resumo
 from assessor_ai.graph.tools.chats.schemas import ChatDocument, ChatRecord, Mensagem
@@ -10,7 +11,7 @@ from assessor_ai.logging import get_logger
 logger = get_logger("chats")
 
 
-class ChatsRepo(MongoRepo):
+class ChatsRepo(MongoRepo[ChatRecord]):
     """Histórico de conversas no Mongo. Repositório interno — não é tool do LLM."""
 
     collection_name = "chats"
@@ -27,7 +28,7 @@ class ChatsRepo(MongoRepo):
             session_id=session_id,
             messages=[m.para_dict() for m in mensagens],
         )
-        self.collection.insert_one(document.model_dump())
+        self.collection.insert_one(cast("ChatRecord", document.model_dump()))
 
 
     def listar_por_usuario(self, user_id: UserID, limit: int = 50) -> list[ChatRecord]:

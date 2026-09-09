@@ -18,10 +18,11 @@ class _FluxoFake:
 
 
 def _patch_fluxo(monkeypatch, fake):
-    async def _fluxo():
-        return fake
+    class _Fluxo:
+        async def get(self):
+            return fake
 
-    monkeypatch.setattr("assessor_ai.services.runner.fluxo_agentes", _fluxo)
+    monkeypatch.setattr("assessor_ai.services.runner.fluxo_agentes", _Fluxo())
 
 
 async def test_executar_extrai_ultima_resposta_da_ia(monkeypatch):

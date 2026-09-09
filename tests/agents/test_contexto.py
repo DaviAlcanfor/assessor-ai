@@ -50,9 +50,9 @@ def test_mensagens_com_contexto_preserva_historico_e_poe_sistema_na_frente():
 
     mensagens = mensagens_com_contexto(estado)
 
-    assert mensagens[0]["role"] == "system"
-    assert "Mora sozinho." in mensagens[0]["content"]
-    assert "quanto gastei?" in mensagens[0]["content"]
+    assert mensagens[0].type == "system"
+    assert "Mora sozinho." in mensagens[0].content
+    assert "quanto gastei?" in mensagens[0].content
     assert mensagens[1:] == estado["messages"]
 
 
@@ -63,7 +63,7 @@ def test_mensagens_com_contexto_sem_pergunta_para_o_orquestrador():
         "pergunta_original": "quanto gastei?",
     }
 
-    contexto = mensagens_com_contexto(estado, incluir_pergunta=False)[0]["content"]
+    contexto = mensagens_com_contexto(estado, incluir_pergunta=False)[0].content
 
     assert "Mora sozinho." in contexto
     assert "quanto gastei?" not in contexto
@@ -72,5 +72,5 @@ def test_mensagens_com_contexto_sem_pergunta_para_o_orquestrador():
 def test_estado_sem_perfil_nao_quebra():
     mensagens = mensagens_com_contexto({"messages": []})
 
-    assert mensagens[0]["role"] == "system"
-    assert "CONTEXTO TEMPORAL" in mensagens[0]["content"]
+    assert mensagens[0].type == "system"
+    assert "CONTEXTO TEMPORAL" in mensagens[0].content

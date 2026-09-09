@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { listChats } from "../../lib/api";
 import { loadUser } from "../../lib/storage";
 import type { ChatSummary } from "../../types";
@@ -61,11 +61,15 @@ export function Sidebar({ refreshKey }: { refreshKey: number }) {
         ))}
       </div>
 
-      {user && (
-        <div className="border-t border-sidebar-border p-3 text-sm text-muted-foreground">
-          {user.nome}
-        </div>
-      )}
+      <div className="border-t border-sidebar-border p-3">
+        <Link
+          to="/perfil"
+          className="block rounded-md px-3 py-2 text-sm hover:bg-accent/10"
+        >
+          Perfil financeiro
+        </Link>
+        {user && <p className="px-3 pt-2 text-sm text-muted-foreground">{user.nome}</p>}
+      </div>
     </aside>
   );
 }

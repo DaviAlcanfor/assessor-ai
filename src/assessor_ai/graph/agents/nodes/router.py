@@ -1,7 +1,9 @@
 import re
 
+from langchain_core.messages import AIMessage
+
 from assessor_ai.graph.agents import router_app
-from assessor_ai.graph.agents.nodes.contexto import mensagens_com_contexto
+from assessor_ai.graph.agents.nodes.contexto import mensagens_com_contexto, responder
 from assessor_ai.graph.agents.nodes.names import ROTEADOR
 from assessor_ai.graph.state import Estado, EstadoUpdate, Route
 from assessor_ai.logging import get_logger
@@ -32,8 +34,7 @@ def _extrair_pergunta(texto: str) -> str:
 
 async def no_roteador(estado: Estado) -> EstadoUpdate:
 
-    saida = await router_app.ainvoke({"messages": mensagens_com_contexto(estado, incluir_pergunta=False)})
-    texto = saida["messages"][-1].content
+    texto = await responder(router_app, mensagens_com_contexto(estado, incluir_pergunta=False))
     rota  = _extrair_rota(texto)
     pergunta = _extrair_pergunta(texto)
     
@@ -44,7 +45,7 @@ async def no_roteador(estado: Estado) -> EstadoUpdate:
             agentes_chamados=[ROTEADOR],
             rota=Route.FIM,
             pergunta_original=pergunta,
-            messages=[{"role": "assistant", "content": texto}],
+            messages=[AIMessage(content=texto)],
         )
 
     return EstadoUpdate(

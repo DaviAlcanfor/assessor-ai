@@ -6,6 +6,7 @@ from assessor_ai.graph.tools import (
     AGENDA_TOOLS,
     FAQ_TOOLS,
     FINANCEIRO_TOOLS,
+    PERFIL_TOOLS,
 )
 
 router_app = create_agent(
@@ -15,7 +16,7 @@ router_app = create_agent(
 
 financeiro_app = create_agent(
     model=llm_especialista,
-    tools=FINANCEIRO_TOOLS,
+    tools=FINANCEIRO_TOOLS + PERFIL_TOOLS,
     system_prompt=load_prompt("financeiro"),
 )
 

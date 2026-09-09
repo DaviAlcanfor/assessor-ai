@@ -14,12 +14,14 @@ from assessor_ai.models import Model
 # precisa bater com o da collection (ver faq/ingest.py:_VECTOR_SIZE)
 VECTOR_SIZE = 768
 _TASK_TYPE_QUERY = "retrieval_query"
+_TASK_TYPE_DOCUMENT = "retrieval_document"
 
 
 class QdrantConn:
     def __init__(self) -> None:
         self._client: QdrantClient | None = None
         self._embeddings: GoogleGenerativeAIEmbeddings | None = None
+        self._embeddings_documento: GoogleGenerativeAIEmbeddings | None = None
 
     @property
     def client(self) -> QdrantClient:
@@ -41,6 +43,25 @@ class QdrantConn:
             )
 
         return self._embeddings
+
+    @property
+    def embeddings_documento(self) -> GoogleGenerativeAIEmbeddings:
+        """
+        Mesma dimensão, `task_type` de indexação. O FAQ usa o par query/document equivalente
+        (`faq/ingest.py`), mas lá a indexação roda num script offline. Perfil indexa a partir da
+        própria rota (o cadastro é escrito a qualquer momento, não por lote), então o lado
+        `document` precisa estar disponível em runtime, não só no script de ingestão.
+        """
+
+        if self._embeddings_documento is None:
+            self._embeddings_documento = GoogleGenerativeAIEmbeddings(
+                model=Model.EMBEDDING_MODEL,
+                google_api_key=settings.GEMINI_API_KEY.get_secret_value(),
+                task_type=_TASK_TYPE_DOCUMENT,
+                output_dimensionality=VECTOR_SIZE,
+            )
+
+        return self._embeddings_documento
 
 
 qdrant = QdrantConn()

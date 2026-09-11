@@ -22,7 +22,19 @@ from assessor_ai.graph.agents.nodes.names import (
     ORQUESTRADOR,
     ROTEADOR,
 )
-from assessor_ai.graph.state import EntradaGrafo, Estado, Route, SaidaGrafo
+from assessor_ai.graph.state import (
+    AsyncNode,
+    EntradaGrafo,
+    EspecialistaUpdate,
+    Estado,
+    FaqUpdate,
+    GuardrailEntradaUpdate,
+    GuardrailSaidaUpdate,
+    OrquestradorUpdate,
+    Route,
+    RouterUpdate,
+    SaidaGrafo,
+)
 from assessor_ai.infra.postgres import postgres
 
 
@@ -40,15 +52,23 @@ def decidir_especialista(estado: Estado) -> str:
 
 
 def _construir_grafo() -> StateGraph:
+    guardrail_entrada: AsyncNode[GuardrailEntradaUpdate] = no_guardrail_entrada
+    roteador: AsyncNode[RouterUpdate] = no_roteador
+    financeiro: AsyncNode[EspecialistaUpdate] = no_financeiro
+    agenda: AsyncNode[EspecialistaUpdate] = no_agenda
+    faq: AsyncNode[FaqUpdate] = no_faq
+    orquestrador: AsyncNode[OrquestradorUpdate] = no_orquestrador
+    guardrail_saida: AsyncNode[GuardrailSaidaUpdate] = no_guardrail_saida
+
     grafo = StateGraph(Estado, input_schema=EntradaGrafo, output_schema=SaidaGrafo)
 
-    grafo.add_node(GUARDRAIL_ENTRADA, no_guardrail_entrada)
-    grafo.add_node(ROTEADOR,           no_roteador)
-    grafo.add_node(FINANCEIRO,         no_financeiro)
-    grafo.add_node(AGENDA,             no_agenda)
-    grafo.add_node(FAQ,               no_faq)
-    grafo.add_node(ORQUESTRADOR,       no_orquestrador)
-    grafo.add_node(GUARDRAIL_SAIDA,    no_guardrail_saida)
+    grafo.add_node(GUARDRAIL_ENTRADA, guardrail_entrada)
+    grafo.add_node(ROTEADOR,           roteador)
+    grafo.add_node(FINANCEIRO,         financeiro)
+    grafo.add_node(AGENDA,             agenda)
+    grafo.add_node(FAQ,               faq)
+    grafo.add_node(ORQUESTRADOR,       orquestrador)
+    grafo.add_node(GUARDRAIL_SAIDA,    guardrail_saida)
 
     grafo.set_entry_point(GUARDRAIL_ENTRADA)
 

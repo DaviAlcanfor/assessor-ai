@@ -1,4 +1,5 @@
 import operator
+from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from typing import Annotated, NotRequired, TypedDict
 
@@ -72,3 +73,13 @@ class GuardrailEntradaUpdate(TypedDict):
 class GuardrailSaidaUpdate(TypedDict):
     agentes_chamados: list[NodeName]
     messages: list[AnyMessage]
+
+
+# Contrato dos nodes: `Estado -> Awaitable[R]`, R sendo o Update específico de cada node
+# (RouterUpdate, EspecialistaUpdate, ...). Não é Protocol de propósito — os nodes de hoje são
+# funções puras, sem atributo/método extra que justifique uma classe; Protocol só valeria a pena
+# se algum node precisasse carregar estado ou metadado além da própria chamada. Usado em
+# `graph/builder.py` pra travar, com mypy, que cada função passada a `add_node()` bate com o
+# Update esperado naquele node — sem isso, um builder que troca `no_roteador` por `no_financeiro`
+# por engano ainda tipa limpo, porque `add_node()` é permissivo demais nos stubs do LangGraph.
+type AsyncNode[R] = Callable[[Estado], Awaitable[R]]

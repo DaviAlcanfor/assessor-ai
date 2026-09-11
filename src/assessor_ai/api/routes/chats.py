@@ -4,12 +4,15 @@ Chat API routes
 Rotas para chat:
 - create_chat: cria um novo chat
 - send_message: envia uma mensagem para um chat específico
+- send_message_stream: mesma coisa, mas com a timeline de execução via SSE
 - get_messages: obtém as mensagens de histórico de um chat específico
 """
 
+from collections.abc import AsyncIterable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from assessor_ai.api.auth import CsrfDep, get_current_user
 from assessor_ai.api.limiter import limiter
@@ -106,6 +109,44 @@ async def send_message(
     resposta = await chat_service.send_message(user_id, typed_chat_id, payload.content)
 
     return ChatMessageResponse(chat_id=typed_chat_id, content=resposta)
+
+
+async def _validar_ownership_do_chat(
+    chat_id: str, user_id: Annotated[UserID, Depends(get_current_user)]
+) -> None:
+    await chat_service.validar_ownership(ChatID(chat_id), user_id)
+
+
+@router.post(
+    "/{chat_id}/messages/stream",
+    response_class=EventSourceResponse,
+    dependencies=[CsrfDep, Depends(_validar_ownership_do_chat)],
+)
+@limiter.limit("10/minute")
+async def send_message_stream(
+    request: Request,
+    chat_id: str,
+    payload: MessageCreate,
+    user_id: Annotated[UserID, Depends(get_current_user)],
+) -> AsyncIterable[ServerSentEvent]:
+    """
+    Igual `send_message`, mas transmite a timeline de execução do agente (node a node) via SSE
+    em vez de esperar a resposta inteira. Ver `schemas/execution.py` pros tipos de evento.
+
+    Ownership entra como `Depends` (`_validar_ownership_do_chat`), não como `await` dentro do
+    corpo: o `fastapi.sse` só reconhece a rota como produtora de SSE se a própria função do
+    endpoint for uma async generator function (tem `yield` no próprio corpo) — se o ownership
+    fosse checado aqui dentro antes do loop, um 403 levantado nesse ponto já aconteceria depois
+    da resposta 200 e dos headers terem sido enviados, virando stream quebrado em vez de um 403
+    limpo. Como dependency, a checagem roda na fase normal de resolução do FastAPI, antes de
+    qualquer streaming começar — `get_current_user` é resolvido uma vez só (FastAPI cacheia por
+    dependency dentro do mesmo request), então não duplica o custo.
+    """
+
+    typed_chat_id = ChatID(chat_id)
+
+    async for evento in chat_service.send_message_stream(user_id, typed_chat_id, payload.content):
+        yield ServerSentEvent(data=evento, event=evento.type)
 
 
 @router.get("/{chat_id}/messages", response_model=list[MessageResponse])

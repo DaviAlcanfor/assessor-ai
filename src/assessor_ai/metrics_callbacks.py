@@ -19,7 +19,9 @@ from assessor_ai.metrics import (
 )
 from assessor_ai.models import PROVIDER_MAP, Model
 
-_ALLOWED_NODES = frozenset(get_args(NodeName))
+# get_args(NodeName) sozinho devolve () — NodeName é um `type` alias (PEP 695), get_args só
+# enxerga o Literal por trás dele via `.__value__`.
+_ALLOWED_NODES = frozenset(get_args(NodeName.__value__))
 _ALLOWED_PROVIDERS = frozenset(PROVIDER_MAP.values())
 _ALLOWED_MODELS = frozenset(m.value for m in Model)
 

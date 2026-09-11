@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import AsyncIterator
 
 from faker import Faker
 
@@ -13,6 +14,7 @@ from assessor_ai.identifiers import ChatID, UserID, novo_chat_id, novo_user_id
 from assessor_ai.metrics import RATE_LIMIT_REJECTIONS
 from assessor_ai.privacy import anonimizar_entrada
 from assessor_ai.repositories import chat_repository
+from assessor_ai.schemas.execution import AnswerReady, ExecutionEvent, RunFailed
 from assessor_ai.schemas.models import ChatMessage, Role
 from assessor_ai.services import runner
 from assessor_ai.services.exceptions import (
@@ -143,6 +145,47 @@ async def send_message(user_id: UserID, session_id: ChatID, content: str) -> str
     return resposta
 
 
+async def send_message_stream(
+    user_id: UserID, session_id: ChatID, content: str
+) -> AsyncIterator[ExecutionEvent]:
+    """
+    Mesmo fluxo de `send_message`, mas emitindo a timeline de execução em tempo real (ver
+    `services/runner.py:executar_stream`). Persiste o histórico só se a execução terminar com
+    sucesso — em rate limit ou falha, emite `RunFailed` e não escreve nada no Mongo.
+    """
+
+    if not await asyncio.to_thread(can_send_message, user_id):
+        RATE_LIMIT_REJECTIONS.labels(scope="user").inc()
+        yield RunFailed(
+            message="Você atingiu o limite de mensagens. Tente novamente em alguns instantes."
+        )
+        return
+
+    mensagem = ChatMessage(role=Role.HUMAN, content=content)
+    perfil = await chat_repository.buscar_perfil(user_id)
+
+    resposta_final: str | None = None
+
+    async for evento in runner.executar_stream(mensagem, session_id, perfil, user_id):
+        if isinstance(evento, AnswerReady):
+            resposta_final = evento.content
+
+        yield evento
+
+        if isinstance(evento, RunFailed):
+            return
+
+    if resposta_final is None:
+        return
+
+    conteudo_redigido, _ = anonimizar_entrada(content)
+    novas = [
+        ChatMessage(role=Role.HUMAN, content=conteudo_redigido),
+        ChatMessage(role=Role.AI, content=resposta_final),
+    ]
+    await chat_repository.salvar_mensagens(user_id, session_id, novas)
+
+
 async def get_history(session_id: ChatID, user_id: UserID) -> list[ChatMessage] | None:
     return await chat_repository.buscar_historico(session_id, user_id)
 
@@ -186,5 +229,6 @@ __all__ = [
     "obter_usuario_padrao",
     "salvar_perfil_financeiro",
     "send_message",
+    "send_message_stream",
     "validar_ownership",
 ]

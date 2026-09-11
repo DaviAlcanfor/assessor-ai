@@ -1282,6 +1282,59 @@ existente correspondente) quando sair do "a triar".
       endpoint explícito de encerrar sessão, TTL de sessão inativa, ou extração incremental por turno
       (que é o item da fila de tasks acima). Custo a considerar: +1 chamada de LLM por encerramento e
       um prompt que cresce a cada turno com as N memórias
+- [ ] **Perfil como memória tipo Claude.ai: dict chave/valor no Mongo, escrito pela IA durante a
+      conversa** — proposta recebida em 2026-09-11, ainda sem investigação. Ideia: uma tool que
+      guarda preferências do usuário (não transações, que já moram no Postgres) como um dict
+      flexível — a própria IA decide a chave e o valor (`{chave, valor, source_text}`), ex:
+      `tolerancia_risco_investimento: "baixa"`, `destino_ferias: "Fernando de Noronha"`. Esse dict
+      é injetado por inteiro no início de toda sessão, pra qualquer especialista já começar
+      ciente do que se sabe sobre o usuário — sem precisar de busca (semântica ou não) por turno.
+
+      **Comparado ao que já existe** (`graph/tools/perfil/`, ver repo.py):
+      - Hoje: campos financeiros fixos (renda, objetivo, tolerância a risco) no Mongo, **só
+        escritos pelo formulário HTTP** (`PUT /v1/perfil`), nunca pela conversa; mais um campo
+        `preferencias` de texto livre indexado no **Qdrant** por embedding, buscado por
+        similaridade semântica **à pergunta atual** (RAG pull, `_K_NUMBER=1`, só a tool
+        `consultar_perfil_financeiro` do agente financeiro lê). Silo financeiro, silo de leitura
+        por busca.
+      - Proposta: domínio mais amplo que financeiro (agenda, preferências gerais); escrita pela
+        própria conversa, não por formulário; formato chave/valor livre, não texto embedado nem
+        campos fixos; leitura por **injeção direta no contexto do turno** (push), não busca — o
+        mesmo mecanismo que já existe pra `perfil_usuario` em `contexto_do_turno()`
+        (`agents/nodes/contexto.py`), só que com esse dict concatenado junto. Sem Qdrant: pra um
+        conjunto pequeno de pares chave/valor que cabe inteiro no prompt, embedding é custo sem
+        ganho — só voltaria a fazer sentido se o número de chaves crescesse a ponto de não caber
+        mais no contexto (mesmo ponto de fuga que o item de memória episódica acima já previa: "o
+        upgrade é busca semântica... quando não couber mais no prompt").
+
+      **Comparado ao item "Memória episódica do usuário" logo acima** (mesma seção): motivação
+      igual (o `resumidor.py` proíbe fato episódico no `profile`, então preferência/fato nunca
+      grava em lugar nenhum hoje), mas desenho diferente em dois pontos:
+      1. **Gatilho de escrita.** O design anterior escreve só no `/exit`/encerrar sessão — e
+         **esbarra no mesmo bloqueador**: `encerrar_sessao` nunca é chamado pela API. A proposta
+         nova escreve **durante a conversa**, turno a turno, então não depende desse gatilho que
+         não existe pra API/A2A/web hoje. Isso não é detalhe — é a proposta nova *resolvendo* o
+         bloqueador que travava a anterior, não só uma variação de formato.
+      2. **Traço vs. episódio.** Chave/valor (`tolerancia_risco: "baixa"`) é **traço** — se
+         reescreve, não se acumula (bate com a distinção "traço se reescreve, fato se acumula" já
+         escrita no item de memória episódica). Já "viajar pra Fernando de Noronha nas férias" é
+         mais **episódio** (tem um quando implícito) do que traço estável. As duas formas
+         provavelmente convivem: esse item cobre traço/preferência, o item episódico acima cobre
+         fato-com-data. Não são a mesma tabela.
+
+      **Perguntas em aberto antes de virar código** (nenhuma delas tem resposta óbvia ainda):
+      - *Extração*: um especialista chama uma tool explícita (`lembrar(chave, valor,
+        source_text)`) quando percebe algo relevante, ou existe uma chamada de LLM dedicada
+        depois da resposta (mesmo padrão do resumidor, e do item "memória não vira tool do
+        roteador" já decidido acima — que também vale aqui: não é o roteador quem decide)?
+      - *Atualização*: mesma chave sobrescreve (mais simples que o "append + LLM dedup" do design
+        episódico) — mas quem decide que "gosto de investimento agressivo" é a mesma chave que
+        "não gosto de risco" dito antes, se o texto não bate literalmente?
+      - *Cap*: quantos pares cabem no contexto antes de precisar do fallback de busca semântica
+        (mesmo "~20" citado no item episódico)?
+      - *Escopo por usuário, não por chat*: como o `perfil_usuario`/`memories` de hoje, teria que
+        ser por `user_id`, sobrevivendo entre sessões — não é um campo do `Estado` do grafo, é
+        cadastro em `graph/tools/usuarios` ou um repo próprio (`graph/tools/memoria/`?).
 - [ ] **Versão do projeto está em três lugares diferentes e discordando** — tag git `1.0.0`
       (no commit `965e33f`), `pyproject.toml` `version = "0.1.0"` e o app FastAPI
       (`api/app.py`) `version="0.5.0"`, que é o número que aparece no `/docs` e no

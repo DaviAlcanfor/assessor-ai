@@ -7,6 +7,7 @@ from assessor_ai.graph.agents.nodes.contexto import mensagens_com_contexto, resp
 from assessor_ai.graph.agents.nodes.names import ROTEADOR
 from assessor_ai.graph.state import Estado, Route, RouterUpdate
 from assessor_ai.logging import get_logger
+from assessor_ai.metrics import ROUTER_DECISIONS, medir_node
 
 log = get_logger(__name__)
 
@@ -32,6 +33,7 @@ def _extrair_pergunta(texto: str) -> str:
     return match.group(1).strip()
 
 
+@medir_node(ROTEADOR)
 async def no_roteador(estado: Estado) -> RouterUpdate:
 
     texto = await responder(router_app, mensagens_com_contexto(estado, incluir_pergunta=False))
@@ -39,6 +41,7 @@ async def no_roteador(estado: Estado) -> RouterUpdate:
     pergunta = _extrair_pergunta(texto)
 
     log.debug(f"Rota escolhida: {rota} | pergunta: '{pergunta}'")
+    ROUTER_DECISIONS.labels(route=rota.value).inc()
 
     if rota is Route.FIM:
         return RouterUpdate(

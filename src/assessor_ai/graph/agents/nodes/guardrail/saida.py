@@ -8,6 +8,7 @@ from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_rapido
 from assessor_ai.graph.state import Estado, GuardrailSaidaUpdate
 from assessor_ai.logging import get_logger
+from assessor_ai.metrics import medir_node
 from assessor_ai.privacy import PII, PII_USUARIO, MapaPII, PIIPattern
 
 logger = get_logger(__name__)
@@ -94,6 +95,7 @@ async def guardrail_saida(
     return _saida_ok(revisada)
 
 
+@medir_node(GUARDRAIL_SAIDA)
 async def no_guardrail_saida(estado: Estado) -> GuardrailSaidaUpdate:
 
     logger.info("Revisando resposta do especialista com guardrail de saída...")

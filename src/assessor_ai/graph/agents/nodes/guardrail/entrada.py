@@ -14,6 +14,7 @@ from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_guardrail
 from assessor_ai.graph.state import Estado, GuardrailEntradaUpdate
 from assessor_ai.logging import get_logger
+from assessor_ai.metrics import GUARDRAIL_DECISIONS, medir_node
 from assessor_ai.privacy import anonimizar_entrada
 
 logger = get_logger(__name__)
@@ -88,6 +89,7 @@ async def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     return _aprovado()
 
 
+@medir_node(GUARDRAIL_ENTRADA)
 async def no_guardrail_entrada(estado: Estado) -> GuardrailEntradaUpdate:
     logger.info("Verificando entrada com guardrail de entrada...")
 
@@ -97,6 +99,8 @@ async def no_guardrail_entrada(estado: Estado) -> GuardrailEntradaUpdate:
 
     if resultado["bloqueado"]:
         logger.warning(f"Mensagem bloqueada por guardrail: {resultado['motivo']} - {texto_anonimizado}")
+        # motivo detalhado só no log — como label de métrica explodiria cardinalidade
+        GUARDRAIL_DECISIONS.labels(decision="blocked").inc()
         return GuardrailEntradaUpdate(
             agentes_chamados=[GUARDRAIL_ENTRADA],
             mensagem_bloqueada=resultado["mensagem"],
@@ -107,6 +111,7 @@ async def no_guardrail_entrada(estado: Estado) -> GuardrailEntradaUpdate:
         )
 
     logger.info("Mensagem aprovada pelo guardrail de entrada.")
+    GUARDRAIL_DECISIONS.labels(decision="approved").inc()
     return GuardrailEntradaUpdate(
         agentes_chamados=[GUARDRAIL_ENTRADA],
         mapa_pii=mapa_pii,

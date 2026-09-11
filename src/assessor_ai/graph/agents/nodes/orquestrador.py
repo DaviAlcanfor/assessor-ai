@@ -4,8 +4,10 @@ from assessor_ai.graph.agents import orquestrador_app
 from assessor_ai.graph.agents.nodes.contexto import mensagens_com_contexto, responder
 from assessor_ai.graph.agents.nodes.names import ORQUESTRADOR
 from assessor_ai.graph.state import Estado, OrquestradorUpdate
+from assessor_ai.metrics import medir_node
 
 
+@medir_node(ORQUESTRADOR)
 async def no_orquestrador(estado: Estado) -> OrquestradorUpdate:
     mensagens = mensagens_com_contexto(estado, incluir_pergunta=False) + [
         HumanMessage(content=estado["resposta_especialista"])

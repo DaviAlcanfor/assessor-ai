@@ -10,6 +10,7 @@ from assessor_ai.graph.tools.perfil.schemas import (
 )
 from assessor_ai.graph.tools.usuarios.schemas import UserRecord
 from assessor_ai.identifiers import ChatID, UserID, novo_chat_id, novo_user_id
+from assessor_ai.metrics import RATE_LIMIT_REJECTIONS
 from assessor_ai.privacy import anonimizar_entrada
 from assessor_ai.repositories import chat_repository
 from assessor_ai.schemas.models import ChatMessage, Role
@@ -116,6 +117,7 @@ async def send_message(user_id: UserID, session_id: ChatID, content: str) -> str
     """
 
     if not await asyncio.to_thread(can_send_message, user_id):
+        RATE_LIMIT_REJECTIONS.labels(scope="user").inc()
         raise LimiteDeMensagensExcedido(
             "Você atingiu o limite de mensagens. Tente novamente em alguns instantes."
         )

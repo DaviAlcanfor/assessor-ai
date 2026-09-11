@@ -1,9 +1,16 @@
-"""Configuração de segurança do fastapi-guard — estava solta no corpo do app FastAPI."""
+"""Configuração de segurança do fastapi-guard e middleware de métricas HTTP."""
 
-from fastapi import FastAPI
+import time
+from collections.abc import Awaitable, Callable
+
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
 from guard import SecurityConfig, SecurityMiddleware
 
 from assessor_ai.config import settings
+from assessor_ai.metrics import ACTIVE_REQUESTS, HTTP_DURATION, HTTP_REQUESTS
+
+type CallNext = Callable[[Request], Awaitable[Response]]
 
 
 def security_config() -> SecurityConfig:
@@ -22,8 +29,38 @@ def security_config() -> SecurityConfig:
     )
 
 
+def _route_template(request: Request) -> str:
+    route = request.scope.get("route")
+    path = getattr(route, "path", None)
+    return path if isinstance(path, str) else "unmatched"
+
+
+async def observar_http(request: Request, call_next: CallNext) -> Response:
+    # A coleta do próprio Prometheus não deve virar métrica de si mesma.
+    if request.url.path.startswith("/metrics"):
+        return await call_next(request)
+
+    inicio = time.perf_counter()
+    status_code = 500
+    ACTIVE_REQUESTS.inc()
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        duracao = time.perf_counter() - inicio
+        rota = _route_template(request)
+        status_class = f"{status_code // 100}xx"
+
+        ACTIVE_REQUESTS.dec()
+        HTTP_REQUESTS.labels(method=request.method, route=rota, status_class=status_class).inc()
+        HTTP_DURATION.labels(method=request.method, route=rota).observe(duracao)
+
+
 def adicionar_middleware(app: FastAPI) -> None:
+    app.middleware("http")(observar_http)
     app.add_middleware(SecurityMiddleware, config=security_config())
 
 
-__all__ = ["adicionar_middleware", "security_config"]
+__all__ = ["adicionar_middleware", "observar_http", "security_config"]

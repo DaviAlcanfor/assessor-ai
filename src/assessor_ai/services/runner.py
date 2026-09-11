@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import cast
 
 from langchain_core.messages import AIMessage, HumanMessage
@@ -13,6 +14,8 @@ from assessor_ai.identifiers import (
     set_usuario_atual,
 )
 from assessor_ai.infra.postgres import reset_current_user, set_current_user
+from assessor_ai.metrics import GRAPH_DURATION, GRAPH_RUNS
+from assessor_ai.metrics_callbacks import PrometheusCallbackHandler
 from assessor_ai.schemas.models import ChatMessage, Role
 
 # O aviso "Deserializing unregistered type" sai por `logger.warning` do serde do langgraph, não
@@ -49,19 +52,26 @@ async def executar(
         "configurable": {"thread_id": session_id},
         "tags": ["chat"],
         "metadata": {"user_id": user_id, "session_id": session_id},
+        "callbacks": [PrometheusCallbackHandler()],
     }
 
     # As tools síncronas de Postgres/Mongo/Qdrant rodam em thread do executor do LangChain, que
     # copia o contextvar da task atual — por isso os `set_*` aqui continuam valendo lá dentro.
     token = set_current_user(user_id)
     token_usuario = set_usuario_atual(user_id)
+    inicio = time.perf_counter()
+    outcome = "error"
     try:
         grafo = await fluxo_agentes.get()
         # ainvoke() devolve tipo fraco no stub do langgraph mesmo com output_schema declarado.
         estado_final = cast(SaidaGrafo, await grafo.ainvoke(estado_inicial, config=config))
+        outcome = "success"
     finally:
         reset_current_user(token)
         reset_usuario_atual(token_usuario)
+        duracao = time.perf_counter() - inicio
+        GRAPH_RUNS.labels(outcome=outcome).inc()
+        GRAPH_DURATION.labels(outcome=outcome).observe(duracao)
 
     return _extrair_resposta(estado_final)
 

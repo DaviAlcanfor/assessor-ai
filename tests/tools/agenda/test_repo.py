@@ -55,6 +55,20 @@ def test_update_event_sem_campos_retorna_erro(agenda, db_session):
     assert agenda.update_event(id=1)["status"] == "error"
 
 
+def test_update_event_notes_vazia_e_aceita_como_valor_informado(agenda, db_session):
+    # notes="" é "falsy" — a guarda de "nada pra atualizar" usava any() e recusava a
+    # atualização mesmo o campo tendo sido informado (bug real, corrigido pra all(is None)).
+    criado = agenda.add_event(
+        title="Original", start_time="2026-01-01T12:00:00+00:00", source_text="s", notes="algo",
+    )
+
+    resultado = agenda.update_event(id=criado["id"], notes="")
+
+    assert resultado["status"] == "ok"
+    assert resultado["rows_affected"] == 1
+    assert db_session.get(Event, criado["id"]).notes == ""
+
+
 def test_update_event_id_inexistente_retorna_rows_affected_zero(agenda, db_session):
     resultado = agenda.update_event(id=999, title="novo")
 

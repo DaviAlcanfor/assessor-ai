@@ -174,7 +174,7 @@ class AgendaRepo(PostgresRepo):
         Retorna o registro atualizado completo após o commit.
         """
 
-        if not any([title, start_time, end_time, location, notes]):
+        if all(v is None for v in (title, start_time, end_time, location, notes)):
             return Response.error("Nada para atualizar: forneça pelo menos um campo.")
 
         target_id = id

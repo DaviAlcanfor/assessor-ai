@@ -4,7 +4,7 @@ infra — o que já tem ciclo de vida próprio (pool do Postgres em `tools/postg
 cliente do Mongo, do Redis e do Qdrant) continua lazy e não é duplicado aqui.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Compila o grafo e roda o `setup()` do checkpointer aqui, e não na primeira mensagem: o
     # `setup()` cria tabelas no Postgres, e pagar isso dentro de um request faz o primeiro
     # usuário do deploy esperar por infra. Falhar aqui também é melhor — o processo não sobe

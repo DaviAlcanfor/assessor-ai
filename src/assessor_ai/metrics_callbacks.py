@@ -17,12 +17,18 @@ from assessor_ai.metrics import (
     TOOL_DURATION,
     TOOL_RUNS,
 )
-from assessor_ai.models import PROVIDER_MAP, Model
+from assessor_ai.models import Model
 
 # get_args(NodeName) sozinho devolve () — NodeName é um `type` alias (PEP 695), get_args só
 # enxerga o Literal por trás dele via `.__value__`.
 _ALLOWED_NODES = frozenset(get_args(NodeName.__value__))
-_ALLOWED_PROVIDERS = frozenset(PROVIDER_MAP.values())
+
+# NÃO é frozenset(PROVIDER_MAP.values()) — PROVIDER_MAP usa o nosso nome de provider ("gemini"),
+# mas `ls_provider` no metadata do LangChain vem do nome interno da integração
+# (langchain_google_genai/chat_models.py:ls_provider="google_genai", langchain_groq: "groq").
+# Com PROVIDER_MAP.values() esse label caía sempre em "unknown" pros dois LLMs em Gemini
+# (llm_especialista, llm_guardrail) — a maior parte do tráfego de LLM do projeto.
+_ALLOWED_PROVIDERS = frozenset({"google_genai", "groq"})
 _ALLOWED_MODELS = frozenset(m.value for m in Model)
 
 

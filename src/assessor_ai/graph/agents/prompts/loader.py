@@ -17,6 +17,14 @@ turno pelos nós.
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict, cast
+from zoneinfo import ZoneInfo
+
+# Mesmo fuso fixo usado nas queries de financeiro/agenda (infra/postgres.py:local_date,
+# AT TIME ZONE 'America/Sao_Paulo') — não o fuso do SO do processo. `.astimezone()` sem
+# argumento usava o fuso local do processo (UTC em boa parte dos deploys), então entre
+# 21h e 00h (horário de SP) o LLM achava que já era outro dia enquanto as queries SQL
+# ainda contavam o dia anterior: "o que gastei hoje" à noite vinha errado ou vazio.
+_FUSO_LOCAL = ZoneInfo("America/Sao_Paulo")
 
 _PASTA = Path(__file__).parent
 _MARCADOR_SECAO = "## "
@@ -134,7 +142,7 @@ def contexto_temporal() -> str:
     """Bloco de data/hora, calculado na hora da chamada — nunca no import (ver docstring
     do módulo)."""
 
-    agora = datetime.now(UTC).astimezone()
+    agora = datetime.now(UTC).astimezone(_FUSO_LOCAL)
     formatada = agora.strftime("%A, %d de %B de %Y — %H:%M:%S %Z")
 
     return f"""### CONTEXTO TEMPORAL

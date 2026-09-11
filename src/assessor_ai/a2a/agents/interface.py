@@ -1,3 +1,4 @@
+import asyncio
 from uuid import uuid4
 
 from a2a.server.agent_execution import AgentExecutor, RequestContext
@@ -11,11 +12,21 @@ from assessor_ai.services.exceptions import LimiteDeMensagensExcedido
 # ponytail: mapa em memória (perdido no restart, não compartilhado entre workers) — troca por
 # Redis (mesmo padrão de core/limiter.py) se o A2A rodar com múltiplos processos/instâncias
 _sessoes: dict[str, tuple[UserID, ChatID]] = {}
+# ponytail: um lock global em vez de um por context_id — serializa toda criação de sessão A2A,
+# não só a do mesmo context_id, mas o tráfego do A2A é baixo o bastante pra isso não importar.
+# Trocar por lock por-context_id se o volume crescer.
+_lock = asyncio.Lock()
 
 
 async def _sessao_para(context_id: str) -> tuple[UserID, ChatID]:
-    if context_id not in _sessoes:
-        _sessoes[context_id] = await chat_service.iniciar_sessao()
+    if context_id in _sessoes:
+        return _sessoes[context_id]
+
+    async with _lock:
+        # re-checa depois de pegar o lock: outra task pode ter criado enquanto esperávamos
+        if context_id not in _sessoes:
+            _sessoes[context_id] = await chat_service.iniciar_sessao()
+
     return _sessoes[context_id]
 
 

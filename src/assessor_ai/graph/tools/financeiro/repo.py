@@ -254,8 +254,11 @@ class FinanceiroRepo(PostgresRepo):
         Retorna o registro atualizado completo após o commit.
         """
 
-        if not any(
-            [amount, type_name, category_id, category_name, description, payment_method, occurred_at]
+        if all(
+            v is None
+            for v in (
+                amount, type_name, category_id, category_name, description, payment_method, occurred_at,
+            )
         ):
             return Response.error("Nada para atualizar: forneça pelo menos um campo.")
 

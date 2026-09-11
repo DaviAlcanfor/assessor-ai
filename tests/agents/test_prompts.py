@@ -3,8 +3,12 @@ Os prompts viraram .md carregados por `prompts/loader.py`. Estes testes guardam 
 do parser: frontmatter, seções e o envelope montado por `load_prompt`.
 """
 
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 
+from assessor_ai.graph.agents.prompts import loader
 from assessor_ai.graph.agents.prompts.loader import load_prompt, load_sections
 
 
@@ -50,3 +54,24 @@ def test_templates_do_resumidor_tem_os_placeholders_usados_pelos_helpers():
     assert "{conversa}" in secoes["resumo"]
     assert "{perfil_atual}" in secoes["perfil"]
     assert "{resumo}" in secoes["perfil"]
+
+
+def test_contexto_temporal_usa_fuso_configurado_nao_do_processo(monkeypatch):
+    # `.astimezone()` sem fuso explícito usa o fuso local do SO do processo — que pode até
+    # coincidir com America/Sao_Paulo na máquina de quem roda o teste, mascarando o bug em
+    # deploys onde não coincide (UTC, por exemplo). Por isso o teste força `_FUSO_LOCAL` pra
+    # um fuso bem distante de qualquer default plausível (UTC+14), pra provar que o código
+    # respeita o fuso configurado e não o do host — não depender de sorte de ambiente.
+    fixo_utc = datetime(2026, 1, 15, 1, 0, tzinfo=UTC)
+
+    class _DatetimeFixo(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixo_utc
+
+    monkeypatch.setattr(loader, "datetime", _DatetimeFixo)
+    monkeypatch.setattr(loader, "_FUSO_LOCAL", ZoneInfo("Pacific/Kiritimati"))
+
+    texto = loader.contexto_temporal()
+
+    assert "15:00:00" in texto

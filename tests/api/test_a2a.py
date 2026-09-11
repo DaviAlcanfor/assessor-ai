@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from assessor_ai.a2a.agents import interface as a2a_interface
@@ -80,6 +82,28 @@ def test_send_message_mesmo_context_id_reusa_sessao(client, monkeypatch):
 
     assert r1.status_code == r2.status_code == 200
     assert len(chamadas) == 1
+
+
+async def test_sessao_para_concorrente_mesmo_context_id_cria_uma_so_vez(monkeypatch):
+    # Duas chamadas concorrentes pro mesmo context_id, antes do fix, passavam ambas pelo
+    # `if context_id not in _sessoes` antes de qualquer uma terminar `iniciar_sessao()` — a
+    # segunda sobrescrevia a primeira em `_sessoes`, criando um chat órfão no Mongo.
+    chamadas = []
+
+    async def _iniciar_devagar():
+        chamadas.append(1)
+        await asyncio.sleep(0)
+        return (f"user-{len(chamadas)}", f"chat-{len(chamadas)}")
+
+    monkeypatch.setattr(chat_service, "iniciar_sessao", _iniciar_devagar)
+
+    resultados = await asyncio.gather(
+        a2a_interface._sessao_para("ctx-concorrente"),
+        a2a_interface._sessao_para("ctx-concorrente"),
+    )
+
+    assert len(chamadas) == 1
+    assert resultados[0] == resultados[1]
 
 
 def test_send_message_limite_excedido_vira_texto_de_erro(client, monkeypatch):

@@ -95,6 +95,18 @@ def test_update_transaction_sem_id_exige_match_text_e_date_local(financeiro, db_
     assert resultado["status"] == "error"
 
 
+def test_update_transaction_amount_zero_e_aceito_como_valor_informado(financeiro, db_session):
+    # amount=0.0 é "falsy" — a guarda de "nada pra atualizar" usava any() e recusava
+    # a atualização mesmo o campo tendo sido informado (bug real, corrigido pra all(is None)).
+    criada = financeiro.add_transaction(amount=10.0, source_text="a corrigir")
+
+    resultado = financeiro.update_transaction(id=criada["id"], amount=0.0)
+
+    assert resultado["status"] == "ok"
+    assert resultado["rows_affected"] == 1
+    assert db_session.get(Transaction, criada["id"]).amount == 0
+
+
 def test_update_transaction_id_inexistente_retorna_rows_affected_zero(financeiro, db_session):
     resultado = financeiro.update_transaction(id=999, amount=10.0)
 

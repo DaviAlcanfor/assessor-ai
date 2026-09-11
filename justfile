@@ -1,5 +1,4 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
-cmd := "assessor-ai"
 python := if os() == "windows" { ".venv/Scripts/python" } else { ".venv/bin/python" }
 
 venv:
@@ -8,11 +7,11 @@ venv:
 
 dev mode="tui":
     @echo "Getting environment variables / infisical"
-    infisical run -- {{cmd}} {{mode}}
+    infisical run -- {{python}} main.py {{mode}}
 
 run mode="tui":
     @echo "Running the application"
-    {{cmd}} {{mode}}
+    {{python}} main.py {{mode}}
 
 api:
     @echo "Running the API locally (localhost:8000, auth por API key desligada — pareia com just web)"

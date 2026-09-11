@@ -10,30 +10,65 @@ from assessor_ai.privacy import MapaPII
 
 
 class Route(StrEnum):
-    FINANCEIRO =      "financeiro"
-    AGENDA            = "agenda"
-    FAQ               = "faq"
-    FIM               = "fim"
-    GUARDRAIL_ENTRADA = "guardrail_entrada"
-    GUARDRAIL_SAIDA   = "guardrail_saida"
+    """Rotas que o roteador pode escolher. Guardrails/orquestrador são NodeName, não Route."""
+
+    FINANCEIRO = "financeiro"
+    AGENDA = "agenda"
+    FAQ = "faq"
+    FIM = "fim"
+
+
+class EntradaGrafo(MessagesState):
+    """Único formato aceito ao iniciar um turno — impede injetar campos internos do estado."""
+
+    perfil_usuario: NotRequired[str]
 
 
 class Estado(MessagesState):
     resposta_especialista: NotRequired[str]
-    agentes_chamados:      NotRequired[Annotated[list[NodeName], operator.add]]
-    rota:                  NotRequired[Route]
-    pergunta_original:     NotRequired[str]
-    mapa_pii:              NotRequired[MapaPII]
-    mensagem_bloqueada:    NotRequired[str | None]
-    perfil_usuario:        NotRequired[str]
+    agentes_chamados: NotRequired[Annotated[list[NodeName], operator.add]]
+    rota: NotRequired[Route]
+    pergunta_original: NotRequired[str]
+    mapa_pii: NotRequired[MapaPII]
+    mensagem_bloqueada: NotRequired[str | None]
+    perfil_usuario: NotRequired[str]
 
 
-class EstadoUpdate(TypedDict, total=False):
-    messages: list[AnyMessage | dict[str, str]]
-    resposta_especialista: str
+class SaidaGrafo(MessagesState):
+    """Único formato devolvido ao chamador — não expõe mapa_pii, perfil, rota etc."""
+
+
+class RouterUpdate(TypedDict):
     agentes_chamados: list[NodeName]
     rota: Route
     pergunta_original: str
-    mapa_pii: MapaPII
+    messages: NotRequired[list[AnyMessage]]
+
+
+class EspecialistaUpdate(TypedDict):
+    agentes_chamados: list[NodeName]
+    resposta_especialista: str
+
+
+class FaqUpdate(TypedDict):
+    agentes_chamados: list[NodeName]
+    messages: list[AnyMessage]
+    resposta_especialista: str
+
+
+class OrquestradorUpdate(TypedDict):
+    agentes_chamados: list[NodeName]
+    messages: list[AnyMessage]
+    resposta_especialista: str
+
+
+class GuardrailEntradaUpdate(TypedDict):
+    agentes_chamados: list[NodeName]
+    messages: list[AnyMessage]
     mensagem_bloqueada: str | None
-    perfil_usuario: str
+    mapa_pii: NotRequired[MapaPII]
+
+
+class GuardrailSaidaUpdate(TypedDict):
+    agentes_chamados: list[NodeName]
+    messages: list[AnyMessage]

@@ -1,6 +1,6 @@
 import re
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from assessor_ai.graph.agents.nodes.guardrail.schemas import (
     _KEYWORDS_DADOS_INTERNOS,
@@ -12,7 +12,7 @@ from assessor_ai.graph.agents.nodes.guardrail.schemas import (
 from assessor_ai.graph.agents.nodes.names import GUARDRAIL_ENTRADA
 from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_guardrail
-from assessor_ai.graph.state import Estado, EstadoUpdate
+from assessor_ai.graph.state import Estado, GuardrailEntradaUpdate
 from assessor_ai.logging import get_logger
 from assessor_ai.privacy import anonimizar_entrada
 
@@ -88,26 +88,26 @@ async def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     return _aprovado()
 
 
-async def no_guardrail_entrada(estado: Estado) -> EstadoUpdate:
+async def no_guardrail_entrada(estado: Estado) -> GuardrailEntradaUpdate:
     logger.info("Verificando entrada com guardrail de entrada...")
-    
+
     ultima_msg = estado["messages"][-1]
     texto_anonimizado, mapa_pii = anonimizar_entrada(ultima_msg.text)
     resultado = await guardrail_entrada(texto_anonimizado)
 
     if resultado["bloqueado"]:
         logger.warning(f"Mensagem bloqueada por guardrail: {resultado['motivo']} - {texto_anonimizado}")
-        return EstadoUpdate(
+        return GuardrailEntradaUpdate(
             agentes_chamados=[GUARDRAIL_ENTRADA],
             mensagem_bloqueada=resultado["mensagem"],
             messages=[
                 HumanMessage(id=ultima_msg.id, content="[mensagem bloqueada]"), # salva bloqueada
-                {"role": "assistant", "content": resultado["mensagem"]},
+                AIMessage(content=resultado["mensagem"]),
             ],
         )
 
     logger.info("Mensagem aprovada pelo guardrail de entrada.")
-    return EstadoUpdate(
+    return GuardrailEntradaUpdate(
         agentes_chamados=[GUARDRAIL_ENTRADA],
         mapa_pii=mapa_pii,
         messages=[HumanMessage(id=ultima_msg.id, content=texto_anonimizado)],

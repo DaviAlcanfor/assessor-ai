@@ -10,13 +10,17 @@ isso o especialista nunca enxerga nem o perfil nem a pergunta que o roteador enc
 """
 
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 from langchain_core.messages import AnyMessage, SystemMessage
 from langchain_core.runnables import Runnable
 
 from assessor_ai.graph.agents.prompts.loader import contexto_do_turno
 from assessor_ai.graph.state import Estado
+
+
+class RespostaAgenteInvalida(RuntimeError):
+    pass
 
 
 def mensagens_com_contexto(
@@ -39,8 +43,12 @@ async def responder(app: Runnable[Any, Any], mensagens: Sequence[AnyMessage]) ->
     """Roda o agente com `mensagens` e devolve o texto da última mensagem que ele produziu."""
 
     saida = await app.ainvoke({"messages": list(mensagens)})
+    conteudo = saida["messages"][-1].content
 
-    return cast(str, saida["messages"][-1].content)
+    if not isinstance(conteudo, str):
+        raise RespostaAgenteInvalida("O agente não retornou conteúdo textual.")
+
+    return conteudo
 
 
-__all__ = ["mensagens_com_contexto", "responder"]
+__all__ = ["RespostaAgenteInvalida", "mensagens_com_contexto", "responder"]

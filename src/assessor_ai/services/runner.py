@@ -5,7 +5,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from assessor_ai.graph.builder import fluxo_agentes
-from assessor_ai.graph.state import Estado
+from assessor_ai.graph.state import Estado, SaidaGrafo
 from assessor_ai.identifiers import (
     ChatID,
     UserID,
@@ -29,7 +29,7 @@ _PARA_LANGCHAIN = {
 }
 
 
-def _extrair_resposta(estado_final: Estado) -> str | None:
+def _extrair_resposta(estado_final: SaidaGrafo) -> str | None:
     for msg in estado_final["messages"][::-1]:
         if isinstance(msg, AIMessage):
             return msg.text
@@ -57,14 +57,13 @@ async def executar(
     token_usuario = set_usuario_atual(user_id)
     try:
         grafo = await fluxo_agentes.get()
-        estado_final = await grafo.ainvoke(estado_inicial, config=config)
+        # ainvoke() devolve tipo fraco no stub do langgraph mesmo com output_schema declarado.
+        estado_final = cast(SaidaGrafo, await grafo.ainvoke(estado_inicial, config=config))
     finally:
         reset_current_user(token)
         reset_usuario_atual(token_usuario)
 
-    # ainvoke() sem version="v2" devolve tipo fraco no stub do langgraph — v2 muda semântica de
-    # streaming/durability, então não vale o custo só pra tipagem.
-    return _extrair_resposta(cast(Estado, estado_final))
+    return _extrair_resposta(estado_final)
 
 
 __all__ = ["executar"]

@@ -5,7 +5,7 @@ from langchain_core.messages import AIMessage
 from assessor_ai.graph.agents import router_app
 from assessor_ai.graph.agents.nodes.contexto import mensagens_com_contexto, responder
 from assessor_ai.graph.agents.nodes.names import ROTEADOR
-from assessor_ai.graph.state import Estado, EstadoUpdate, Route
+from assessor_ai.graph.state import Estado, Route, RouterUpdate
 from assessor_ai.logging import get_logger
 
 log = get_logger(__name__)
@@ -32,23 +32,23 @@ def _extrair_pergunta(texto: str) -> str:
     return match.group(1).strip()
 
 
-async def no_roteador(estado: Estado) -> EstadoUpdate:
+async def no_roteador(estado: Estado) -> RouterUpdate:
 
     texto = await responder(router_app, mensagens_com_contexto(estado, incluir_pergunta=False))
     rota  = _extrair_rota(texto)
     pergunta = _extrair_pergunta(texto)
-    
+
     log.debug(f"Rota escolhida: {rota} | pergunta: '{pergunta}'")
 
     if rota is Route.FIM:
-        return EstadoUpdate(
+        return RouterUpdate(
             agentes_chamados=[ROTEADOR],
             rota=Route.FIM,
             pergunta_original=pergunta,
             messages=[AIMessage(content=texto)],
         )
 
-    return EstadoUpdate(
+    return RouterUpdate(
         agentes_chamados=[ROTEADOR],
         rota=rota,
         pergunta_original=pergunta,

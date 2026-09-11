@@ -22,7 +22,7 @@ from assessor_ai.graph.agents.nodes.names import (
     ORQUESTRADOR,
     ROTEADOR,
 )
-from assessor_ai.graph.state import Estado, Route
+from assessor_ai.graph.state import EntradaGrafo, Estado, Route, SaidaGrafo
 from assessor_ai.infra.postgres import postgres
 
 
@@ -40,7 +40,7 @@ def decidir_especialista(estado: Estado) -> str:
 
 
 def _construir_grafo() -> StateGraph:
-    grafo = StateGraph(Estado)
+    grafo = StateGraph(Estado, input_schema=EntradaGrafo, output_schema=SaidaGrafo)
 
     grafo.add_node(GUARDRAIL_ENTRADA, no_guardrail_entrada)
     grafo.add_node(ROTEADOR,           no_roteador)
@@ -98,11 +98,11 @@ class FluxoAgentes:
     """
 
     def __init__(self) -> None:
-        self._compilado: CompiledStateGraph[Estado] | None = None
+        self._compilado: CompiledStateGraph[Estado, None, EntradaGrafo, SaidaGrafo] | None = None
         self._lock = asyncio.Lock()
 
 
-    async def get(self) -> CompiledStateGraph[Estado]:
+    async def get(self) -> CompiledStateGraph[Estado, None, EntradaGrafo, SaidaGrafo]:
         if self._compilado is not None:
             return self._compilado
 

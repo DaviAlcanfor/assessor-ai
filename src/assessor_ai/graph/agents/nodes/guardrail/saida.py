@@ -1,10 +1,12 @@
 import re
 
+from langchain_core.messages import AIMessage
+
 from assessor_ai.graph.agents.nodes.guardrail.schemas import ResultadoGuardrail
 from assessor_ai.graph.agents.nodes.names import GUARDRAIL_SAIDA
 from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_rapido
-from assessor_ai.graph.state import Estado, EstadoUpdate
+from assessor_ai.graph.state import Estado, GuardrailSaidaUpdate
 from assessor_ai.logging import get_logger
 from assessor_ai.privacy import PII, PII_USUARIO, MapaPII, PIIPattern
 
@@ -92,17 +94,17 @@ async def guardrail_saida(
     return _saida_ok(revisada)
 
 
-async def no_guardrail_saida(estado: Estado) -> EstadoUpdate:
-    
+async def no_guardrail_saida(estado: Estado) -> GuardrailSaidaUpdate:
+
     logger.info("Revisando resposta do especialista com guardrail de saída...")
     resultado = await guardrail_saida(
-        estado["resposta_especialista"], 
+        estado["resposta_especialista"],
         estado.get("mapa_pii", {})
     )
 
-    return EstadoUpdate(
+    return GuardrailSaidaUpdate(
         agentes_chamados=[GUARDRAIL_SAIDA],
-        messages=[{"role": "assistant", "content": resultado["conteudo"]}],
+        messages=[AIMessage(content=resultado["conteudo"])],
     )
 
 

@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     API_KEY_AUTH_ENABLED: bool = True
     A2A_BASE_URL: str = "http://localhost:8000"
 
+    SESSION_TTL_SECONDS: int = 60 * 60 * 8
+    SESSION_COOKIE_NAME: str = "__Host-assessor_session"
+    CSRF_COOKIE_NAME: str = "__Host-assessor_csrf"
+
+    SESSION_COOKIE_SECURE: bool = True
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

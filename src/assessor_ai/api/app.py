@@ -9,6 +9,7 @@ from assessor_ai.api.lifespan import lifespan
 from assessor_ai.api.limiter import limiter
 from assessor_ai.api.middleware import adicionar_middleware
 from assessor_ai.api.routes import (
+    auth_router,
     chats_router,
     health_router,
     keys_router,
@@ -33,6 +34,7 @@ adicionar_middleware(app)
 # Nunca exposto publicamente num deploy real — só Prometheus/rede interna.
 app.mount("/metrics", make_asgi_app(), name="metrics")
 
+app.include_router(auth_router)
 app.include_router(health_router)
 app.include_router(chats_router)
 app.include_router(keys_router)

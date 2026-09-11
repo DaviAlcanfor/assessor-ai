@@ -11,7 +11,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 
-from assessor_ai.api.auth import get_current_user
+from assessor_ai.api.auth import CsrfDep, get_current_user
 from assessor_ai.api.limiter import limiter
 from assessor_ai.graph.tools.chats.schemas import ChatRecord
 from assessor_ai.identifiers import ChatID, UserID
@@ -37,7 +37,12 @@ _ROLE_MAP = {
 router = APIRouter(prefix="/v1/chats", tags=["chats"])
 
 
-@router.post("", response_model=ChatCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ChatCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[CsrfDep],
+)
 @limiter.limit("5/minute")
 async def create_chat(
     request: Request, user_id: Annotated[UserID, Depends(get_current_user)]
@@ -82,7 +87,9 @@ async def list_chats(
 
 
 # Rota para enviar uma mensagem para um chat específico
-@router.post("/{chat_id}/messages", response_model=ChatMessageResponse)
+@router.post(
+    "/{chat_id}/messages", response_model=ChatMessageResponse, dependencies=[CsrfDep]
+)
 @limiter.limit("10/minute")
 async def send_message(
     request: Request,

@@ -6,6 +6,8 @@ UserID = NewType("UserID", str)
 ChatID = NewType("ChatID", str)
 APIKey = NewType("APIKey", str)
 APIKeyHash = NewType("APIKeyHash", str)
+SessionToken = NewType("SessionToken", str)
+CsrfToken = NewType("CsrfToken", str)
 
 
 def novo_chat_id() -> ChatID:
@@ -37,6 +39,8 @@ __all__ = [
     "APIKey",
     "APIKeyHash",
     "ChatID",
+    "CsrfToken",
+    "SessionToken",
     "UserID",
     "novo_chat_id",
     "novo_user_id",

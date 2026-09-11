@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from assessor_ai.api.auth import get_current_user
+from assessor_ai.api.auth import CsrfDep, get_current_user
 from assessor_ai.api.limiter import limiter
 from assessor_ai.identifiers import UserID
 from assessor_ai.schemas.perfil import PerfilCreate, PerfilResponse
@@ -19,7 +19,7 @@ from assessor_ai.services import chat_service
 router = APIRouter(prefix="/v1/perfil", tags=["perfil"])
 
 
-@router.put("", response_model=PerfilResponse)
+@router.put("", response_model=PerfilResponse, dependencies=[CsrfDep])
 @limiter.limit("10/minute")
 async def salvar_perfil(
     request: Request,

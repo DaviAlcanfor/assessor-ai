@@ -1,5 +1,6 @@
 from assessor_ai.api.app import app
-from assessor_ai.api.auth import get_current_user
+from assessor_ai.api.auth import get_current_principal, get_current_user
+from assessor_ai.schemas.auth import AuthMethod, Principal
 from assessor_ai.schemas.models import ChatMessage
 from assessor_ai.schemas.models import Role as DomainRole
 from assessor_ai.services import chat_service
@@ -21,6 +22,11 @@ def _async(valor):
 
 def _autenticar_como(user_id: str):
     app.dependency_overrides[get_current_user] = lambda: user_id
+    # CsrfDep depende de get_current_principal, não de get_current_user — sem isso o POST de
+    # chat/mensagem (dependencies=[CsrfDep]) faz auth de verdade e derruba pra 401 nesses testes.
+    app.dependency_overrides[get_current_principal] = lambda: Principal(
+        user_id=user_id, auth_method=AuthMethod.API_KEY
+    )
 
 
 def test_create_chat_retorna_chat_id(client, monkeypatch):

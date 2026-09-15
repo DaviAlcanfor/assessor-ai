@@ -1,4 +1,4 @@
-import type { ChatSummary, Message, PerfilFinanceiro, User } from "../types";
+import type { ChatSummary, ExecutionEvent, Message, PerfilFinanceiro, User } from "../types";
 import { loadUser } from "./storage";
 
 export class ApiError extends Error {
@@ -54,6 +54,67 @@ export function sendMessage(
     method: "POST",
     body: JSON.stringify({ content }),
   });
+}
+
+// Parser de SSE: eventos vêm como blocos "event: <tipo>\ndata: <json>\n\n" (fastapi.sse).
+export async function streamMessage(
+  chatId: string,
+  content: string,
+  onEvent: (evento: ExecutionEvent) => void,
+): Promise<void> {
+  const user = loadUser();
+  const res = await fetch(`/v1/chats/${chatId}/messages/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(user ? { "X-User-Id": user.user_id } : {}),
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(body?.detail ?? `Erro ${res.status}`, res.status);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let terminado = false;
+
+  const consumirBloco = (bloco: string) => {
+    const dataLine = bloco.split("\n").find((l) => l.startsWith("data:"));
+    if (!dataLine) return;
+    const evento = JSON.parse(dataLine.slice(5).trim()) as ExecutionEvent;
+    onEvent(evento);
+    // Não dá pra confiar só no reader chegar a `done` — o servidor pode manter a conexão SSE
+    // aberta depois do generator terminar (keep-alive), o que travava o front em "pensando"
+    // pra sempre mesmo com o backend já tendo respondido. run_finished/run_failed é quem marca
+    // o fim de verdade, então encerra a leitura assim que um dos dois chega.
+    if (evento.type === "run_finished" || evento.type === "run_failed") terminado = true;
+  };
+
+  while (!terminado) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      // Fechar a conexão logo após o último evento, sem "\n\n" final, é um jeito válido de
+      // terminar um SSE — sem isso, o último evento ficava preso no buffer e era descartado.
+      buffer += decoder.decode();
+      if (buffer.trim()) consumirBloco(buffer);
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+
+    let sep;
+    while (!terminado && (sep = buffer.indexOf("\n\n")) !== -1) {
+      consumirBloco(buffer.slice(0, sep));
+      buffer = buffer.slice(sep + 2);
+    }
+  }
+
+  await reader.cancel().catch(() => {});
 }
 
 export async function getPerfil(): Promise<PerfilFinanceiro | null> {

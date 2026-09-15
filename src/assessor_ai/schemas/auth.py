@@ -4,7 +4,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
-from assessor_ai.identifiers import UserID
+from assessor_ai.identifiers import UserID, UserIDField
 
 
 class AuthMethod(StrEnum):
@@ -21,12 +21,12 @@ class Principal:
 
 
 class SessionCreateResponse(BaseModel):
-    user_id: UserID
+    user_id: UserIDField
     expires_at: datetime
 
 
 class CurrentPrincipalResponse(BaseModel):
-    user_id: UserID
+    user_id: UserIDField
     auth_method: AuthMethod
 
 

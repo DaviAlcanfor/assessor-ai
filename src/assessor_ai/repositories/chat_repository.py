@@ -147,7 +147,7 @@ async def buscar_historico(
     Busca o histórico de mensagens do chat no MongoDB.
     Retorna uma lista de mensagens, ou None se o chat não existir ou não pertencer a user_id.
     """
-    doc = await asyncio.to_thread(chats.buscar, session_id, user_id=user_id)
+    doc = await asyncio.to_thread(chats.buscar, session_id, limit=None, user_id=user_id)
 
     if not doc:
         return None

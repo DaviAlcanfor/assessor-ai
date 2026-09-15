@@ -11,6 +11,7 @@ export default defineConfig({
       // Vite responde 502. Ver interfaces/api -> main.py:run_api.
       "/v1": "http://127.0.0.1:8000",
       "/health": "http://127.0.0.1:8000",
+      "/metrics": "http://127.0.0.1:8000",
     },
   },
 });

@@ -89,7 +89,13 @@ def set_current_user(user_id: UUID | str) -> Token[UUID]:
 
 
 def reset_current_user(token: Token[UUID]) -> None:
-    _current_user_id.reset(token)
+    # ponytail: mesmo caso de identifiers.py:reset_usuario_atual — token criado num Context que
+    # pode não ser mais o corrente quando um stream SSE órfão (conexão do cliente derrubada) é
+    # fechado pelo asyncgen finalizer do event loop.
+    try:
+        _current_user_id.reset(token)
+    except ValueError:
+        pass
 
 
 def current_user_id() -> UUID:
@@ -142,6 +148,12 @@ class PostgresConn:
                 settings.POSTGRES_URL.get_secret_value(),
                 kwargs={"autocommit": True, "row_factory": dict_row},
                 open=False,
+                # Postgres em nuvem derruba conexão SSL ociosa sem avisar o pool — sem `check`,
+                # o pool só descobre isso quando o checkpointer já está no meio de uma query
+                # (era a causa do OperationalError "SSL connection has been closed unexpectedly"
+                # estourando um turno de chat inteiro). `check_connection` valida no checkout e
+                # descarta/reabre a conexão morta antes de entregá-la.
+                check=AsyncConnectionPool.check_connection,
             )
             await self._pool.open()
 

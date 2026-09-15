@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 
-export function ThinkingDots() {
+export function ThinkingBubble() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
@@ -27,10 +27,16 @@ export function ThinkingDots() {
   );
 
   return (
-    <div ref={containerRef} className="flex items-center gap-1 px-4 py-2" aria-label="Pensando">
-      <span className="thinking-dot h-2 w-2 rounded-full bg-primary" />
-      <span className="thinking-dot h-2 w-2 rounded-full bg-primary" />
-      <span className="thinking-dot h-2 w-2 rounded-full bg-primary" />
+    <div className="flex justify-start">
+      <div
+        ref={containerRef}
+        className="flex items-center gap-1 rounded-lg bg-primary px-4 py-3"
+        aria-label="Pensando"
+      >
+        <span className="thinking-dot h-2 w-2 rounded-full bg-primary-foreground" />
+        <span className="thinking-dot h-2 w-2 rounded-full bg-primary-foreground" />
+        <span className="thinking-dot h-2 w-2 rounded-full bg-primary-foreground" />
+      </div>
     </div>
   );
 }

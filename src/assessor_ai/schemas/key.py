@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 
-from assessor_ai.identifiers import APIKey, UserID
+from assessor_ai.identifiers import APIKeyField, UserIDField
 
 
 class KeyCreate(BaseModel):
@@ -9,5 +9,5 @@ class KeyCreate(BaseModel):
 
 
 class KeyCreateResponse(BaseModel):
-    user_id: UserID
-    api_key: APIKey
+    user_id: UserIDField
+    api_key: APIKeyField

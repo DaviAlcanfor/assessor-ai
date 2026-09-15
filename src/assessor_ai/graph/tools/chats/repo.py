@@ -43,7 +43,7 @@ class ChatsRepo(MongoRepo[ChatRecord]):
 
 
     def buscar(
-        self, session_id: ChatID, limit: int = 5, user_id: UserID | None = None
+        self, session_id: ChatID, limit: int | None = 5, user_id: UserID | None = None
     ) -> ChatRecord | None:
         logger.info(f"Buscando histórico de mensagens para session_id: {session_id} (limit={limit})")
 
@@ -51,7 +51,12 @@ class ChatsRepo(MongoRepo[ChatRecord]):
         if user_id is not None:
             filtro["user_id"] = user_id
 
-        return self.collection.find_one(filtro, {"messages": {"$slice": -limit}})
+        # limit=None → sem `$slice`, devolve o histórico inteiro (é o que `buscar_historico`
+        # usa pra montar a resposta de GET /v1/chats/{id}/messages; truncar em 5 aqui fazia a
+        # tela do chat sempre mostrar só as últimas 5 mensagens de qualquer conversa).
+        projecao = {"messages": {"$slice": -limit}} if limit is not None else {}
+
+        return self.collection.find_one(filtro, projecao)
 
 
     def atualizar_mensagens(

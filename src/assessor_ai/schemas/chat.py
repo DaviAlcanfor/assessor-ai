@@ -3,7 +3,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from assessor_ai.identifiers import ChatID
+from assessor_ai.identifiers import ChatIDField
 
 
 class Role(StrEnum):
@@ -21,15 +21,15 @@ class MessageResponse(BaseModel):
 
 
 class ChatCreateResponse(BaseModel):
-    chat_id: ChatID
+    chat_id: ChatIDField
 
 
 class ChatMessageResponse(BaseModel):
-    chat_id: ChatID
+    chat_id: ChatIDField
     content: str
 
 
 class ChatSummary(BaseModel):
-    chat_id: ChatID
+    chat_id: ChatIDField
     title: str
     updated_at: datetime

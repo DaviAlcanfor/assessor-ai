@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useNavigate, useParams } from "react-router";
-import { createChat, getMessages, sendMessage } from "../lib/api";
+import { createChat, getMessages, streamMessage } from "../lib/api";
 import { ChatInput } from "../components/chat/chat-input";
+import { GraphPanel } from "../components/chat/graph-panel";
 import { MessageList } from "../components/chat/message-list";
 import { Sidebar } from "../components/sidebar/sidebar";
+import { useExecutionGraph } from "../lib/use-execution-graph";
 import type { Message } from "../types";
 
 export function ChatPage() {
@@ -13,6 +15,7 @@ export function ChatPage() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [pensando, setPensando] = useState(false);
+  const graph = useExecutionGraph();
   const [sidebarRefresh, setSidebarRefresh] = useState(0);
   const mainRef = useRef<HTMLDivElement>(null);
   // Evita que o refetch disparado por navigate() (logo abaixo de createChat) sobrescreva as
@@ -89,9 +92,23 @@ export function ChatPage() {
           navigate(`/chat/${id}`, { replace: true });
         }
 
-        const resposta = await sendMessage(id, content);
+        let resposta: string | null = null;
+        let falha: string | null = null;
+
+        await streamMessage(id, content, (evento) => {
+          if (activeChatIdRef.current !== id) return;
+
+          graph.feed(evento);
+
+          if (evento.type === "answer_ready") resposta = evento.content;
+          if (evento.type === "run_failed") falha = evento.message;
+        });
+
         if (activeChatIdRef.current !== id) return;
-        setMessages((prev) => [...prev, { role: "assistant", content: resposta.content }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: resposta ?? falha ?? "Erro ao enviar mensagem." },
+        ]);
         setSidebarRefresh((n) => n + 1);
       } catch (err) {
         if (activeChatIdRef.current !== id) return;
@@ -112,11 +129,11 @@ export function ChatPage() {
   return (
     <div className="flex h-screen">
       <Sidebar refreshKey={sidebarRefresh} />
-      {/* pr-64 espelha a largura da sidebar → mx-auto interno centraliza no centro da tela, não da área restante */}
-      <div ref={mainRef} className="flex flex-1 flex-col xl:pr-64">
+      <div ref={mainRef} className="flex flex-1 flex-col">
         <MessageList messages={messages} pensando={pensando} />
         <ChatInput onSend={handleSend} disabled={pensando} />
       </div>
+      <GraphPanel status={graph.status} timings={graph.timings} activeEdge={graph.activeEdge} />
     </div>
   );
 }

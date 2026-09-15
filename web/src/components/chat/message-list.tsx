@@ -2,8 +2,9 @@ import { useEffect, useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import type { Message } from "../../types";
+import { EmptyState } from "./empty-state";
 import { MessageBubble } from "./message-bubble";
-import { ThinkingDots } from "./thinking-dots";
+import { ThinkingBubble } from "./thinking-bubble";
 
 export function MessageList({
   messages,
@@ -41,6 +42,10 @@ export function MessageList({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, pensando]);
 
+  if (messages.length === 0 && !pensando) {
+    return <EmptyState />;
+  }
+
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto">
       <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-2 px-4 py-6">
@@ -51,7 +56,7 @@ export function MessageList({
             <MessageBubble message={message} />
           </div>
         ))}
-        {pensando && <ThinkingDots />}
+        {pensando && <ThinkingBubble />}
         <div ref={bottomRef} />
       </div>
     </div>

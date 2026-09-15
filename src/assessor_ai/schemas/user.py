@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 
-from assessor_ai.identifiers import UserID
+from assessor_ai.identifiers import UserIDField
 
 
 class UserCreate(BaseModel):
@@ -9,6 +9,6 @@ class UserCreate(BaseModel):
 
 
 class UserResponse(BaseModel):
-    user_id: UserID
+    user_id: UserIDField
     nome: str
     email: str

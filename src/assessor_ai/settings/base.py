@@ -17,6 +17,7 @@ from assessor_ai.settings.api import ApiSettings
 from assessor_ai.settings.api_keys import ApiKeysSettings
 from assessor_ai.settings.database import DatabaseSettings
 from assessor_ai.settings.llm import LLMSettings
+from assessor_ai.settings.mercado import MercadoSettings
 from assessor_ai.settings.observability import ObservabilitySettings
 
 Environment = Literal["local", "production"]
@@ -29,6 +30,7 @@ class Settings(BaseSettings):
     database: DatabaseSettings
     api_keys: ApiKeysSettings
     llm: LLMSettings
+    mercado: MercadoSettings = MercadoSettings()
     observability: ObservabilitySettings = ObservabilitySettings()
 
     model_config = {

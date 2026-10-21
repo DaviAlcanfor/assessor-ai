@@ -148,6 +148,7 @@ assessor-ai/
 │   │   └── cache.py                  # Cache do perfil no Redis
 │   │
 │   └── graph/tools/                  # Features usadas pelos agentes e repositórios internos
+│       ├── cotacao/                  # CotacaoRepo — dólar, PTAX, Selic/CDI/IPCA e simulador (sem banco)
 │       ├── financeiro/
 │       │   ├── models.py             # Transaction, Category, TransactionType, PaymentType
 │       │   ├── schemas.py            # Schemas Pydantic dos argumentos das tools
@@ -268,6 +269,20 @@ Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, 
 | `query_events` | Consulta eventos com filtros por período e título |
 | `query_daily_events` | Retorna todos os eventos de um dia específico |
 | `update_event` | Atualiza evento por ID ou por busca de texto + data |
+
+### Mercado (cotação e indicadores)
+
+Tools do agente financeiro (`graph/tools/cotacao/`), sobre APIs públicas sem chave: AwesomeAPI e
+Banco Central (`infra/mercado/`). Cache em memória (1 min na cotação atual, 1 h no resto).
+
+| Tool | Descrição |
+|---|---|
+| `cotacao_atual` | Compra, venda, variação do dia, máxima e mínima de USD, EUR, BTC... contra o real |
+| `cotacao_historica` | Cotação diária num período, com mínima, máxima, média e variação |
+| `ptax_dolar` | Fechamento oficial do dólar (PTAX do Banco Central); em fim de semana devolve o último fechamento |
+| `converter_moeda` | Converte um valor entre duas moedas, pela cotação de compra |
+| `indicador_economico` | Meta Selic, CDI, IPCA mensal e IPCA acumulado em 12 meses |
+| `simular_investimento` | Juros compostos com aportes, a uma taxa anual ou a um % do CDI/Selic (bruto, sem IR/IOF, com aviso de que não é garantia) |
 
 ### FAQ (RAG)
 

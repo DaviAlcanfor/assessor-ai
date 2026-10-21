@@ -8,7 +8,8 @@ Prometheus/rede interna.
 
 import functools
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Generator
+from contextlib import contextmanager
 from typing import ParamSpec, TypeVar
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -117,6 +118,19 @@ JEV_DECISIONS = Counter(
     labelnames=("uso", "pergunta", "escolha", "modelo"),
 )
 
+EXTERNAL_CALLS = Counter(
+    "assessor_external_calls_total",
+    "Chamadas a APIs externas (cotação, BCB...), por alvo e resultado.",
+    labelnames=("target", "outcome"),
+)
+
+EXTERNAL_DURATION = Histogram(
+    "assessor_external_call_duration_seconds",
+    "Duração das chamadas a APIs externas.",
+    labelnames=("target", "outcome"),
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+)
+
 RATE_LIMIT_REJECTIONS = Counter(
     "assessor_rate_limit_rejections_total",
     "Requisições rejeitadas por rate limiting.",
@@ -147,8 +161,25 @@ def medir_node(nome: str) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, A
     return decorator
 
 
+@contextmanager
+def medir_externo(alvo: str) -> Generator[None]:
+    """`with medir_externo("bcb"): ...` — conta e cronometra uma chamada a API externa."""
+
+    inicio = time.perf_counter()
+    outcome = "error"
+
+    try:
+        yield
+        outcome = "success"
+    finally:
+        EXTERNAL_CALLS.labels(target=alvo, outcome=outcome).inc()
+        EXTERNAL_DURATION.labels(target=alvo, outcome=outcome).observe(time.perf_counter() - inicio)
+
+
 __all__ = [
     "ACTIVE_REQUESTS",
+    "EXTERNAL_CALLS",
+    "EXTERNAL_DURATION",
     "GRAPH_DURATION",
     "GRAPH_RUNS",
     "GUARDRAIL_DECISIONS",
@@ -163,5 +194,6 @@ __all__ = [
     "ROUTER_DECISIONS",
     "TOOL_DURATION",
     "TOOL_RUNS",
+    "medir_externo",
     "medir_node",
 ]

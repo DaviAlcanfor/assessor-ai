@@ -21,7 +21,7 @@ def ambiente(monkeypatch):
     """Ambiente mínimo e limpo: só as obrigatórias, sem `.env` e sem sobras de outros testes."""
 
     for nome in list(__import__("os").environ):
-        if nome.startswith(("DATABASE__", "API__", "API_KEYS__", "LLM__", "OBSERVABILITY__", "ENVIRONMENT")):
+        if nome.startswith(("DATABASE__", "API__", "API_KEYS__", "LLM__", "OBSERVABILITY__", "MERCADO__", "ENVIRONMENT")):
             monkeypatch.delenv(nome)
     for nome, valor in _OBRIGATORIAS.items():
         monkeypatch.setenv(nome, valor)
@@ -35,12 +35,15 @@ def _settings() -> Settings:
 def test_delimitador_aninha_grupos_e_provedores(ambiente):
     ambiente.setenv("LLM__GATEWAY__TIMEOUT_S", "99")
     ambiente.setenv("API__SESSION_TTL_SECONDS", "60")
+    ambiente.setenv("MERCADO__TTL_ATUAL_S", "5")
 
     cfg = _settings()
 
     assert cfg.database.postgres_url.get_secret_value() == "postgresql://u:p@h/db"
     assert cfg.llm.gateway.timeout_s == 99
     assert cfg.api.session_ttl_seconds == 60
+    assert cfg.mercado.ttl_atual_s == 5
+    assert cfg.mercado.ttl_historico_s == 3600  # padrão
 
 
 def test_gateway_e_claude_sao_opcionais_e_ficam_sem_chave(ambiente):

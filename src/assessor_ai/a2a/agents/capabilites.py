@@ -8,13 +8,16 @@ SKILLS = [
         name="Controle de finanças pessoais",
         description=(
             "Registra e consulta transações, calcula saldo total e diário e filtra "
-            "gastos por categoria e período."
+            "gastos por categoria e período. Também consulta cotação de moedas, dólar PTAX, "
+            "Selic, CDI e inflação, e simula juros compostos."
         ),
-        tags=["financas", "gastos", "saldo", "transacoes"],
+        tags=["financas", "gastos", "saldo", "transacoes", "cotacao", "dolar", "selic", "cdi"],
         examples=[
             "Quanto gastei em restaurantes esse mês?",
             "Registra um gasto de 50 reais com mercado",
             "Qual é o meu saldo?",
+            "Quanto está o dólar?",
+            "Quanto rendem R$ 1.000 a 110% do CDI em 12 meses?",
         ],
         input_modes=["text/plain"],
         output_modes=["text/plain"],

@@ -247,7 +247,7 @@ Teste novo cobre caminho feliz, borda (lista vazia, valor no limite, data virand
 ## Skills por biblioteca
 
 `.agents/skills/` guarda convenções e pegadinhas específicas de cada lib usada no projeto
-(pydantic, fastapi, mongo, langchain, sqlalchemy, redis, jev — um arquivo por lib, regra + exemplo do que
+(pydantic, fastapi, mongo, langchain, sqlalchemy, redis, jev, mercado — um arquivo por lib, regra + exemplo do que
 fazer e do que não fazer). `dependencies.md`, `responses.md`, `streaming.md`, `path-operations.md` e
 `other-tools.md` são material de referência do skill oficial do FastAPI, linkados a partir do
 `fastapi.md`. São achados reais do repo (muitos vêm de bugs já corrigidos, ver TODO.md),

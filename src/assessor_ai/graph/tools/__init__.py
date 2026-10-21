@@ -11,6 +11,7 @@ As instâncias abaixo são singletons de processo: o construtor só guarda a con
 """
 
 from assessor_ai.graph.tools.agenda.repo import AgendaRepo
+from assessor_ai.graph.tools.cotacao.repo import CotacaoRepo
 from assessor_ai.graph.tools.faq.repo import FaqRepo
 from assessor_ai.graph.tools.financeiro.repo import FinanceiroRepo
 from assessor_ai.graph.tools.perfil.repo import PerfilRepo
@@ -21,8 +22,10 @@ agenda     = AgendaRepo()
 faq        = FaqRepo()
 usuarios   = UsuariosRepo()
 perfil     = PerfilRepo()
+cotacao    = CotacaoRepo()
 
 FINANCEIRO_TOOLS = financeiro.as_tools()
+MERCADO_TOOLS    = cotacao.as_tools()
 AGENDA_TOOLS     = agenda.as_tools()
 FAQ_TOOLS        = faq.as_tools()
 PERFIL_TOOLS     = perfil.as_tools()
@@ -40,9 +43,11 @@ __all__ = [
     "AGENDA_TOOLS",
     "FAQ_TOOLS",
     "FINANCEIRO_TOOLS",
+    "MERCADO_TOOLS",
     "PERFIL_TOOLS",
     "agenda",
     "chats",
+    "cotacao",
     "faq",
     "financeiro",
     "perfil",

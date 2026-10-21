@@ -1,8 +1,10 @@
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from assessor_ai.infra.postgres import current_user_id
-from assessor_ai.schemas.models import ChatMessage, Role
-from assessor_ai.services import runner
+from app.domain.errors import UsuarioDaSessaoNaoDefinido
+from app.domain.models.chat import ChatMessage, Role
+from app.infra.context import current_user_id
+from app.services import runner
 
 
 class _FluxoFake:
@@ -22,7 +24,7 @@ def _patch_fluxo(monkeypatch, fake):
         async def get(self):
             return fake
 
-    monkeypatch.setattr("assessor_ai.services.runner.fluxo_agentes", _Fluxo())
+    monkeypatch.setattr("app.services.runner.fluxo_agentes", _Fluxo())
 
 
 async def test_executar_extrai_ultima_resposta_da_ia(monkeypatch):
@@ -44,13 +46,13 @@ async def test_executar_seta_current_user_durante_invoke_e_restaura_depois(monke
     _patch_fluxo(monkeypatch, fake)
     user_id = "22222222-2222-2222-2222-222222222222"
 
-    anterior = current_user_id()
     await runner.executar(
         ChatMessage(role=Role.HUMAN, content="oi"), "sess-1", "perfil", user_id
     )
 
     assert str(fake.user_id_durante_invoke) == user_id
-    assert current_user_id() == anterior
+    with pytest.raises(UsuarioDaSessaoNaoDefinido):  # o escopo não vaza pra fora do turno
+        current_user_id()
 
 
 async def test_executar_passa_thread_id_tags_e_metadata_pro_invoke(monkeypatch):

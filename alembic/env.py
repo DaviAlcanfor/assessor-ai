@@ -3,25 +3,25 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from assessor_ai.config import settings
+from app.infra.postgres import Base
 
 # Todo model precisa ser importado aqui: com os models fatiados por feature, o que não for
 # importado some do `Base.metadata` e o --autogenerate gera um DROP da tabela correspondente.
-from assessor_ai.graph.tools.agenda.models import Event  # noqa: F401
-from assessor_ai.graph.tools.financeiro.models import (  # noqa: F401
+from app.infra.postgres.models import (  # noqa: F401
     Category,
+    Event,
     Transaction,
+    User,
 )
-from assessor_ai.graph.tools.usuarios.models import User  # noqa: F401
-from assessor_ai.infra.postgres import Base
+from app.settings import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-# URL do banco vem de core/config.py (fonte única de env vars do projeto),
+# URL do banco vem de settings/database.py (fonte única de env vars do projeto),
 # nunca de alembic.ini nem de parsing próprio do .env.
-config.set_main_option("sqlalchemy.url", settings.POSTGRES_URL.get_secret_value())
+config.set_main_option("sqlalchemy.url", settings.database.postgres_url.get_secret_value())
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

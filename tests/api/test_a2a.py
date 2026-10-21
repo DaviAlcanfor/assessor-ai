@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-from assessor_ai.a2a.agents import interface as a2a_interface
-from assessor_ai.services import chat_service
+from app.api.a2a.sessions import sessoes
+from app.services import chat_service
 
 RPC_HEADERS = {"A2A-Version": "1.0"}
 
@@ -20,9 +20,9 @@ def _async(valor):
 
 @pytest.fixture(autouse=True)
 def _limpar_sessoes():
-    a2a_interface._sessoes.clear()
+    sessoes.limpar()
     yield
-    a2a_interface._sessoes.clear()
+    sessoes.limpar()
 
 
 async def _eco(_user_id, _chat_id, content):
@@ -87,7 +87,7 @@ def test_send_message_mesmo_context_id_reusa_sessao(client, monkeypatch):
 async def test_sessao_para_concorrente_mesmo_context_id_cria_uma_so_vez(monkeypatch):
     # Duas chamadas concorrentes pro mesmo context_id, antes do fix, passavam ambas pelo
     # `if context_id not in _sessoes` antes de qualquer uma terminar `iniciar_sessao()` — a
-    # segunda sobrescrevia a primeira em `_sessoes`, criando um chat órfão no Mongo.
+    # segunda sobrescrevia a primeira em `SessoesA2A`, criando um chat órfão no Mongo.
     chamadas = []
 
     async def _iniciar_devagar():
@@ -98,8 +98,8 @@ async def test_sessao_para_concorrente_mesmo_context_id_cria_uma_so_vez(monkeypa
     monkeypatch.setattr(chat_service, "iniciar_sessao", _iniciar_devagar)
 
     resultados = await asyncio.gather(
-        a2a_interface._sessao_para("ctx-concorrente"),
-        a2a_interface._sessao_para("ctx-concorrente"),
+        sessoes.obter("ctx-concorrente"),
+        sessoes.obter("ctx-concorrente"),
     )
 
     assert len(chamadas) == 1
@@ -117,4 +117,4 @@ def test_send_message_limite_excedido_vira_texto_de_erro(client, monkeypatch):
     resposta = client.post("/a2a", json=_payload("oi"), headers=RPC_HEADERS)
 
     assert resposta.status_code == 200
-    assert resposta.json()["result"]["message"]["parts"][0]["text"] == "limite atingido"
+    assert resposta.json()["result"]["message"]["parts"][0]["text"] == chat_service.LimiteDeMensagensExcedido.public_message

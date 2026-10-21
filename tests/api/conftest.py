@@ -4,8 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from guard import SecurityMiddleware
 
-from assessor_ai.api.app import app
-from assessor_ai.api.limiter import limiter
+from app.api.app import app
+from app.api.limiter import limiter
 
 
 @contextmanager

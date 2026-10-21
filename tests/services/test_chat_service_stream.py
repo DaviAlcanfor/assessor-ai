@@ -1,12 +1,11 @@
-from assessor_ai.api import limiter
-from assessor_ai.repositories import chat_repository
-from assessor_ai.schemas.execution import (
+from app.infra.redis import rate_limit as limiter
+from app.schemas.execution import (
     AnswerReady,
     RunFailed,
     RunFinished,
     RunStarted,
 )
-from assessor_ai.services import chat_service, runner
+from app.services import chat_service, runner, user_service
 from tests.fakes import ConnFake, FakeRedis
 
 
@@ -33,14 +32,14 @@ async def test_send_message_stream_persiste_uma_vez_ao_terminar_com_sucesso(monk
         "executar_stream",
         _stream_fake(RunStarted(), AnswerReady(content="resposta ok"), RunFinished()),
     )
-    monkeypatch.setattr(chat_repository, "buscar_perfil", _async("perfil"))
+    monkeypatch.setattr(user_service, "buscar_perfil", _async("perfil"))
 
     chamadas_salvar = []
 
     async def _salvar(user_id, session_id, mensagens):
         chamadas_salvar.append((user_id, session_id, mensagens))
 
-    monkeypatch.setattr(chat_repository, "salvar_mensagens", _salvar)
+    monkeypatch.setattr(chat_service, "_salvar_mensagens", _salvar)
 
     eventos = [e async for e in chat_service.send_message_stream("user-1", "chat-1", "oi")]
 
@@ -63,7 +62,7 @@ async def test_send_message_stream_rate_limit_nao_persiste_e_emite_run_failed(mo
         nonlocal chamado
         chamado = True
 
-    monkeypatch.setattr(chat_repository, "salvar_mensagens", _salvar)
+    monkeypatch.setattr(chat_service, "_salvar_mensagens", _salvar)
 
     eventos = [e async for e in chat_service.send_message_stream("user-1", "chat-1", "oi")]
 
@@ -77,7 +76,7 @@ async def test_send_message_stream_run_failed_do_agente_nao_persiste(monkeypatch
     monkeypatch.setattr(
         runner, "executar_stream", _stream_fake(RunStarted(), RunFailed(message="deu ruim"))
     )
-    monkeypatch.setattr(chat_repository, "buscar_perfil", _async("perfil"))
+    monkeypatch.setattr(user_service, "buscar_perfil", _async("perfil"))
 
     chamado = False
 
@@ -85,7 +84,7 @@ async def test_send_message_stream_run_failed_do_agente_nao_persiste(monkeypatch
         nonlocal chamado
         chamado = True
 
-    monkeypatch.setattr(chat_repository, "salvar_mensagens", _salvar)
+    monkeypatch.setattr(chat_service, "_salvar_mensagens", _salvar)
 
     eventos = [e async for e in chat_service.send_message_stream("user-1", "chat-1", "oi")]
 

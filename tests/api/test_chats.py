@@ -1,10 +1,10 @@
-from assessor_ai.api.app import app
-from assessor_ai.api.auth import get_current_principal, get_current_user
-from assessor_ai.schemas.auth import AuthMethod, Principal
-from assessor_ai.schemas.models import ChatMessage
-from assessor_ai.schemas.models import Role as DomainRole
-from assessor_ai.services import chat_service
-from assessor_ai.services.exceptions import FalhaNoAgente, LimiteDeMensagensExcedido
+from app.api.app import app
+from app.api.auth import get_current_principal, get_current_user
+from app.domain.errors import FalhaNoAgente, LimiteDeMensagensExcedido
+from app.domain.models.chat import ChatMessage
+from app.domain.models.chat import Role as DomainRole
+from app.schemas.auth import AuthMethod, Principal
+from app.services import chat_service
 
 HEADERS = {"X-API-Key": "irrelevante-porque-a-dependencia-e-mockada"}
 

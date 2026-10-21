@@ -1,10 +1,13 @@
+import pytest
 from langchain_core.messages import AIMessage
 
-from assessor_ai.graph.agents.nodes.names import GUARDRAIL_SAIDA, ROTEADOR
-from assessor_ai.graph.state import Route
-from assessor_ai.identifiers import UserID
-from assessor_ai.infra.postgres import current_user_id
-from assessor_ai.schemas.execution import (
+from app.domain.errors import UsuarioDaSessaoNaoDefinido
+from app.domain.models.chat import ChatMessage, Role
+from app.domain.types import UserID
+from app.graph.names import GUARDRAIL_SAIDA, ROTEADOR
+from app.graph.state import Route
+from app.infra.context import current_user_id
+from app.schemas.execution import (
     AnswerReady,
     NodeFinished,
     NodeStarted,
@@ -13,8 +16,7 @@ from assessor_ai.schemas.execution import (
     RunFinished,
     RunStarted,
 )
-from assessor_ai.schemas.models import ChatMessage, Role
-from assessor_ai.services import runner
+from app.services import runner
 
 
 def _evento(nome, tipo, output=None):
@@ -142,10 +144,10 @@ async def test_executar_stream_erro_gera_run_failed(monkeypatch):
 async def test_executar_stream_restaura_current_user_mesmo_com_erro(monkeypatch):
     _patch_fluxo(monkeypatch, _FluxoQueEstoura())
 
-    anterior = current_user_id()
     await _coletar(user_id="22222222-2222-2222-2222-222222222222")
 
-    assert current_user_id() == anterior
+    with pytest.raises(UsuarioDaSessaoNaoDefinido):  # o escopo não vaza, nem com erro no meio
+        current_user_id()
 
 
 async def test_executar_stream_seta_current_user_durante_execucao(monkeypatch):

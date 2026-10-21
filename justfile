@@ -15,7 +15,7 @@ run mode="tui":
 
 api:
     @echo "Running the API locally (localhost:8000, auth por API key desligada — pareia com just web)"
-    $env:API_KEY_AUTH_ENABLED = "false"; just run api
+    $env:API__KEY_AUTH_ENABLED = "false"; just run api
 
 front:
     @echo "Running the frontend dev server (proxy pra API em localhost:8000)"

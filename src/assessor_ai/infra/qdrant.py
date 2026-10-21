@@ -8,9 +8,9 @@ a cada pergunta do FAQ — objeto de client, não de request.
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from qdrant_client import QdrantClient
 
-from assessor_ai.config import settings
 from assessor_ai.infra.base import Conector
-from assessor_ai.models import Model
+from assessor_ai.settings import settings
+from assessor_ai.settings.llm import Model
 
 VECTOR_SIZE = 768
 
@@ -27,7 +27,7 @@ class QdrantConn(Conector[QdrantClient]):
     def conectar(self) -> QdrantClient:
         if self._client is None:
             self._client = QdrantClient(
-                url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY.get_secret_value()
+                url=settings.database.qdrant_url, api_key=settings.database.qdrant_api_key.get_secret_value() or None
             )
 
         return self._client

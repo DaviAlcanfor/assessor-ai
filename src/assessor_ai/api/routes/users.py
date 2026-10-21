@@ -9,15 +9,15 @@ evitando enumeração de usuários em produção.
 from fastapi import APIRouter, HTTPException, Request, status
 
 from assessor_ai.api.limiter import limiter
-from assessor_ai.config import settings
 from assessor_ai.schemas.user import UserCreate, UserResponse
 from assessor_ai.services import chat_service
+from assessor_ai.settings import settings
 
 router = APIRouter(prefix="/v1/users", tags=["users"])
 
 
 def _garantir_modo_dev() -> None:
-    if settings.API_KEY_AUTH_ENABLED:
+    if settings.api.key_auth_enabled:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
 

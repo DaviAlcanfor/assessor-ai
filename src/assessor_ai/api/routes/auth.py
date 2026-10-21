@@ -16,30 +16,30 @@ from assessor_ai.api.auth import (
     SessionCookieDep,
     get_current_user,
 )
-from assessor_ai.config import settings
 from assessor_ai.identifiers import SessionToken, UserID
 from assessor_ai.schemas.auth import CurrentPrincipalResponse, SessionCreateResponse
+from assessor_ai.settings import settings
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 
 def _set_session_cookies(response: Response, session_token: str, csrf_token: str) -> None:
     response.set_cookie(
-        settings.SESSION_COOKIE_NAME,
+        settings.api.session_cookie_name,
         session_token,
-        max_age=settings.SESSION_TTL_SECONDS,
+        max_age=settings.api.session_ttl_seconds,
         path="/",
-        secure=settings.SESSION_COOKIE_SECURE,
+        secure=settings.api.session_cookie_secure,
         httponly=True,
         samesite="lax",
     )
     
     response.set_cookie(
-        settings.CSRF_COOKIE_NAME,
+        settings.api.csrf_cookie_name,
         csrf_token,
-        max_age=settings.SESSION_TTL_SECONDS,
+        max_age=settings.api.session_ttl_seconds,
         path="/",
-        secure=settings.SESSION_COOKIE_SECURE,
+        secure=settings.api.session_cookie_secure,
         httponly=False,
         samesite="lax",
     )
@@ -52,7 +52,7 @@ async def create_session(
     session_token, csrf_token = session_store.criar_sessao(user_id)
     _set_session_cookies(response, session_token, csrf_token)
 
-    expires_at = datetime.now(UTC) + timedelta(seconds=settings.SESSION_TTL_SECONDS)
+    expires_at = datetime.now(UTC) + timedelta(seconds=settings.api.session_ttl_seconds)
     return SessionCreateResponse(user_id=user_id, expires_at=expires_at)
 
 
@@ -66,8 +66,8 @@ async def delete_session(response: Response, session_token: SessionCookieDep) ->
     if session_token is not None:
         session_store.revogar_sessao(SessionToken(session_token))
 
-    response.delete_cookie(settings.SESSION_COOKIE_NAME, path="/")
-    response.delete_cookie(settings.CSRF_COOKIE_NAME, path="/")
+    response.delete_cookie(settings.api.session_cookie_name, path="/")
+    response.delete_cookie(settings.api.csrf_cookie_name, path="/")
 
 
 __all__ = ["router"]

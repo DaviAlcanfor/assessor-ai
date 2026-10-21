@@ -3,9 +3,9 @@ import pytest
 import assessor_ai.api.routes.keys as keys_route
 from assessor_ai.api.app import app
 from assessor_ai.api.auth import verify_signup_secret
-from assessor_ai.config import settings
 from assessor_ai.graph.tools import usuarios
 from assessor_ai.services import chat_service
+from assessor_ai.settings import settings
 
 
 def _async(valor):
@@ -85,7 +85,7 @@ def test_create_key_signup_secret_valido_segue_fluxo(client, monkeypatch):
     resposta = client.post(
         "/v1/keys",
         json={"nome": "Davi", "email": "davi@example.com"},
-        headers={"X-Signup-Secret": settings.SIGNUP_SECRET.get_secret_value()},
+        headers={"X-Signup-Secret": settings.api_keys.signup_secret.get_secret_value()},
     )
 
     assert resposta.status_code == 201

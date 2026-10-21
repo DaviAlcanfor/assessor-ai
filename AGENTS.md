@@ -16,8 +16,8 @@ e tools estão no [README.md](README.md) — leia-o antes de mexer em `graph/age
 - Python 3.13+, gerenciado com `uv` (`uv venv`, `uv sync`, `uv add <pkg>`)
 - LangChain 1.2 / LangGraph 1.1 para orquestração de agentes
 - LLMs: Gemini (`gemini-2.5-flash`) e Groq (`openai/gpt-oss-120b`), com GPT-6 Luna (Vercel AI Gateway,
-  opcional) no fim das cadeias de fallback. Claude e Qwen mapeados em `models.py` mas fora das cadeias.
-  Config por provider em `config.py` (`settings.llm.<provider>`, `LLM__<PROVIDER>__*` no .env)
+  opcional) no fim das cadeias de fallback. Claude e Qwen mapeados em `infra/llm/registry.py` mas fora das cadeias.
+  Config por provider em `settings/llm.py` (`settings.llm.<provider>`, `LLM__<PROVIDER>__*` no .env)
 - JeV (TypeSafe), pela Decisions API do Vercel AI Gateway (`infra/jev/`): decide sem gerar texto o
   guardrail de entrada e o roteador; se falhar, o LLM assume. Ver `.agents/skills/jev.md`
 - PostgreSQL para transações, eventos e checkpoint do LangGraph, acessado via SQLAlchemy ORM (`graph/tools/{financeiro,agenda,usuarios}/models.py`) +
@@ -44,7 +44,7 @@ schemas/    contratos de dados: models.py (ChatMessage/Role, interno), chat.py, 
 tui/        interface Textual; a2a/ protocolo A2A montado no mesmo app FastAPI
 graph/      agentes compilados, nodes, prompts, tools, state.py, llm.py e builder.py
 infra/      conexões compartilhadas (postgres, mongo, redis, qdrant) e cache de perfil
-config.py, models.py, logging.py, privacy.py, identifiers.py
+settings/, infra/llm/, logging.py, privacy.py, identifiers.py
 tests/      espelha src/assessor_ai/ — só funções puras e serviços com grafo/I/O mockado (ver TODO.md)
 data/       documents/ — PDFs para RAG
 ```
@@ -190,9 +190,9 @@ Padrões já em uso no repo — mantenha-os ao adicionar código novo:
 - **Contrato de retorno único.** Tools não retornam dict cru nem deixam exception vazar para o
   agente — usam `Response` (`graph/tools/response.py`) como envelope padrão de sucesso/erro. Ao criar
   tool nova, reusar essa classe em vez de inventar outro formato de retorno.
-- **Config centralizada.** Uma única fonte de env vars (`config.py`, `pydantic-settings`, com
+- **Config centralizada.** Uma única fonte de env vars (`settings/`, `pydantic-settings`, com
   toda credencial — inclusive URLs de conexão — como `SecretStr`) e um único enum fechado de
-  modelos/providers (`models.py:Model`/`PROVIDER_MAP`). Não ler
+  modelos/providers (`settings/llm.py:Model` + `infra/llm/registry.py:PROVIDER_MAP`). Não ler
   `os.environ` direto em outros módulos.
 - **Entrypoint fino.** `main.py` só faz dispatch por argv (`terminal`/`tui`/`api`) — nenhuma lógica
   de negócio nele. Lógica de negócio nova vai em `services/`, nunca de volta pra `main.py`.

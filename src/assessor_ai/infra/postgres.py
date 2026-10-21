@@ -28,11 +28,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from assessor_ai.config import settings
 from assessor_ai.graph.tools.response import Response, ToolResponse
 from assessor_ai.infra.base import Conector
 from assessor_ai.logging import get_logger
 from assessor_ai.privacy import anonimizar_entrada
+from assessor_ai.settings import settings
 
 
 def _redigir(valor: object) -> str:
@@ -103,7 +103,7 @@ class PostgresConn(Conector[Engine]):
 
     def conectar(self) -> Engine:
         if self._engine is None:
-            self._engine = create_engine(settings.POSTGRES_URL.get_secret_value(), pool_size=10)
+            self._engine = create_engine(settings.database.postgres_url.get_secret_value(), pool_size=10)
             self._session_factory = sessionmaker(bind=self._engine)
 
         return self._engine
@@ -133,7 +133,7 @@ class PostgresConn(Conector[Engine]):
 
         if self._pool is None:
             self._pool = AsyncConnectionPool(
-                settings.POSTGRES_URL.get_secret_value(),
+                settings.database.postgres_url.get_secret_value(),
                 kwargs={"autocommit": True, "row_factory": dict_row},
                 open=False,
                 check=AsyncConnectionPool.check_connection,

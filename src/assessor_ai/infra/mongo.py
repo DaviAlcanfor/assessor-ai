@@ -7,8 +7,8 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.database import Database
 
-from assessor_ai.config import settings
 from assessor_ai.infra.base import Conector
+from assessor_ai.settings import settings
 
 
 class MongoConn(Conector[MongoClient[dict[str, Any]]]):
@@ -18,7 +18,7 @@ class MongoConn(Conector[MongoClient[dict[str, Any]]]):
     def conectar(self) -> MongoClient[dict[str, Any]]:
         if self._client is None:
             self._client = MongoClient(
-                settings.MONGO_URL.get_secret_value(),
+                settings.database.mongo_url.get_secret_value(),
                 maxPoolSize=10,
                 minPoolSize=1,
                 maxIdleTimeMS=60000,
@@ -33,7 +33,7 @@ class MongoConn(Conector[MongoClient[dict[str, Any]]]):
 
     @property
     def banco(self) -> Database[dict[str, Any]]:
-        return self.client[settings.MONGO_COLLECTION_NAME]
+        return self.client[settings.database.mongo_collection_name]
 
     def collection(self, nome: str) -> Collection[dict[str, Any]]:
         return self.banco[nome]

@@ -118,8 +118,7 @@ assessor-ai/
 │   │       ├── capabilites.py       # AgentSkill(s) expostas no card
 │   │       └── interface.py         # AssessorAgentExecutor — ponte pro services/chat_service.py
 │   │
-│   ├── config.py                    # Env vars via pydantic-settings; credenciais em SecretStr
-│   ├── models.py                    # Model Enum, PROVIDER_MAP, BUILDERS (config por provider em config.py)
+│   ├── settings/                    # pydantic-settings por grupo: api, api_keys, database, llm (Model + um Provedor por provider), observability
 │   ├── logging.py                   # ColorFormatter, get_logger e o decorator log_tool
 │   ├── privacy.py                   # Regex de PII + anonimizar_entrada
 │   ├── identifiers.py               # UserID, ChatID, APIKey, APIKeyHash e geradores de IDs
@@ -301,28 +300,29 @@ O RAG do FAQ roda sobre o Qdrant (`graph/tools/faq/`) — substituiu o índice F
 
 ### Variáveis de ambiente
 
+O `settings/` agrupa a configuração e o grupo vira prefixo com `__` no `.env`
+(`DATABASE__POSTGRES_URL`, `LLM__GROQ__API_KEY`). Variável com nome errado **não dá erro**
+(`extra="ignore"`): ela só some — confira com `python -c "from assessor_ai.settings import settings; print(settings)"`.
+
 ```env
 LLM__GEMINI__API_KEY=...
 LLM__GROQ__API_KEY=...
 LLM__GATEWAY__API_KEY=...      # opcional — Vercel AI Gateway: GPT-6 Luna nas cadeias; JeV no guardrail e roteador
-POSTGRES_URL=postgresql://usuario:senha@host:5432/banco
-MONGO_URL=mongodb://usuario:senha@host:27017/
-MONGO_COLLECTION_NAME=assessor
-REDIS_URL=redis://host:6379/0
-QDRANT_URL=http://host:6333
-QDRANT_COLLECTION_NAME=faq
-SIGNUP_SECRET=...
-LANGSMITH_TRACING=false
-LANGSMITH_API_KEY=...
-LANGSMITH_PROJECT=assessor-ai
-API_KEY_AUTH_ENABLED=true
+DATABASE__POSTGRES_URL=postgresql://usuario:senha@host:5432/banco
+DATABASE__MONGO_URL=mongodb://usuario:senha@host:27017/
+DATABASE__MONGO_COLLECTION_NAME=assessor
+DATABASE__REDIS_URL=redis://host:6379/0
+DATABASE__QDRANT_URL=http://host:6333
+DATABASE__QDRANT_COLLECTION_NAME=faq
+API_KEYS__SIGNUP_SECRET=...
+OBSERVABILITY__LANGSMITH_TRACING=false
+OBSERVABILITY__LANGSMITH_API_KEY=...
+OBSERVABILITY__LANGSMITH_PROJECT=assessor-ai
+API__KEY_AUTH_ENABLED=true
+API__A2A_BASE_URL=http://localhost:8000
 ```
 
-Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `SIGNUP_SECRET` é obrigatório — sem ele `Settings()` falha ao importar; é o valor exigido no header `X-Signup-Secret` do `POST /v1/keys`. `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo). `API_KEY_AUTH_ENABLED` é opcional (default `true`) — com `false`, `/v1/chats` para de exigir `X-API-Key` e passa a reaproveitar/criar um usuário padrão a cada request (`chat_service.obter_usuario_padrao`, mesmo bootstrap do terminal/TUI); é um desligamento temporário pro estágio atual do projeto, não uma remoção — a chave de rota, `api/auth.py:get_current_user`, continua existindo e testada (ver `TODO.md`).
-A2A_BASE_URL=http://localhost:8000
-```
-
-Ver [.env.example](.env.example) para a referência completa (inclui `QDRANT_API_KEY` opcional, usada só em instâncias cloud do Qdrant). `SIGNUP_SECRET` é obrigatório — sem ele `Settings()` falha ao importar; é o valor exigido no header `X-Signup-Secret` do `POST /v1/keys`. `LANGSMITH_*` é opcional — só ativa tracing/observabilidade do grafo se `LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade) abaixo). `A2A_BASE_URL` é opcional (default já cobre execução local) — só muda a URL declarada no `AgentCard` do A2A (ver seção [A2A](#a2a) acima).
+Ver [.env.example](.env.example) para a referência completa (inclui `DATABASE__QDRANT_API_KEY`, usada só em instâncias cloud do Qdrant). `API_KEYS__SIGNUP_SECRET` é obrigatório — sem ele `Settings()` falha ao importar; é o valor exigido no header `X-Signup-Secret` do `POST /v1/keys`. `OBSERVABILITY__LANGSMITH_*` é opcional — só ativa tracing se `OBSERVABILITY__LANGSMITH_TRACING=true` (ver seção [Observabilidade](#observabilidade)). `API__KEY_AUTH_ENABLED` é opcional (default `true`) — com `false`, `/v1/chats` para de exigir `X-API-Key` e passa a reaproveitar/criar um usuário padrão a cada request (`chat_service.obter_usuario_padrao`, mesmo bootstrap do terminal/TUI); é um desligamento temporário pro estágio atual do projeto (ver `TODO.md`). `API__A2A_BASE_URL` só muda a URL declarada no `AgentCard` do A2A (ver seção [A2A](#a2a)). Com `ENVIRONMENT=production` o `Settings` recusa auth desligada, cookie sem `Secure` e CORS `*`.
 
 ### Instalação
 
@@ -368,7 +368,7 @@ atrapalha o caso de uso A2A entre agentes (ver `TODO.md`).
 
 ### Migrations (Alembic)
 
-Schema do PostgreSQL versionado em `alembic/versions/` (`POSTGRES_URL` configurado):
+Schema do PostgreSQL versionado em `alembic/versions/` (`DATABASE__POSTGRES_URL` configurado):
 
 ```bash
 uv run alembic upgrade head
@@ -389,7 +389,7 @@ vez em quando pra garantir que os models continuam batendo exatamente com o sche
 ## Observabilidade
 
 Tracing dos agentes via [LangSmith](https://smith.langchain.com/) — opcional, desligado por padrão
-(`LANGSMITH_TRACING=false`). Quando ligado, `graph.ainvoke()` (`services/runner.py:executar`) é
+(`OBSERVABILITY__LANGSMITH_TRACING=false`). Quando ligado, `graph.ainvoke()` (`services/runner.py:executar`) é
 rastreado automaticamente pelo LangChain/LangGraph, incluindo cada nó (guardrail, router,
 financeiro, agenda, faq, orquestrador) e cada chamada de LLM — sem precisar instrumentar nada à
 mão. `runner.py` também passa `tags=["chat"]` e `metadata={"user_id", "session_id"}` no `config`

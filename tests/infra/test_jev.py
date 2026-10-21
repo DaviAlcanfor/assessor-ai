@@ -7,11 +7,11 @@ import httpx
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from assessor_ai.config import settings
 from assessor_ai.infra import jev
 from assessor_ai.infra.jev import client
 from assessor_ai.infra.jev.schemas import PerguntaEscolha, PerguntaPredicado
 from assessor_ai.metrics import JEV_DECISIONS
+from assessor_ai.settings import settings
 
 
 class _Cor(StrEnum):

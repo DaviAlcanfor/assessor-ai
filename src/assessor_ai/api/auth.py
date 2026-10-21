@@ -5,14 +5,14 @@ from fastapi import Depends, Header, HTTPException, Security, status
 from fastapi.security import APIKeyCookie, APIKeyHeader
 
 from assessor_ai.api import session_store
-from assessor_ai.config import settings
 from assessor_ai.graph.tools import usuarios
 from assessor_ai.identifiers import APIKey, CsrfToken, SessionToken, UserID
 from assessor_ai.schemas.auth import AuthMethod, Principal
 from assessor_ai.services import chat_service
+from assessor_ai.settings import settings
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-_session_cookie = APIKeyCookie(name=settings.SESSION_COOKIE_NAME, auto_error=False)
+_session_cookie = APIKeyCookie(name=settings.api.session_cookie_name, auto_error=False)
 _signup_secret_header = APIKeyHeader(name="X-Signup-Secret")
 
 SessionCookieDep = Annotated[str | None, Security(_session_cookie)]
@@ -21,7 +21,7 @@ SessionCookieDep = Annotated[str | None, Security(_session_cookie)]
 async def _resolve_principal(
     api_key: str | None, session_token: str | None, x_user_id: str | None
 ) -> Principal:
-    if not settings.API_KEY_AUTH_ENABLED:
+    if not settings.api.key_auth_enabled:
         # ponytail: bypass de auth deliberado — só vale enquanto API_KEY_AUTH_ENABLED=false.
         # Permite o frontend em modo dev escolher o usuário sem precisar de API key.
         user_id = UserID(x_user_id) if x_user_id else await chat_service.obter_usuario_padrao()
@@ -93,5 +93,5 @@ CsrfDep = Depends(validar_csrf_request)
 
 
 def verify_signup_secret(secret: str = Security(_signup_secret_header)) -> None:
-    if not secrets.compare_digest(secret, settings.SIGNUP_SECRET.get_secret_value()):
+    if not secrets.compare_digest(secret, settings.api_keys.signup_secret.get_secret_value()):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid signup secret")

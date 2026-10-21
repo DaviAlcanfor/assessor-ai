@@ -1,5 +1,5 @@
 from assessor_ai.api import session_store
-from assessor_ai.config import settings
+from assessor_ai.settings import settings
 from tests.fakes import ConnFake, FakeRedis
 
 
@@ -39,4 +39,4 @@ def test_sessao_grava_com_ttl(monkeypatch):
     session_store.criar_sessao("user-1")
     chave = next(iter(fake.ttls))
 
-    assert fake.ttls[chave] == settings.SESSION_TTL_SECONDS
+    assert fake.ttls[chave] == settings.api.session_ttl_seconds

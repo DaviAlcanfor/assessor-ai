@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 import httpx
 
-from assessor_ai.config import settings
 from assessor_ai.infra.jev.schemas import (
     Escolha,
     Nota,
@@ -24,7 +23,8 @@ from assessor_ai.infra.jev.schemas import (
     RespostaDecisao,
 )
 from assessor_ai.metrics import JEV_DECISIONS, LLM_TOKENS
-from assessor_ai.models import Model
+from assessor_ai.settings import settings
+from assessor_ai.settings.llm import Model
 
 
 @dataclass(frozen=True)

@@ -17,7 +17,7 @@ from assessor_ai.metrics import (
     TOOL_DURATION,
     TOOL_RUNS,
 )
-from assessor_ai.models import Model
+from assessor_ai.settings.llm import Model
 
 # get_args(NodeName) sozinho devolve () — NodeName é um `type` alias (PEP 695), get_args só
 # enxerga o Literal por trás dele via `.__value__`.

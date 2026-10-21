@@ -3,7 +3,7 @@ from importlib.metadata import version
 from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentProvider
 
 from assessor_ai.a2a.agents.capabilites import SKILLS
-from assessor_ai.config import settings
+from assessor_ai.settings import settings
 
 AGENT_CARD = AgentCard(
     name="Assessor AI",
@@ -14,7 +14,7 @@ AGENT_CARD = AgentCard(
     provider=AgentProvider(organization="Assessor AI"),
     supported_interfaces=[
         AgentInterface(
-            url=f"{settings.A2A_BASE_URL}/a2a",
+            url=f"{settings.api.a2a_base_url}/a2a",
             protocol_binding="JSONRPC",
             protocol_version="1.0",
         ),

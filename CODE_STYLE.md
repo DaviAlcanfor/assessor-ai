@@ -74,14 +74,14 @@ I/O bloqueante entra pelo mesmo caminho, nunca direto no event loop.
 agente — usam `Response` (`graph/tools/response.py`) como envelope padrão de sucesso/erro. Ao criar tool
 nova, reusar essa classe em vez de inventar outro formato de retorno.
 
-**Config centralizada.** Uma única fonte de env vars (`config.py`, `pydantic-settings`) e
-um único enum fechado de modelos/providers (`models.py:Model`/`PROVIDER_MAP`). Não ler
+**Config centralizada.** Uma única fonte de env vars (`settings/`, `pydantic-settings`) e
+um único enum fechado de modelos/providers (`settings/llm.py:Model` + `infra/llm/registry.py:PROVIDER_MAP`). Não ler
 `os.environ` direto em outros módulos. Campo que carrega credencial é `SecretStr`, **incluindo as
 URLs de conexão** (elas trazem usuário e senha embutidos): o `repr` sai mascarado e o valor real só
 sai com `.get_secret_value()` explícito no ponto de uso. Nunca logar o objeto `Settings` inteiro.
 
 **Infra transversal fica na raiz do pacote, sem dependência de camada.** O que tem consumidor em
-mais de uma camada fica em `config.py`, `logging.py`, `privacy.py`, `identifiers.py` ou `infra/`
+mais de uma camada fica em `settings/`, `logging.py`, `privacy.py`, `identifiers.py` ou `infra/`
 (incluindo `cache.py`) — `api/limiter.py` e `api/middleware.py` pertencem à camada HTTP. Regra
 prática: se `graph/agents/`, `services/` e `api/` usam a mesma coisa, ela não pertence a nenhum
 dos três.

@@ -13,17 +13,13 @@ jobs:
       # (sem I/O real) — valores dummy bastam pra `Settings()` não quebrar na coleta.
       LLM__GEMINI__API_KEY: dummy
       LLM__GROQ__API_KEY: dummy
-      POSTGRES_URL: postgresql://user:pass@localhost:5432/db
-      MONGO_URL: mongodb://localhost:27017/
-      MONGO_COLLECTION_NAME: assessor
-      REDIS_URL: redis://localhost:6379/0
-      QDRANT_URL: http://localhost:6333
-      QDRANT_API_KEY: dummy
-      QDRANT_COLLECTION_NAME: faq
-      SIGNUP_SECRET: dummy
-      LANGSMITH_TRACING: "false"
-      LANGSMITH_API_KEY: dummy
-      LANGSMITH_PROJECT: assessor-ai
+      DATABASE__POSTGRES_URL: postgresql://user:pass@localhost:5432/db
+      DATABASE__MONGO_URL: mongodb://localhost:27017/
+      DATABASE__MONGO_COLLECTION_NAME: assessor
+      DATABASE__REDIS_URL: redis://localhost:6379/0
+      DATABASE__QDRANT_URL: http://localhost:6333
+      DATABASE__QDRANT_COLLECTION_NAME: faq
+      API_KEYS__SIGNUP_SECRET: dummy
     steps:
       - uses: actions/checkout@v7
 

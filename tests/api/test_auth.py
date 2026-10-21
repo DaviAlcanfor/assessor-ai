@@ -37,14 +37,14 @@ async def test_get_current_user_rejeita_chave_ausente(monkeypatch):
 
 
 async def test_get_current_user_com_auth_desligada_ignora_chave(monkeypatch):
-    monkeypatch.setattr(auth.settings, "API_KEY_AUTH_ENABLED", False)
+    monkeypatch.setattr(auth.settings.api, "key_auth_enabled", False)
     monkeypatch.setattr(auth.chat_service, "obter_usuario_padrao", _async("user-padrao"))
 
     assert await auth.get_current_user(api_key=None, x_user_id=None) == "user-padrao"
 
 
 async def test_get_current_user_com_auth_desligada_usa_x_user_id_se_vier(monkeypatch):
-    monkeypatch.setattr(auth.settings, "API_KEY_AUTH_ENABLED", False)
+    monkeypatch.setattr(auth.settings.api, "key_auth_enabled", False)
     monkeypatch.setattr(auth.chat_service, "obter_usuario_padrao", _async("user-padrao"))
 
     assert await auth.get_current_user(api_key=None, x_user_id="user-escolhido") == "user-escolhido"

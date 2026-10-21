@@ -13,7 +13,7 @@ def _async(valor):
 
 
 def test_list_users_com_auth_ligada_retorna_404(client, monkeypatch):
-    monkeypatch.setattr(users_route.settings, "API_KEY_AUTH_ENABLED", True)
+    monkeypatch.setattr(users_route.settings.api, "key_auth_enabled", True)
 
     resposta = client.get("/v1/users")
 
@@ -21,7 +21,7 @@ def test_list_users_com_auth_ligada_retorna_404(client, monkeypatch):
 
 
 def test_create_user_com_auth_ligada_retorna_404(client, monkeypatch):
-    monkeypatch.setattr(users_route.settings, "API_KEY_AUTH_ENABLED", True)
+    monkeypatch.setattr(users_route.settings.api, "key_auth_enabled", True)
 
     resposta = client.post("/v1/users", json={"nome": "Ana", "email": "ana@example.com"})
 
@@ -29,7 +29,7 @@ def test_create_user_com_auth_ligada_retorna_404(client, monkeypatch):
 
 
 def test_list_users_com_auth_desligada_lista_usuarios(client, monkeypatch):
-    monkeypatch.setattr(users_route.settings, "API_KEY_AUTH_ENABLED", False)
+    monkeypatch.setattr(users_route.settings.api, "key_auth_enabled", False)
     monkeypatch.setattr(
         chat_service,
         "listar_usuarios",
@@ -43,7 +43,7 @@ def test_list_users_com_auth_desligada_lista_usuarios(client, monkeypatch):
 
 
 def test_create_user_com_auth_desligada_cria_usuario(client, monkeypatch):
-    monkeypatch.setattr(users_route.settings, "API_KEY_AUTH_ENABLED", False)
+    monkeypatch.setattr(users_route.settings.api, "key_auth_enabled", False)
     monkeypatch.setattr(chat_service, "obter_ou_criar_usuario", _async("novo-id"))
 
     resposta = client.post("/v1/users", json={"nome": "Ana", "email": "ana@example.com"})

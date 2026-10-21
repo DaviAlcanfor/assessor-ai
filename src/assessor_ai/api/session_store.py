@@ -12,10 +12,10 @@ from typing import cast
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from assessor_ai.config import settings
 from assessor_ai.identifiers import CsrfToken, SessionToken, UserID
 from assessor_ai.infra.redis import redis
 from assessor_ai.logging import get_logger
+from assessor_ai.settings import settings
 
 logger = get_logger(__name__)
 
@@ -40,7 +40,7 @@ def criar_sessao(user_id: UserID) -> tuple[SessionToken, CsrfToken]:
     csrf_token = CsrfToken(secrets.token_urlsafe(32))
     record = SessionRecord(user_id=user_id, csrf_hash=_hash(csrf_token))
 
-    redis.client.set(_chave(session_token), record.model_dump_json(), ex=settings.SESSION_TTL_SECONDS)
+    redis.client.set(_chave(session_token), record.model_dump_json(), ex=settings.api.session_ttl_seconds)
 
     return session_token, csrf_token
 

@@ -9,10 +9,10 @@ Dois limites independentes, que só compartilham o Redis:
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from assessor_ai.config import settings
 from assessor_ai.identifiers import UserID
 from assessor_ai.infra.redis import redis
 from assessor_ai.logging import get_logger
+from assessor_ai.settings import settings
 
 logger = get_logger(__name__)
 
@@ -31,8 +31,8 @@ def _chave_mensagem(user_id: UserID) -> str:
 # (10-20/min) estrangulam o frontend local navegando entre chats.
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri=settings.REDIS_URL.get_secret_value(),
-    enabled=settings.API_KEY_AUTH_ENABLED,
+    storage_uri=settings.database.redis_url.get_secret_value(),
+    enabled=settings.api.key_auth_enabled,
 )
 
 

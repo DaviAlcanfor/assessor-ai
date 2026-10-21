@@ -13,10 +13,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-from assessor_ai.config import settings
 from assessor_ai.infra.qdrant import VECTOR_SIZE, qdrant
 from assessor_ai.logging import get_logger
-from assessor_ai.models import Model
+from assessor_ai.settings import settings
+from assessor_ai.settings.llm import Model
 
 logger = get_logger("qdrant_ingest")
 
@@ -59,9 +59,9 @@ def _embed_em_lotes(embeddings: GoogleGenerativeAIEmbeddings, textos: list[str])
 
 
 def _ensure_collection_exists(client: QdrantClient) -> None:
-    if not client.collection_exists(settings.QDRANT_COLLECTION_NAME):
+    if not client.collection_exists(settings.database.qdrant_collection_name):
         client.create_collection(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
+            collection_name=settings.database.qdrant_collection_name,
             vectors_config=VectorParams(size=_VECTOR_SIZE, distance=Distance.COSINE),
         )
 
@@ -87,7 +87,7 @@ def _store_documents_in_qdrant(
         for texto, vetor, chunk in zip(textos, vetores, chunks, strict=True)
     ]
 
-    client.upsert(collection_name=settings.QDRANT_COLLECTION_NAME, points=pontos)
+    client.upsert(collection_name=settings.database.qdrant_collection_name, points=pontos)
 
 
 def ingest() -> None:
@@ -97,7 +97,7 @@ def ingest() -> None:
     _ensure_collection_exists(client)
     _store_documents_in_qdrant(client, embeddings, chunks)
 
-    logger.info("INGESTÃO OK | collection=%s chunks=%d", settings.QDRANT_COLLECTION_NAME, len(chunks))
+    logger.info("INGESTÃO OK | collection=%s chunks=%d", settings.database.qdrant_collection_name, len(chunks))
 
 
 if __name__ == "__main__":

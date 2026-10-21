@@ -1,10 +1,10 @@
 from langchain_core.tools import StructuredTool
 
-from assessor_ai.config import settings
 from assessor_ai.graph.tools.faq.schemas import FaqRetrieverArgs, SearchResponse
 from assessor_ai.graph.tools.response import Response, ToolResponse
 from assessor_ai.infra.qdrant import QdrantConn, qdrant
 from assessor_ai.logging import get_logger
+from assessor_ai.settings import settings
 
 logger = get_logger("qdrant_faq")
 
@@ -28,7 +28,7 @@ class FaqRepo:
         """
 
         try:
-            colecao = settings.QDRANT_COLLECTION_NAME
+            colecao = settings.database.qdrant_collection_name
 
             if not self.conn.client.collection_exists(colecao):
                 logger.error(

@@ -11,7 +11,7 @@ warnings.filterwarnings(
     message=r".*allowed_objects.*",
 )
 
-from assessor_ai.tui import app as tui_app
+from app.tui import app as tui_app
 
 if sys.platform == "win32":
     # O checkpointer do grafo usa psycopg3 async, que recusa o ProactorEventLoop (padrão do
@@ -22,7 +22,7 @@ if sys.platform == "win32":
 
 def run_api() -> None:
     uvicorn.run(
-        "assessor_ai.api.app:app",
+        "app.api.app:app",
         host="0.0.0.0", 
         port=8000, 
         reload=True

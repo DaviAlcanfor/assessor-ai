@@ -1,4 +1,4 @@
-from assessor_ai.api.routes import health
+from app.services import health_service as health
 from tests.fakes import ConnFake
 
 

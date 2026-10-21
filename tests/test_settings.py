@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from assessor_ai.settings import Settings
+from app.settings import Settings
 
 _OBRIGATORIAS = {
     "DATABASE__POSTGRES_URL": "postgresql://u:p@h/db",

@@ -5,8 +5,10 @@ from datetime import date
 import httpx
 import pytest
 
-from assessor_ai.infra.mercado import MercadoError, awesomeapi, bcb
-from assessor_ai.infra.mercado import http as mercado_http
+from app.infra.mercado import MercadoError, awesomeapi, ptax, sgs
+from app.infra.mercado import cache as mercado_cache
+from app.infra.mercado import client as mercado_client
+from app.infra.mercado.schemas import CotacaoDia, PontoSerie
 
 _USDBRL = {
     "USDBRL": {
@@ -32,12 +34,12 @@ def rede(monkeypatch):
         return httpx.Response(estado["status"], json=estado["json"])
 
     monkeypatch.setattr(
-        mercado_http.httpx, "AsyncClient",
+        mercado_client.httpx, "AsyncClient",
         lambda **kw: cliente_real(transport=httpx.MockTransport(handler), **kw),
     )
-    mercado_http._cache.clear()
+    for cliente in (awesomeapi, ptax, sgs):
+        cliente._cache.clear()
     yield pedidos, estado
-    mercado_http._cache.clear()
 
 
 async def test_cotacoes_atuais_converte_strings_e_monta_a_url(rede):
@@ -63,7 +65,7 @@ async def test_segunda_chamada_igual_sai_do_cache(rede):
 async def test_cache_expira_pelo_ttl(rede, monkeypatch):
     pedidos, _ = rede
     relogio = [1000.0]
-    monkeypatch.setattr(mercado_http.time, "monotonic", lambda: relogio[0])
+    monkeypatch.setattr(mercado_cache.time, "monotonic", lambda: relogio[0])
 
     await awesomeapi.cotacoes_atuais(["USD-BRL"])
     relogio[0] += 61  # ttl_atual_s = 60
@@ -90,7 +92,7 @@ async def test_ptax_manda_datas_no_formato_odata_do_bcb(rede):
         {"cotacaoCompra": 5.0, "cotacaoVenda": 5.01, "dataHoraCotacao": "2026-10-13 13:04:26.866133"},
     ]}
 
-    boletins = await bcb.ptax_dolar(date(2026, 10, 13), date(2026, 10, 17))
+    boletins = await ptax.dolar(date(2026, 10, 13), date(2026, 10, 17))
 
     params = pedidos[0].url.params
     assert params["@dataInicial"] == "'10-13-2026'"
@@ -105,7 +107,7 @@ async def test_ptax_manda_a_query_crua_sem_codificar_o_cifrao(rede):
     pedidos, estado = rede
     estado["json"] = {"value": []}
 
-    await bcb.ptax_dolar(date(2026, 10, 13), date(2026, 10, 16))
+    await ptax.dolar(date(2026, 10, 13), date(2026, 10, 16))
 
     query = pedidos[0].url.query.decode()
     assert "$format=json" in query
@@ -120,9 +122,9 @@ async def test_ptax_ordena_do_mais_antigo_pro_mais_recente(rede):
         {"cotacaoCompra": 5.0, "cotacaoVenda": 5.01, "dataHoraCotacao": "2026-10-13 13:00:00.0"},
     ]}
 
-    boletins = await bcb.ptax_dolar(date(2026, 10, 13), date(2026, 10, 16))
+    boletins = await ptax.dolar(date(2026, 10, 13), date(2026, 10, 16))
 
-    assert [b.data_hora[:10] for b in boletins] == ["2026-10-13", "2026-10-16"]
+    assert [b.data_hora.date().isoformat() for b in boletins] == ["2026-10-13", "2026-10-16"]
 
 
 async def test_serie_sgs_pede_janela_de_datas_e_ordena_do_mais_antigo(rede):
@@ -134,14 +136,14 @@ async def test_serie_sgs_pede_janela_de_datas_e_ordena_do_mais_antigo(rede):
         {"data": "16/10/2026", "valor": "13.60"},
     ]
 
-    pontos = await bcb.serie_sgs(4389, date(2026, 9, 1), date(2026, 10, 21))
+    pontos = await sgs.serie(4389, date(2026, 9, 1), date(2026, 10, 21))
 
     params = pedidos[0].url.params
     assert "/bcdata.sgs.4389/dados" in str(pedidos[0].url)
     assert "ultimos" not in str(pedidos[0].url)
     assert params["dataInicial"] == "01/09/2026"
     assert params["dataFinal"] == "21/10/2026"
-    assert [p.data for p in pontos] == ["16/10/2026", "19/10/2026"]
+    assert [p.data for p in pontos] == [date(2026, 10, 16), date(2026, 10, 19)]
     assert pontos[1].valor == 13.65
 
 
@@ -161,3 +163,30 @@ async def test_falha_vira_mercado_error_sem_vazar_url(rede, status, texto, trech
         await awesomeapi.cotacoes_atuais(["USD-BRL"])
 
     assert "http" not in str(erro.value)
+
+
+def test_cache_ttl_descarta_a_entrada_mais_antiga_quando_enche():
+    cache = mercado_cache.CacheTTL(max_entradas=2)
+
+    cache.set("a", {"v": 1}, ttl_s=60)
+    cache.set("b", {"v": 2}, ttl_s=60)
+    cache.set("c", {"v": 3}, ttl_s=60)
+
+    assert cache.get("a") is None
+    assert cache.get("b") == {"v": 2}
+    assert cache.get("c") == {"v": 3}
+
+
+def test_ponto_de_serie_ja_nasce_com_data_de_verdade():
+    ponto = PontoSerie.model_validate({"data": "19/10/2026", "valor": "13.65"})
+
+    assert ponto.data == date(2026, 10, 19)
+    assert ponto.valor == 13.65
+
+
+def test_cotacao_diaria_converte_o_epoch_em_datetime_utc():
+    dia = CotacaoDia.model_validate(
+        {"bid": "5.0", "ask": "5.1", "high": "5.2", "low": "4.9", "timestamp": "1792184463"}
+    )
+
+    assert dia.timestamp.isoformat() == "2026-10-16T21:01:03+00:00"

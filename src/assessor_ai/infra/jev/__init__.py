@@ -1,3 +1,0 @@
-from assessor_ai.infra.jev.client import Decisoes, decidir, disponivel, escolher
-
-__all__ = ["Decisoes", "decidir", "disponivel", "escolher"]

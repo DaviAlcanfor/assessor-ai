@@ -1,7 +1,7 @@
 # JeV (Decisions API do Vercel AI Gateway)
 
 O JeV (TypeSafe) responde perguntas fechadas com probabilidade, sem gerar texto. Aqui ele é chamado
-por `POST {gateway}/decisions` (`infra/jev/`) e decide o guardrail de entrada e o roteador, sempre
+por `POST {gateway}/decisions` (`infra/llm/jev/`) e decide o guardrail de entrada e o roteador, sempre
 com o LLM de reserva. Portado do frigus-ai. Contrato: https://vercel.com/docs/ai-gateway/sdks-and-apis/openai-decisions
 
 **Nada disso foi exercitado contra o gateway real** (ver o primeiro item). O contrato vem da
@@ -171,3 +171,12 @@ type Pergunta = Annotated[PerguntaPredicado | PerguntaEscolha | PerguntaNota, Fi
 `decidir(uso, ...)` separa as métricas por quem pergunta. A resposta entra como label em
 `assessor_jev_decisions_total`, o que só serve pra opções fixas (8 categorias, 4 rotas, sim/não); opção dinâmica
 (ID de transação) precisa de um rótulo genérico, senão a cardinalidade explode.
+
+## Uso: categoria da transação (`financeiro_service._resolver_categoria`)
+
+O `category_name` que o LLM manda é texto livre ("supermercado", "uber"). A ordem é: igualdade exata com as
+categorias da tabela (grátis) → `jev.escolher("categoria_transacao", …)` entre as categorias **reais** mais
+`nenhuma` → sem categoria. Sem chave do gateway, ou com o JeV falhando, o lançamento **não se perde**: grava sem
+categoria e a resposta da tool traz `aviso`, que o prompt manda repassar ao usuário. Só vale o nome que está na
+tabela (o service confere): um valor fora da lista vira "sem categoria". O tipo da transação **não** usa o JeV:
+o schema da tool restringe o LLM a `INCOME | EXPENSES | TRANSFER` (enum), então não há alias pra resolver.

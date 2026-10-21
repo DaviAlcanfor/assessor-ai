@@ -3,17 +3,17 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+from app.infra.postgres import Base
 
 # Todo model precisa ser importado aqui: com os models fatiados por feature, o que não for
 # importado some do `Base.metadata` e o --autogenerate gera um DROP da tabela correspondente.
-from assessor_ai.graph.tools.agenda.models import Event  # noqa: F401
-from assessor_ai.graph.tools.financeiro.models import (  # noqa: F401
+from app.infra.postgres.models import (  # noqa: F401
     Category,
+    Event,
     Transaction,
+    User,
 )
-from assessor_ai.graph.tools.usuarios.models import User  # noqa: F401
-from assessor_ai.infra.postgres import Base
-from assessor_ai.settings import settings
+from app.settings import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

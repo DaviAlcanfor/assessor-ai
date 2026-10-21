@@ -1,5 +1,5 @@
 """
-`Settings()` roda no import de `assessor_ai`, então as variáveis obrigatórias precisam existir antes
+`Settings()` roda no import de `app`, então as variáveis obrigatórias precisam existir antes
 dele. `setdefault` deixa uma variável real do ambiente (ex.: Infisical) ter prioridade sobre o dummy,
 e o `.env` nunca é lido pra valores que já estão aqui — teste não depende do `.env` de ninguém.
 """
@@ -24,7 +24,7 @@ for _nome, _valor in {
 import pytest
 from pydantic import SecretStr
 
-from assessor_ai.settings import settings
+from app.settings import settings
 
 
 @pytest.fixture(autouse=True)

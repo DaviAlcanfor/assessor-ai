@@ -81,98 +81,64 @@ assessor-ai/
 ├── main.py                          # Dispatcher — `python main.py tui|api`
 ├── pyproject.toml                   # Dependências do projeto
 │
-├── src/assessor_ai/
-│   ├── api/                         # Camada HTTP (FastAPI)
-│   │   ├── app.py                   # App FastAPI — routers, handlers de erro, middleware, rotas A2A
-│   │   ├── lifespan.py              # Compila grafo + checkpointer no startup; dispose no shutdown
-│   │   ├── exception_handlers.py    # Erros de domínio -> status HTTP + ErrorResponse{detail, code}
-│   │   ├── auth.py                  # get_current_user via X-API-Key; verify_signup_secret
-│   │   ├── gen_key.py               # generate_api_key
-│   │   └── routes/                  # chats.py, health.py, keys.py, users.py
+├── app/                             # O pacote (`from app.x import y`)
+│   ├── settings/                    # pydantic-settings por grupo: api, api_keys, database, llm, mercado, observability
 │   │
-│   ├── services/                    # Casos de uso — não conhecem HTTP
-│   │   ├── chat_service.py          # create_chat, send_message, get_history, validar_ownership, encerrar_sessao
-│   │   ├── runner.py                # Invoca fluxo_agentes (graph/builder.py) via ainvoke, propaga tags/metadata pro LangSmith
-│   │   └── exceptions.py            # ChatNaoEncontrado, ChatDeOutroUsuario, LimiteDeMensagensExcedido, FalhaNoAgente
+│   ├── domain/                      # Tipos neutros, sem I/O (qualquer camada pode importar)
+│   │   ├── errors.py                # DomainError (status_code, code, public_message) e as exceções de domínio
+│   │   ├── types.py                 # UserID, ChatID, APIKey... (NewType + Field p/ OpenAPI)
+│   │   ├── identifiers.py           # novo_chat_id, novo_user_id
+│   │   ├── privacy.py               # Regex de PII + anonimizar_entrada
+│   │   └── models/                  # chat.py (ChatMessage, Role), chat_store.py, usuario.py, perfil.py, financeiro.py
 │   │
-│   ├── repositories/
-│   │   └── chat_repository.py       # Fachada sobre graph/tools/chats, graph/tools/usuarios e infra/cache
+│   ├── schemas/                     # Contratos HTTP (chat, perfil, auth, key, user, health, errors)
 │   │
-│   ├── schemas/                     # Contratos de dados
-│   │   ├── models.py                # ChatMessage, Role — contrato interno, independente de Mongo/tool
-│   │   ├── chat.py                  # MessageCreate, ChatSummary, ChatMessageResponse (HTTP)
-│   │   ├── errors.py                # ErrorCode e ErrorResponse
-│   │   ├── health.py                # HealthStatus e HealthCheckResponse
-│   │   ├── key.py                   # APIKey e contrato de criação de chave
-│   │   └── user.py                  # UserID e contratos de usuário
+│   ├── infra/                       # Conexões e clientes externos, um pacote por sistema
+│   │   ├── base.py                  # Conector[T]: contrato mínimo das conexões
+│   │   ├── context.py               # session_context(user_id) / current_user_id — escopo do usuário do turno
+│   │   ├── postgres/                # PostgresConn, PostgresRepo, @transacional, models/ (ORM)
+│   │   ├── mongo/  qdrant/          # MongoConn + MongoRepo; QdrantConn + embeddings
+│   │   ├── redis/                   # RedisConn, cache do perfil, rate_limit (por usuário), session (web)
+│   │   ├── llm/                     # registry + builder dos providers; jev/ = Decisions API do Vercel AI Gateway
+│   │   ├── mercado/                 # AwesomeAPI e Banco Central: MercadoClient, CacheTTL, schemas
+│   │   └── logging/                 # Logging (get_logger, log_tool, log_classe), request_id
 │   │
-│   ├── tui/                         # Interface Textual
-│   │   ├── app.py                   # AssessorTUI — tela de chat
-│   │   ├── display.py               # Bubble (Rich Panel), MessageRow, Pensando (LoadingIndicator)
-│   │   └── app.tcss                 # Stylesheet do Textual
+│   ├── repositories/                # Persistência crua e síncrona, um módulo por agregado
+│   │   └── financeiro_, agenda_, categoria_, usuario_, chat_, perfil_, faq_repository.py
 │   │
-│   ├── a2a/                         # Protocolo A2A (JSON-RPC), montado no mesmo app FastAPI
-│   │   ├── main.py                  # montar_rotas(app) — agent card + endpoint JSON-RPC em /a2a
-│   │   └── agents/
-│   │       ├── card.py              # AgentCard (nome, versão, interface, skills)
-│   │       ├── capabilites.py       # AgentSkill(s) expostas no card
-│   │       └── interface.py         # AssessorAgentExecutor — ponte pro services/chat_service.py
+│   ├── services/                    # Casos de uso e regra (async) — os ÚNICOS que importam repositories
+│   │   ├── chat_service.py          # create_chat, send_message(_stream), get_history, validar_ownership
+│   │   ├── runner.py                # Invoca o grafo via ainvoke/astream_events; abre o session_context
+│   │   ├── financeiro_service.py    # agenda_service.py, mercado_service.py, perfil_service.py, faq_service.py
+│   │   └── user_, auth_, categoria_, memoria_, health_service.py
 │   │
-│   ├── settings/                    # pydantic-settings por grupo: api, api_keys, database, llm (Model + um Provedor por provider), observability
-│   ├── logging.py                   # ColorFormatter, get_logger e o decorator log_tool
-│   ├── privacy.py                   # Regex de PII + anonimizar_entrada
-│   ├── identifiers.py               # UserID, ChatID, APIKey, APIKeyHash e geradores de IDs
-│   ├── graph/
-│   │   ├── agents/                  # Agentes compilados, nodes e prompts do LangGraph
-│   │   │   ├── __init__.py          # router_app, financeiro_app, agenda_app, faq_app, orquestrador_app
-│   │   │   ├── nodes/
-│   │   │   │   ├── names.py         # NodeName e constantes dos nodes
-│   │   │   │   ├── router.py        # no_roteador
-│   │   │   │   ├── financeiro.py    # no_financeiro
-│   │   │   │   ├── agenda.py        # no_agenda
-│   │   │   │   ├── faq.py           # no_faq
-│   │   │   │   ├── orquestrador.py  # no_orquestrador
-│   │   │   │   └── guardrail/       # Nodes e schemas dos guardrails
-│   │   │   └── prompts/             # Prompts .md, loader e contratos de seções
-│   │   │       ├── loader.py        # load_prompt/load_sections e contexto do turno
-│   │   │       └── *.md             # Prompts dos agentes e templates dos guardrails
-│   │   ├── state.py                  # Estado, EstadoUpdate e Route
-│   │   ├── llm.py                   # build_llm e instâncias de LLM
-│   │   └── builder.py               # Construção e compilação do grafo LangGraph
+│   ├── graph/                       # O que o `runner` executa
+│   │   ├── nodes/                   # no_roteador, no_financeiro, no_agenda, no_faq, no_orquestrador
+│   │   ├── guardrail/               # entrada.py, saida.py, schemas.py (categorias, respostas de bloqueio)
+│   │   ├── prompts/                 # Prompts .md + loader.py (load_prompt/load_sections)
+│   │   ├── tools/                   # Uma pasta por domínio: schemas.py + tools.py (ToolSet fina)
+│   │   │   ├── base.py              # ToolSet: Response.catch + log por método + as_tools() automático
+│   │   │   ├── response.py          # ResponseStatus, ToolResponse e classe Response
+│   │   │   └── financeiro/  agenda/  mercado/  perfil/  faq/
+│   │   ├── agents.py                # router_app, financeiro_app, agenda_app, faq_app, orquestrador_app
+│   │   ├── state.py  names.py       # Estado, Route; NodeName e constantes dos nós
+│   │   └── llm.py  builder.py       # Cadeias de LLM com reserva; construção do grafo LangGraph
 │   │
-│   ├── infra/                        # Conexões compartilhadas entre camadas e features
-│   │   ├── postgres.py               # PostgresConn, Base, @transacional e current_user_id
-│   │   ├── mongo.py                  # MongoConn + MongoRepo
-│   │   ├── redis.py                  # RedisConn
-│   │   ├── qdrant.py                 # QdrantConn + modelo de embedding
-│   │   └── cache.py                  # Cache do perfil no Redis
+│   ├── telemetry/                   # metrics.py (medir_node, medir_externo), metrics_callback.py
 │   │
-│   └── graph/tools/                  # Features usadas pelos agentes e repositórios internos
-│       ├── cotacao/                  # CotacaoRepo — dólar, PTAX, Selic/CDI/IPCA e simulador (sem banco)
-│       ├── financeiro/
-│       │   ├── models.py             # Transaction, Category, TransactionType, PaymentType
-│       │   ├── schemas.py            # Schemas Pydantic dos argumentos das tools
-│       │   └── repo.py               # FinanceiroRepo — 5 tools: add/query/update_transaction, total/daily_balance
-│       ├── agenda/
-│       │   ├── models.py             # Event
-│       │   ├── schemas.py            # Schemas Pydantic dos argumentos das tools
-│       │   └── repo.py               # AgendaRepo — 4 tools: add_event, query_events, query_daily_events, update_event
-│       ├── faq/
-│       │   ├── schemas.py            # FaqRetrieverArgs, SearchResponse
-│       │   ├── repo.py               # FaqRepo — tool faq_retriever (busca semântica no Qdrant)
-│       │   └── ingest.py             # Script (`python -m ...faq.ingest`) que indexa o PDF de FAQ
-│       ├── chats/                    # Interno (não é tool do LLM)
-│       │   ├── schemas.py            # ChatDocument, Role, Mensagem
-│       │   ├── helpers.py            # gerar_resumo, gerar_perfil
-│       │   └── repo.py               # ChatsRepo — criar, buscar, atualizar_mensagens, encerrar_sessao
-│       ├── usuarios/                 # Interno — única feature que cruza os três bancos
-│       │   ├── models.py             # User (linha de FK no Postgres)
-│       │   ├── schemas.py            # UserDocument + chaves/TTL da API key
-│       │   └── repo.py               # UsuariosRepo — cadastro/perfil (Mongo), garantir_usuario (Mongo+PG), API key (Redis)
-│       └── response.py               # ResponseStatus, ToolResponse e classe Response
+│   ├── api/                         # Portas de entrada HTTP
+│   │   ├── app.py  lifespan.py  limiter.py
+│   │   ├── auth/                    # dependencies.py (X-API-Key, sessão, CSRF), keys.py
+│   │   ├── middleware/              # http_metrics, request_id, security (fastapi-guard)
+│   │   ├── errors/                  # handlers.py: DomainError -> status HTTP + ErrorResponse
+│   │   ├── routes/                  # health.py e v1/ (auth, categories, chats, keys, perfil, users)
+│   │   ├── a2a/                     # Protocolo A2A: routes, card, skills, executor, sessions
+│   │   └── mcp/                     # Servidor MCP: server, adapter, auth (IdentidadeMCP), resources, annotations
+│   │
+│   └── tui/                         # Interface Textual (app.py, display.py, app.tcss)
 │
+├── tests/                           # Espelha app/ — mais test_arquitetura.py (regras de camada)
 ├── alembic/                         # Migrations versionadas do schema PostgreSQL
-│
 └── data/
     └── documents/                   # PDFs para RAG
         └── FAQ_assessor_v1.1.pdf
@@ -272,7 +238,7 @@ Categorias: `comida`, `besteira`, `estudo`, `férias`, `transporte`, `moradia`, 
 
 ### Mercado (cotação e indicadores)
 
-Tools do agente financeiro (`graph/tools/cotacao/`), sobre APIs públicas sem chave: AwesomeAPI e
+Tools do agente financeiro (`graph/tools/mercado/`, regra em `services/mercado_service.py`), sobre APIs públicas sem chave: AwesomeAPI e
 Banco Central (`infra/mercado/`). Cache em memória (1 min na cotação atual, 1 h no resto).
 
 | Tool | Descrição |
@@ -288,7 +254,7 @@ Banco Central (`infra/mercado/`). Cache em memória (1 min na cotação atual, 1
 
 | Tool | Descrição |
 |---|---|
-| `faq_retriever` | Busca semântica no PDF de FAQ via Qdrant + Gemini Embeddings (`graph/tools/faq/`) |
+| `faq_retriever` | Busca semântica no PDF de FAQ via Qdrant + Gemini Embeddings (`graph/tools/faq/`, `repositories/faq_repository.py`) |
 
 Indexação: `python -m assessor_ai.graph.tools.faq.ingest` (script separado da tool, roda sob demanda).
 
@@ -307,7 +273,7 @@ O MongoDB armazena `users` (cadastro e perfil comportamental) e `chats` (histór
 
 O campo `perfil_usuario` — gerado a partir do histórico acumulado e armazenado em `users` — é carregado no estado do grafo antes de cada invocação, servindo como contexto cross-session do usuário. É lido do Redis primeiro (`infra/cache.py`); só cai no Mongo em cache miss, e o cache é invalidado ao encerrar a sessão (quando o perfil pode ter sido atualizado a partir do resumo).
 
-O RAG do FAQ roda sobre o Qdrant (`graph/tools/faq/`) — substituiu o índice FAISS local.
+O RAG do FAQ roda sobre o Qdrant (`graph/tools/faq/`, `repositories/faq_repository.py`) — substituiu o índice FAISS local.
 
 ---
 
@@ -364,8 +330,8 @@ e `just dev [modo]` (mesma coisa, injetando env vars via `infisical run --`).
 `python main.py api` também expõe o protocolo [A2A](https://a2a-protocol.org/) (agent-to-agent),
 montado no mesmo app FastAPI:
 
-- `GET /.well-known/agent-card.json` — [`AgentCard`](src/assessor_ai/a2a/agents/card.py) com nome,
-  versão e as skills expostas ([`capabilites.py`](src/assessor_ai/a2a/agents/capabilites.py)):
+- `GET /.well-known/agent-card.json` — [`AgentCard`](app/api/a2a/card.py) com nome,
+  versão e as skills expostas ([`capabilites.py`](app/api/a2a/skills.py)):
   - `moneysaving` — registra e consulta transações, saldo total/diário e gastos por categoria e período
   - `agenda` — cria, consulta e atualiza compromissos do calendário
   - `faq` — perguntas sobre o que o assistente faz e como usá-lo
@@ -373,7 +339,7 @@ montado no mesmo app FastAPI:
   As skills são só metadado de discovery; `POST /a2a` roteia toda mensagem pelo grafo completo
   (o router decide o domínio), independente de qual skill o cliente achou no card.
 - `POST /a2a` — endpoint JSON-RPC (método `SendMessage`) que processa a mensagem via
-  [`AssessorAgentExecutor`](src/assessor_ai/a2a/agents/interface.py), a mesma camada `services/chat_service.py`
+  [`AssessorAgentExecutor`](app/api/a2a/executor.py), a mesma camada `services/chat_service.py`
   usada por terminal/TUI/API. Cada `context_id` do protocolo vira uma sessão/usuário do Assessor —
   na primeira mensagem, ou sem `context_id`.
 
@@ -381,7 +347,22 @@ Primeira versão, sem tarefas assíncronas (`streaming`/`push_notifications` des
 `AgentCard`) nem autenticação — a rota está aberta de propósito, porque a auth por API key
 atrapalha o caso de uso A2A entre agentes (ver `TODO.md`).
 
-### Migrations (Alembic)
+### MCP
+
+`python main.py api` também monta um servidor [MCP](https://modelcontextprotocol.io/) em `/mcp` (HTTP
+streamable, stateless), pra clientes como Claude Desktop ou IDEs usarem as mesmas tools dos agentes —
+transações e saldo, agenda e dados de mercado (cotação, PTAX, Selic/CDI/IPCA, simulação) — mais o resource
+`categories://all`.
+
+- **Autenticação:** header `X-API-Key` (a mesma chave do `POST /v1/keys`). Sem chave, 401. Cada request roda
+  com o usuário dono da chave (`IdentidadeMCP` abre o `session_context`); em modo dev
+  (`API__KEY_AUTH_ENABLED=false`) usa o usuário padrão.
+- **Hosts permitidos:** o servidor recusa (421) qualquer `Host` fora de `API__MCP_ALLOWED_HOSTS` (padrão:
+  `localhost`/`127.0.0.1` com porta). Em deploy, ponha o domínio público.
+- **Tools:** saem sozinhas das listas `FINANCEIRO_TOOLS`/`AGENDA_TOOLS`/`MERCADO_TOOLS`, com o schema e as
+  descrições de cada `args_schema`. Detalhes e pegadinhas em `.agents/skills/mcp.md`.
+
+## Migrations (Alembic)
 
 Schema do PostgreSQL versionado em `alembic/versions/` (`DATABASE__POSTGRES_URL` configurado):
 
@@ -389,7 +370,7 @@ Schema do PostgreSQL versionado em `alembic/versions/` (`DATABASE__POSTGRES_URL`
 uv run alembic upgrade head
 ```
 
-O acesso a dados usa SQLAlchemy ORM (`graph/tools/{financeiro,agenda,usuarios}/models.py`), então `--autogenerate` funciona
+O acesso a dados usa SQLAlchemy ORM (`infra/postgres/models/`), então `--autogenerate` funciona
 normalmente a partir daqui:
 
 ```bash
@@ -411,8 +392,8 @@ mão. `runner.py` também passa `tags=["chat"]` e `metadata={"user_id", "session
 do `invoke()`, propagados automaticamente pra todo run filho, permitindo filtrar/auditar traces por
 usuário ou sessão no painel do LangSmith.
 
-Pontos de I/O que o LangChain não rastreia sozinho (`repositories/chat_repository.py:buscar_perfil`,
-`buscar_historico`, `salvar_mensagens`) usam `@traceable` manual, com `process_inputs`/
+Pontos de I/O que o LangChain não rastreia sozinho (`services/user_service.py:buscar_perfil` e, em
+`services/chat_service.py`, `buscar_historico` e `salvar_mensagens`) usam `@traceable` manual, com `process_inputs`/
 `process_outputs` redigindo PII (reaproveitando `anonimizar_entrada` do guardrail) antes de subir
 pro LangSmith Cloud.
 
@@ -431,11 +412,11 @@ contexto antes de ligar tracing em produção com dado real.
 - [FastAPI](https://fastapi.tiangolo.com/) — API HTTP (`api/`), com [slowapi](https://github.com/laurentS/slowapi) pro rate limit por IP
 - [a2a-sdk](https://github.com/a2aproject/a2a-python) — protocolo A2A (`a2a/`), agent card + JSON-RPC montados no mesmo app FastAPI
 - [Textual](https://github.com/Textualize/textual) — TUI (`tui/`)
-- [SQLAlchemy](https://www.sqlalchemy.org/) — ORM sobre o PostgreSQL (`graph/tools/{financeiro,agenda,usuarios}/models.py`), com `psycopg2` como driver
+- [SQLAlchemy](https://www.sqlalchemy.org/) — ORM sobre o PostgreSQL (`infra/postgres/models/`), com `psycopg2` como driver
 - [Alembic](https://alembic.sqlalchemy.org/) — migrations versionadas do schema PostgreSQL
 - [pymongo](https://pymongo.readthedocs.io/) — driver MongoDB para histórico de conversa
 - [redis-py](https://github.com/redis/redis-py) — cache de perfil, rate limit de mensagens e API keys (`infra/redis.py`)
-- [qdrant-client](https://github.com/qdrant/qdrant-client) — busca vetorial para RAG do FAQ (`graph/tools/faq/`)
+- [qdrant-client](https://github.com/qdrant/qdrant-client) — busca vetorial para RAG do FAQ (`graph/tools/faq/`, `repositories/faq_repository.py`)
 - [Rich](https://github.com/Textualize/rich) + [pyfiglet](https://github.com/pwaller/pyfiglet) — interface de terminal e arte ASCII da TUI
 - [Pydantic](https://docs.pydantic.dev/) — validação de schemas das tools
 - `langchain-anthropic`, `langchain-google-genai`, `langchain-groq` — integrações com providers

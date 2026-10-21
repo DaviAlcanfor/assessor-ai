@@ -17,7 +17,7 @@ que separa "o que o sistema faz" de "como ele é entregue" é o que evita cada i
 a mesma coisa. Arquivo novo de chat entra numa dessas quatro pastas pelo papel que exerce.
 
 *Por feature, nas tools.* `graph/tools/{financeiro,agenda,faq,chats,usuarios}` — uma pasta por domínio
-(`models.py` + `schemas.py` + `repo.py`), **não** uma por banco. `usuarios` é a prova de que o corte
+(`schemas.py` + `tools.py`, com `services/` e `repositories/` por trás), **não** uma por banco. `usuarios` é a prova de que o corte
 por banco estava errado: cadastro no Mongo, linha de FK no Postgres e API key no Redis são a mesma
 feature, e enquanto moravam em três pacotes quem chamava tinha que lembrar de acertar os dois
 primeiros na ordem certa. As conexões, que aí sim são compartilhadas entre features, ficam em
@@ -33,7 +33,7 @@ Nada de classe base abstrata ou interface — as bases (`PostgresRepo`, `MongoRe
 só carregam conexão + logger.
 
 **Nenhum `with session()` no corpo de uma operação de Postgres.** `@transacional`
-(`infra/postgres.py`) abre a sessão, injeta como 2º parâmetro, faz commit/rollback, loga e
+(`infra/postgres/`) abre a sessão, injeta como 2º parâmetro, faz commit/rollback, loga e
 converte exceção em `Response.error` — o método fica só com a query. O decorator também reescreve
 `__signature__` pra tirar o parâmetro da sessão: sem isso o `functools.wraps` faz o
 `inspect.signature` enxergar `s`, que vaza pro JSON schema mandado ao LLM.
@@ -53,26 +53,25 @@ importação.
 inteiro no `except` genérico do chamador, em vez de devolver um erro estruturado pro LLM reagir. Nas
 tools de Postgres isso é garantia do `@transacional` (converte tudo em `Response.error`); nas
 demais (`faq/repo.py`), o `try/except Exception` no corpo continua obrigatório. Os models
-declarativos ficam em `graph/tools/<feature>/models.py`, todos sobre o `Base` de `infra/postgres.py` —
+declarativos ficam em `infra/postgres/models/<dominio>.py`, todos sobre o `Base` de `infra/postgres/` —
 model que não for importado pelo `alembic/env.py` some do metadata e vira um DROP no
 `--autogenerate`.
 
-**Single responsibility por nó de agente.** `graph/agents/nodes/` (execução) fica separado de
-`graph/agents/prompts/` (conteúdo/persona) — mudar o texto de um prompt nunca deveria exigir tocar na
+**Single responsibility por nó de agente.** `graph/nodes/` (execução) fica separado de
+`graph/prompts/` (conteúdo/persona) — mudar o texto de um prompt nunca deveria exigir tocar na
 lógica de roteamento do grafo, e vice-versa. Prompt é `.md`, não Python: cada arquivo tem seções
 `## PAPEL` / `## SHOTS` (ou templates nomeados, como `## CLASSIFICADOR`) e um frontmatter opcional
-(`usa_tools_obrigatorias: true`). `graph/agents/prompts/loader.py` é o único `.py` da pasta — `load_prompt(nome)`
+(`usa_tools_obrigatorias: true`). `graph/prompts/loader.py` é o único `.py` da pasta — `load_prompt(nome)`
 monta persona + papel + shots, `load_sections(nome)` devolve as seções cruas.
 
-**Tudo async da ponta ao fim.** Nós do grafo, `services/runner.py`, `services/chat_service.py`,
-`repositories/chat_repository.py` e as rotas da API são `async def`. O grafo roda por `ainvoke` (por isso o
-checkpointer é `AsyncPostgresSaver`, não o síncrono). Os drivers de Mongo/Redis/SQLAlchemy continuam
-síncronos e são chamados via `asyncio.to_thread` em `repositories/chat_repository.py` — função nova que faça
-I/O bloqueante entra pelo mesmo caminho, nunca direto no event loop.
+**Tudo async da ponta ao fim.** Nós do grafo, `services/`, tools e as rotas da API são `async def`. O grafo roda
+por `ainvoke` (por isso o checkpointer é `AsyncPostgresSaver`, não o síncrono). Os drivers de
+Mongo/Redis/SQLAlchemy continuam síncronos e são chamados via `asyncio.to_thread` **nos services** — função nova
+que faça I/O bloqueante entra pelo mesmo caminho, nunca direto no event loop.
 
-**Contrato de retorno único.** Tools não retornam dict cru nem deixam exception vazar para o
-agente — usam `Response` (`graph/tools/response.py`) como envelope padrão de sucesso/erro. Ao criar tool
-nova, reusar essa classe em vez de inventar outro formato de retorno.
+**Contrato de retorno único.** Tools não retornam dict cru nem deixam exception vazar para o agente — usam
+`Response` (`graph/tools/response.py`) como envelope padrão de sucesso/erro, e herdam `ToolSet` (`graph/tools/base.py`),
+que já aplica `Response.catch` e o log por método: o corpo da tool só chama o service e devolve `Response.ok(...)`.
 
 **Config centralizada.** Uma única fonte de env vars (`settings/`, `pydantic-settings`) e
 um único enum fechado de modelos/providers (`settings/llm.py:Model` + `infra/llm/registry.py:PROVIDER_MAP`). Não ler
@@ -80,19 +79,18 @@ um único enum fechado de modelos/providers (`settings/llm.py:Model` + `infra/ll
 URLs de conexão** (elas trazem usuário e senha embutidos): o `repr` sai mascarado e o valor real só
 sai com `.get_secret_value()` explícito no ponto de uso. Nunca logar o objeto `Settings` inteiro.
 
-**Infra transversal fica na raiz do pacote, sem dependência de camada.** O que tem consumidor em
-mais de uma camada fica em `settings/`, `logging.py`, `privacy.py`, `identifiers.py` ou `infra/`
-(incluindo `cache.py`) — `api/limiter.py` e `api/middleware.py` pertencem à camada HTTP. Regra
-prática: se `graph/agents/`, `services/` e `api/` usam a mesma coisa, ela não pertence a nenhum
-dos três.
+**Infra transversal não depende de camada.** O que tem consumidor em mais de uma camada fica em `domain/`
+(tipos, erros, PII), `settings/`, `telemetry/` ou `infra/` (incluindo `infra/logging/` e `infra/context.py`) —
+`api/limiter.py` e `api/middleware/` pertencem à camada HTTP. Regra prática: se `graph/`, `services/` e `api/`
+usam a mesma coisa, ela não pertence a nenhum dos três. As direções de import permitidas estão em
+`tests/test_arquitetura.py`.
 
-**Erro de domínio não conhece transporte.** `services/chat_service.py` levanta as exceções de
-`services/exceptions.py` (`ChatNaoEncontrado`, `ChatDeOutroUsuario`, `LimiteDeMensagensExcedido`,
-`FalhaNoAgente`) — nunca `HTTPException`, porque as mesmas chamadas servem API, TUI e A2A. Quem
-traduz pra HTTP é `api/exception_handlers.py`, registrado uma vez na app; rota não tem
-`try/except`. Exceção nova entra no `_MAPA` de lá; o handler de `Exception` no fim loga o traceback
-e devolve mensagem genérica — `str(exc)` de erro imprevisto pode carregar query ou connection
-string.
+**Erro de domínio não conhece transporte.** Os services levantam as exceções de `domain/errors.py`
+(`ChatNaoEncontrado`, `ChatDeOutroUsuario`, `LimiteDeMensagensExcedido`, `FalhaNoAgente`, `DadosInvalidos`...) — nunca
+`HTTPException`, porque as mesmas chamadas servem API, TUI, A2A e MCP. Cada `DomainError` carrega `status_code`,
+`code` e `public_message`; `str(exc)` é a mensagem interna e vai só pro log. Quem traduz pra HTTP é
+`api/errors/handlers.py`, registrado uma vez na app; rota não tem `try/except`. O handler de `Exception` no fim
+loga o traceback e devolve mensagem genérica — `str(exc)` de erro imprevisto pode carregar query ou connection string.
 
 **Entrypoint fino.** `main.py` só faz dispatch por argv (`tui`/`api`) — nenhuma lógica de
 negócio nele. Lógica de negócio nova vai em `services/`, nunca de volta pra `main.py`.
@@ -102,10 +100,10 @@ compilados no `lifespan` de `api/app.py`, nunca dentro de uma rota: `setup()` do
 checkpointer cria tabelas no Postgres, e pagar isso num request faz o primeiro usuário do deploy
 esperar por infra. Recriar o checkpointer por request também perderia o histórico turno a turno.
 
-**Camadas por responsabilidade** seguem uma separação tipo clean architecture bem
-simplificada: `api/`, `tui/` e `a2a/` (I/O) → `services/chat_service.py` (casos de uso) →
-`services/runner.py` + `repositories/chat_repository.py` (LangGraph e persistência). `schemas/models.py` define o
-contrato (`ChatMessage`, `Role`) independente dos schemas do Mongo — `repositories/chat_repository.py` é quem
+**Camadas por responsabilidade:** `api/` e `tui/` (I/O) → `services/` (casos de uso e regra) → `repositories/`
+(persistência crua) → `infra/` (conexões). **Só `services/` importa `repositories/`.** `domain/` guarda os tipos,
+erros e regras neutras que todas usam (`ChatMessage`, `DomainError`, PII); `domain/models/chat_store.py` é o
+formato de gravação no Mongo, separado do contrato de quem conversa (`domain/models/chat.py`) — o `chat_service`
 converte entre os dois.
 
 **Simplicidade com coesão.** A régua é "a coisa mais simples que ainda é navegável e coesa", não

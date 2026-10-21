@@ -8,14 +8,20 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from assessor_ai.graph.tools.agenda.models import (
+from app.graph.tools.agenda.tools import AgendaTools
+from app.graph.tools.financeiro.tools import FinanceiroTools
+from app.infra.context import session_context
+from app.infra.postgres import LEGACY_USER_ID, Base
+from app.infra.postgres.models import (
+    Category,
     Event,  # noqa: F401  (registra a tabela no metadata)
+    Transaction,
+    User,
 )
-from assessor_ai.graph.tools.agenda.repo import AgendaRepo
-from assessor_ai.graph.tools.financeiro.models import Category, Transaction
-from assessor_ai.graph.tools.financeiro.repo import FinanceiroRepo
-from assessor_ai.graph.tools.usuarios.models import User
-from assessor_ai.infra.postgres import LEGACY_USER_ID, Base
+from app.repositories.agenda_repository import AgendaRepository
+from app.repositories.financeiro_repository import FinanceiroRepository
+from app.services.agenda_service import AgendaService
+from app.services.financeiro_service import FinanceiroService
 
 
 def _timezone_sqlite(tz_name: str, timestamp: str) -> str:
@@ -34,6 +40,15 @@ def _unaccent_sqlite(value: str | None) -> str | None:
         return None
 
     return "".join(c for c in unicodedata.normalize("NFKD", value) if not unicodedata.combining(c))
+
+
+@pytest.fixture(autouse=True)
+def _usuario_do_turno():
+    """Toda tool roda dentro de um `session_context()` em produção (runner/MCP); sem ele
+    `current_user_id()` levanta, então os testes de tool abrem o escopo do usuário padrão."""
+
+    with session_context(LEGACY_USER_ID):
+        yield
 
 
 @pytest.fixture
@@ -92,13 +107,13 @@ class ConnFake:
 
 
 @pytest.fixture
-def financeiro(db_session) -> FinanceiroRepo:
-    return FinanceiroRepo(conn=ConnFake(db_session))
+def financeiro(db_session) -> FinanceiroTools:
+    return FinanceiroTools(FinanceiroService(FinanceiroRepository(conn=ConnFake(db_session))))
 
 
 @pytest.fixture
-def agenda(db_session) -> AgendaRepo:
-    return AgendaRepo(conn=ConnFake(db_session))
+def agenda(db_session) -> AgendaTools:
+    return AgendaTools(AgendaService(AgendaRepository(conn=ConnFake(db_session))))
 
 
 @pytest.fixture

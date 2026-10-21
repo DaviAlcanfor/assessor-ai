@@ -1,10 +1,12 @@
 import pytest
 from fastapi import HTTPException
 
-from assessor_ai.api import auth, session_store
-from assessor_ai.graph.tools import usuarios
-from assessor_ai.identifiers import CsrfToken
-from assessor_ai.schemas.auth import AuthMethod, Principal
+from app.api.auth import dependencies as auth
+from app.domain.types import CsrfToken
+from app.infra.redis.session import SessionRecord
+from app.repositories.usuario_repository import usuario_repository
+from app.schemas.auth import AuthMethod, Principal
+from app.services import auth_service
 
 
 def _async(valor):
@@ -15,13 +17,13 @@ def _async(valor):
 
 
 async def test_get_current_user_retorna_user_id_para_chave_valida(monkeypatch):
-    monkeypatch.setattr(usuarios, "user_id_por_api_key", lambda api_key: "user-1")
+    monkeypatch.setattr(usuario_repository, "user_id_por_api_key", lambda api_key: "user-1")
 
     assert await auth.get_current_user(api_key="chave-valida") == "user-1"
 
 
 async def test_get_current_user_rejeita_chave_invalida(monkeypatch):
-    monkeypatch.setattr(usuarios, "user_id_por_api_key", lambda api_key: None)
+    monkeypatch.setattr(usuario_repository, "user_id_por_api_key", lambda api_key: None)
 
     with pytest.raises(HTTPException) as exc_info:
         await auth.get_current_user(api_key="chave-invalida")
@@ -38,27 +40,31 @@ async def test_get_current_user_rejeita_chave_ausente(monkeypatch):
 
 async def test_get_current_user_com_auth_desligada_ignora_chave(monkeypatch):
     monkeypatch.setattr(auth.settings.api, "key_auth_enabled", False)
-    monkeypatch.setattr(auth.chat_service, "obter_usuario_padrao", _async("user-padrao"))
+    monkeypatch.setattr(auth.user_service, "obter_usuario_padrao", _async("user-padrao"))
 
     assert await auth.get_current_user(api_key=None, x_user_id=None) == "user-padrao"
 
 
 async def test_get_current_user_com_auth_desligada_usa_x_user_id_se_vier(monkeypatch):
     monkeypatch.setattr(auth.settings.api, "key_auth_enabled", False)
-    monkeypatch.setattr(auth.chat_service, "obter_usuario_padrao", _async("user-padrao"))
+    monkeypatch.setattr(auth.user_service, "obter_usuario_padrao", _async("user-padrao"))
 
     assert await auth.get_current_user(api_key=None, x_user_id="user-escolhido") == "user-escolhido"
 
 
 async def test_get_current_user_com_auth_ligada_ignora_x_user_id(monkeypatch):
-    monkeypatch.setattr(usuarios, "user_id_por_api_key", lambda api_key: "user-1")
+    monkeypatch.setattr(usuario_repository, "user_id_por_api_key", lambda api_key: "user-1")
 
     assert await auth.get_current_user(api_key="chave-valida", x_user_id="user-outro") == "user-1"
 
 
 async def test_get_current_principal_via_sessao_valida(monkeypatch):
-    record = session_store.SessionRecord(user_id="user-1", csrf_hash="hash-qualquer")
-    monkeypatch.setattr(session_store, "buscar_sessao", lambda token: record)
+    record = SessionRecord(user_id="user-1", csrf_hash="hash-qualquer")
+
+    async def buscar_sessao(token):
+        return record
+
+    monkeypatch.setattr(auth_service, "buscar_sessao", buscar_sessao)
 
     principal = await auth.get_current_principal(api_key=None, session_token="token-valido")
 
@@ -68,7 +74,10 @@ async def test_get_current_principal_via_sessao_valida(monkeypatch):
 
 
 async def test_get_current_principal_rejeita_sessao_invalida(monkeypatch):
-    monkeypatch.setattr(session_store, "buscar_sessao", lambda token: None)
+    async def sem_sessao(token):
+        return None
+
+    monkeypatch.setattr(auth_service, "buscar_sessao", sem_sessao)
 
     with pytest.raises(HTTPException) as exc_info:
         await auth.get_current_principal(api_key=None, session_token="token-invalido")
@@ -100,7 +109,7 @@ async def test_validar_csrf_rejeita_sessao_sem_token(monkeypatch):
 
 
 async def test_validar_csrf_aceita_token_correto(monkeypatch):
-    csrf_hash = session_store.hash_csrf(CsrfToken("token-csrf"))
+    csrf_hash = auth_service.hash_csrf(CsrfToken("token-csrf"))
     principal = Principal(user_id="user-1", auth_method=AuthMethod.SESSION, csrf_hash=csrf_hash)
 
     await auth.validar_csrf_request(principal=principal, x_csrf_token="token-csrf")

@@ -1,7 +1,7 @@
 # Dados de mercado (AwesomeAPI e Banco Central)
 
 Cotação, PTAX, Selic/CDI/IPCA e simulação de investimento. Código em `infra/mercado/` (HTTP, cache,
-métrica) e `graph/tools/cotacao/` (as 6 tools do agente financeiro). As três fontes são públicas e
+métrica) e `services/mercado_service.py` (lógica) e `graph/tools/mercado/` (as 6 tools do agente financeiro). As três fontes são públicas e
 sem chave. Tudo abaixo foi verificado contra as APIs reais; o que a documentação diz e o que elas
 fazem divergem em vários pontos.
 
@@ -9,7 +9,7 @@ fazem divergem em vários pontos.
 
 O endpoint da PTAX é OData. O httpx codifica `$format` como `%24format`, e o BCB responde 400
 (`The system query option '$orderby' is not supported`). A query vai **crua na URL** em
-`infra/mercado/bcb.py:ptax_dolar`, nunca em `params=`. Também não usamos `$orderby`: ordena-se em
+`infra/mercado/bcb.py:PtaxClient.dolar` (argumento `query_crua`), nunca em `params=`. Também não usamos `$orderby`: ordena-se em
 Python. As datas são `MM-DD-AAAA` entre aspas simples (`'10-13-2026'`). Fim de semana e feriado não
 têm boletim: o período volta vazio (`ptax_dolar` busca o último fechamento anterior).
 
@@ -51,9 +51,14 @@ sempre o campo `aviso` (bruto, sem IR/IOF, taxa constante, sem garantia) e o pro
 Não tire esse campo nem a regra do `financeiro.md`: uma simulação sem aviso vira "promessa de
 rendimento" na boca do LLM.
 
-## Cache e métrica
+## Clientes, cache e métrica
 
-`infra/mercado/http.py:buscar_json` é o único ponto de saída: cache em memória por processo (FIFO de
-128 entradas, TTL por chamada), `medir_externo(alvo)` e `MercadoError` com mensagem segura (nunca a
-URL). Com mais de uma instância cada uma tem o seu cache; se a cota apertar, o próximo passo é Redis.
+`infra/mercado/client.py:MercadoClient` é a base: GET JSON com cache (`cache.py:CacheTTL`, em memória,
+FIFO de 128 entradas, indexado pela URL completa), `medir_externo(alvo)` e `MercadoError` com mensagem
+segura (nunca a URL). Cada API é uma subclasse com métodos de negócio tipados: `AwesomeApiClient`
+(`awesomeapi`), `PtaxClient` (`ptax`) e `SgsClient` (`sgs`). `_url()` monta a URL; `_objeto()` e
+`_lista()` já validam o formato da resposta. Datas chegam parseadas (`date`/`datetime`) pelos schemas
+— nada de string de data fora de `infra/mercado/schemas.py`.
+
+Com mais de uma instância cada uma tem o seu cache; se a cota apertar, o próximo passo é Redis.
 Métrica: `assessor_external_calls_total{target="awesomeapi"|"bcb", outcome}`.

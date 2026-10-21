@@ -1,7 +1,7 @@
-from assessor_ai.api import session_store
-from assessor_ai.api.app import app
-from assessor_ai.api.auth import get_current_user
-from assessor_ai.settings import settings
+from app.api.app import app
+from app.api.auth import get_current_user
+from app.infra.redis import session as session_store
+from app.settings import settings
 from tests.fakes import ConnFake, FakeRedis
 
 

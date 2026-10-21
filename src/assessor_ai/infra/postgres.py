@@ -30,6 +30,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from assessor_ai.config import settings
 from assessor_ai.graph.tools.response import Response, ToolResponse
+from assessor_ai.infra.base import Conector
 from assessor_ai.logging import get_logger
 from assessor_ai.privacy import anonimizar_entrada
 
@@ -42,28 +43,19 @@ def _redigir(valor: object) -> str:
 
 
 def local_date(column: ColumnExpressionArgument[datetime]) -> ColumnElement[datetime]:
-    """
-    Expressão de data local (America/Sao_Paulo) a partir de uma coluna timestamptz.
-
-    Equivalente a: (column AT TIME ZONE 'America/Sao_Paulo')::date
-    """
-
+    # equivalente a: (column AT TIME ZONE 'America/Sao_Paulo')::date
     return func.date(func.timezone("America/Sao_Paulo", column))
 
 
 def local_date_filter(
     column: ColumnExpressionArgument[datetime], date_local: str
 ) -> ColumnElement[bool]:
-    """Expressão booleana pra filtrar registros por uma data local específica."""
-
     return local_date(column) == date_local
 
 
 def local_date_range_filter(
     column: ColumnExpressionArgument[datetime], date_from_local: str, date_to_local: str
 ) -> ColumnElement[bool]:
-    """Expressão booleana pra filtrar registros por um intervalo de datas locais."""
-
     return local_date(column).between(date_from_local, date_to_local)
 
 
@@ -102,19 +94,24 @@ def current_user_id() -> UUID:
     return _current_user_id.get()
 
 
-class PostgresConn:
-    """Engine e pool são criados no primeiro uso — nunca no import do módulo."""
+class PostgresConn(Conector[Engine]):
 
     def __init__(self) -> None:
         self._engine: Engine | None = None
         self._session_factory: sessionmaker[Session] | None = None
         self._pool: AsyncConnectionPool[AsyncConnection[dict[str, Any]]] | None = None
 
-    @property
-    def _factory(self) -> sessionmaker[Session]:
-        if self._session_factory is None:
+    def conectar(self) -> Engine:
+        if self._engine is None:
             self._engine = create_engine(settings.POSTGRES_URL.get_secret_value(), pool_size=10)
             self._session_factory = sessionmaker(bind=self._engine)
+
+        return self._engine
+
+    @property
+    def _factory(self) -> sessionmaker[Session]:
+        self.conectar()
+        assert self._session_factory is not None
 
         return self._session_factory
 
@@ -133,26 +130,12 @@ class PostgresConn:
             session.close()
 
     async def checkpointer_pool(self) -> AsyncConnectionPool[AsyncConnection[dict[str, Any]]]:
-        """
-        Pool async psycopg3 usado só pelo checkpointer do LangGraph (`graph/builder.py`), em paralelo
-        ao engine SQLAlchemy acima, que continua em psycopg2 síncrono — unificar os dois drivers é PR
-        à parte. `autocommit` e `dict_row` são exigência do `AsyncPostgresSaver`: sem o primeiro o
-        `setup()` não persiste as tabelas, sem o segundo ele quebra ao ler as linhas.
-
-        `open=False` + `await open()` porque o psycopg3 desencoraja abrir o pool no construtor (o
-        pool async precisa do event loop que já está rodando).
-        """
 
         if self._pool is None:
             self._pool = AsyncConnectionPool(
                 settings.POSTGRES_URL.get_secret_value(),
                 kwargs={"autocommit": True, "row_factory": dict_row},
                 open=False,
-                # Postgres em nuvem derruba conexão SSL ociosa sem avisar o pool — sem `check`,
-                # o pool só descobre isso quando o checkpointer já está no meio de uma query
-                # (era a causa do OperationalError "SSL connection has been closed unexpectedly"
-                # estourando um turno de chat inteiro). `check_connection` valida no checkout e
-                # descarta/reabre a conexão morta antes de entregá-la.
                 check=AsyncConnectionPool.check_connection,
             )
             await self._pool.open()
@@ -175,15 +158,6 @@ postgres = PostgresConn()
 
 
 def transacional(metodo: Callable[..., ToolResponse]) -> Callable[..., ToolResponse]:
-    """
-    Abre a sessão, injeta como 2º argumento do método, faz commit/rollback e converte exceção
-    em `Response.error` — o corpo do método fica só com a query.
-
-    O ajuste de `__signature__` não é cosmético: `functools.wraps` sozinho faz o
-    `inspect.signature` seguir `__wrapped__` e enxergar o parâmetro `s`, que então vaza pro JSON
-    schema que o `StructuredTool` manda pro LLM (mesma classe de bug do `self` em `@tool` de
-    método). Corrigir aqui vale pra toda tool, inclusive as que não passam `args_schema`.
-    """
 
     @functools.wraps(metodo)
     def wrapper(self: "PostgresRepo", *args: Any, **kwargs: Any) -> ToolResponse:

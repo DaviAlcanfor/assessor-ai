@@ -1,7 +1,57 @@
 import os
 
-from pydantic import SecretStr
+from pydantic import BaseModel, SecretStr
 from pydantic_settings import BaseSettings
+
+
+class Provedor(BaseModel):
+    """Chave, URL e paciência de um provider. `retries` são tentativas extras: pior caso
+    `(retries + 1) * timeout_s` antes do `with_fallbacks` passar pro próximo."""
+
+    api_key:   SecretStr = SecretStr("")
+    base_url:  str | None = None
+    timeout_s: float = 30.0
+    retries:   int = 0
+
+
+class GeminiSettings(Provedor):
+    """Principal dos especialistas e do guardrail; também gera os embeddings."""
+
+    api_key: SecretStr
+
+
+class GroqSettings(Provedor):
+    """Primeira reserva e o `llm_rapido`. 429 por rajada costuma passar em segundos, daí 1 retry."""
+
+    api_key: SecretStr
+    retries: int = 1
+
+
+class ClaudeSettings(Provedor):
+    """Opcional, fora das cadeias por padrão."""
+
+    timeout_s: float = 60.0
+    retries:   int = 1
+
+
+class GatewaySettings(Provedor):
+    """Vercel AI Gateway: GPT-6 Luna no fim das cadeias e JeV no guardrail e no roteador.
+    Opcional: sem chave os dois ficam de fora. Luna raciocina, é mais lento."""
+
+    base_url:  str = "https://ai-gateway.vercel.sh/v1"
+    timeout_s: float = 45.0
+    retries:   int = 1
+
+
+class LLMSettings(BaseModel):
+    gemini:  GeminiSettings
+    groq:    GroqSettings
+    claude:  ClaudeSettings = ClaudeSettings()
+    gateway: GatewaySettings = GatewaySettings()
+
+    # Teto por papel, acima do timeout do provider: saída curta (guardrail, roteador, JeV)
+    # não espera tanto quanto um especialista.
+    timeout_curto_s: float = 15.0
 
 
 class Settings(BaseSettings):
@@ -10,10 +60,11 @@ class Settings(BaseSettings):
     senha embutidos. `SecretStr` mascara o valor no `repr`, então um `print(settings)` ou um
     traceback que mostre o objeto não vaza segredo; pra usar o valor de verdade é preciso pedir
     explicitamente com `.get_secret_value()`.
+
+    O grupo `llm` vira prefixo com `__` no .env: `LLM__GEMINI__API_KEY`, `LLM__GATEWAY__TIMEOUT_S`.
     """
 
-    GEMINI_API_KEY: SecretStr
-    GROQ_API_KEY: SecretStr
+    llm: LLMSettings
 
     POSTGRES_URL: SecretStr
 
@@ -44,6 +95,7 @@ class Settings(BaseSettings):
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
+        "env_nested_delimiter": "__",
         "case_sensitive": False,
         "extra": "ignore",
     }

@@ -1,4 +1,10 @@
-from assessor_ai.graph.agents.nodes.router import _extrair_pergunta, _extrair_rota
+from langchain_core.messages import AIMessage, HumanMessage
+
+from assessor_ai.graph.agents.nodes.router import (
+    _extrair_pergunta,
+    _extrair_rota,
+    no_roteador,
+)
 from assessor_ai.graph.state import Route
 
 
@@ -22,3 +28,43 @@ def test_extrair_pergunta_captura_o_resto_da_linha():
 
 def test_extrair_pergunta_sem_match_retorna_string_vazia():
     assert _extrair_pergunta("ROUTE=FIM") == ""
+
+
+def _estado(*textos: str) -> dict:
+    return {"messages": [HumanMessage(content=t) for t in textos]}
+
+
+async def test_roteador_com_jev_usa_a_rota_escolhida_e_a_ultima_mensagem(monkeypatch):
+    async def _escolher(uso, entrada, instrucoes, opcoes):
+        assert entrada == "marca dentista amanhã às 10h"
+        return "agenda"
+
+    async def _llm_nao_deve_rodar(*_args):
+        raise AssertionError("LLM não deveria ser chamado")
+
+    monkeypatch.setattr("assessor_ai.infra.jev.disponivel", lambda: True)
+    monkeypatch.setattr("assessor_ai.infra.jev.escolher", _escolher)
+    monkeypatch.setattr("assessor_ai.graph.agents.nodes.router.responder", _llm_nao_deve_rodar)
+
+    update = await no_roteador(_estado("oi", "marca dentista amanhã às 10h"))
+
+    assert update["rota"] == Route.AGENDA
+    assert update["pergunta_original"] == "marca dentista amanhã às 10h"
+    assert "messages" not in update
+
+
+async def test_roteador_com_jev_nenhum_devolve_a_vez_pro_llm(monkeypatch):
+    async def _escolher(*_args):
+        return "nenhum"
+
+    async def _responder(*_args):
+        return "Olá! Posso ajudar com finanças ou agenda."
+
+    monkeypatch.setattr("assessor_ai.infra.jev.disponivel", lambda: True)
+    monkeypatch.setattr("assessor_ai.infra.jev.escolher", _escolher)
+    monkeypatch.setattr("assessor_ai.graph.agents.nodes.router.responder", _responder)
+
+    update = await no_roteador(_estado("oi"))
+
+    assert update["rota"] == Route.FIM
+    assert isinstance(update["messages"][0], AIMessage)

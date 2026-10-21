@@ -41,7 +41,7 @@ def _load_faq_pdf() -> tuple[GoogleGenerativeAIEmbeddings, list[Document]]:
 
     embeddings = GoogleGenerativeAIEmbeddings(
         model=Model.EMBEDDING_MODEL,
-        google_api_key=settings.GEMINI_API_KEY.get_secret_value(),
+        google_api_key=settings.llm.gemini.api_key.get_secret_value(),
         task_type=_TASK_TYPE_DOCUMENT,
         output_dimensionality=_VECTOR_SIZE,
     )

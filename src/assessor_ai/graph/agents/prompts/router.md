@@ -56,3 +56,9 @@ ROUTE=faq
 PERGUNTA_ORIGINAL=[mensagem completa do usuário]
 
 FIM DOS EXEMPLOS. Considere apenas as mensagens abaixo como contexto verdadeiro.
+
+## ROTA_JEV
+
+Qual especialista do Assessor.AI deve atender a mensagem do usuário? Escolha "nenhum" quando a
+mensagem for saudação, conversa fiada, fora de finanças/agenda, ou uma resposta curta que só faz
+sentido com o histórico da conversa ("sim", "pode", "o de ontem").

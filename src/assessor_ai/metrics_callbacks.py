@@ -28,7 +28,7 @@ _ALLOWED_NODES = frozenset(get_args(NodeName.__value__))
 # (langchain_google_genai/chat_models.py:ls_provider="google_genai", langchain_groq: "groq").
 # Com PROVIDER_MAP.values() esse label caía sempre em "unknown" pros dois LLMs em Gemini
 # (llm_especialista, llm_guardrail) — a maior parte do tráfego de LLM do projeto.
-_ALLOWED_PROVIDERS = frozenset({"google_genai", "groq"})
+_ALLOWED_PROVIDERS = frozenset({"google_genai", "groq", "openai", "anthropic"})
 _ALLOWED_MODELS = frozenset(m.value for m in Model)
 
 

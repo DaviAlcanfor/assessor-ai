@@ -35,6 +35,8 @@ class PromptSections(TypedDict, total=False):
     papel: str
     shots: str
     classificador: str
+    instrucao_jev: str
+    rota_jev: str
     compliance: str
     resumo: str
     perfil: str

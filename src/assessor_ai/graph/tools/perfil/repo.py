@@ -149,7 +149,7 @@ class PerfilRepo(MongoRepo[PerfilFinanceiroRecord]):
                 preferencias_relevantes=self._buscar_preferencias(pergunta),
             )
         except Exception as e:
-            logger.error("PERFIL ERRO | %s", e)
+            logger.exception("PERFIL ERRO")
             return Response.error(e)
 
     def _buscar_preferencias(self, pergunta: str) -> list[str]:

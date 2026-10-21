@@ -6,13 +6,16 @@ from assessor_ai.graph.agents.nodes.guardrail.schemas import (
     _KEYWORDS_DADOS_INTERNOS,
     _PADROES_INJECAO,
     _RESPOSTAS_BLOQUEIO,
+    DESCRICAO_CATEGORIA,
     Categoria,
     ResultadoGuardrail,
+    listar_categorias,
 )
 from assessor_ai.graph.agents.nodes.names import GUARDRAIL_ENTRADA
 from assessor_ai.graph.agents.prompts.loader import load_sections
 from assessor_ai.graph.llm import llm_guardrail
 from assessor_ai.graph.state import Estado, GuardrailEntradaUpdate
+from assessor_ai.infra import jev
 from assessor_ai.logging import get_logger
 from assessor_ai.metrics import GUARDRAIL_DECISIONS, medir_node
 from assessor_ai.privacy import anonimizar_entrada
@@ -65,6 +68,23 @@ def _detectar_acesso_interno(texto: str) -> bool:
     )
 
 
+async def _classificar(mensagem_anonimizada: str) -> str:
+    """JeV quando o Vercel AI Gateway está configurado; se ele falhar (ou sem chave), o LLM."""
+
+    if jev.disponivel():
+        try:
+            return await jev.escolher(
+                "guardrail_entrada", mensagem_anonimizada, _GUARDRAIL["instrucao_jev"], DESCRICAO_CATEGORIA
+            )
+        except Exception as e:
+            logger.warning("Guardrail JeV falhou, usando o LLM: %s", e)
+
+    resposta = await llm_guardrail.ainvoke(
+        _GUARDRAIL["classificador"].format(categorias=listar_categorias(), mensagem=mensagem_anonimizada)
+    )
+    return _extrair_categoria(resposta.text)
+
+
 async def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     """
     Executa verificações em ordem de custo crescente:
@@ -77,10 +97,7 @@ async def guardrail_entrada(mensagem_anonimizada: str) -> ResultadoGuardrail:
     if _detectar_acesso_interno(mensagem_anonimizada):
         return _bloquear("acesso_dados_internos", "Não tenho como compartilhar informações internas do sistema.")
     
-    resposta = await llm_guardrail.ainvoke(
-        _GUARDRAIL["classificador"].format(mensagem=mensagem_anonimizada)
-    )
-    categoria = _extrair_categoria(resposta.text)
+    categoria = await _classificar(mensagem_anonimizada)
 
     if categoria in _RESPOSTAS_BLOQUEIO:
         motivo, mensagem = _RESPOSTAS_BLOQUEIO[categoria]

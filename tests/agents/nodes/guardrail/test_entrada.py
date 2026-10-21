@@ -130,6 +130,38 @@ async def test_guardrail_entrada_bloqueia_injecao_fora_do_regex_via_llm(monkeypa
     assert resultado["motivo"] == "prompt_injection"
 
 
+async def test_guardrail_entrada_com_jev_bloqueia_pela_categoria_escolhida(monkeypatch):
+    async def _escolher(uso, entrada, instrucoes, opcoes):
+        assert Categoria.INDICACAO_INVEST in opcoes
+        return Categoria.INDICACAO_INVEST
+
+    monkeypatch.setattr("assessor_ai.infra.jev.disponivel", lambda: True)
+    monkeypatch.setattr("assessor_ai.infra.jev.escolher", _escolher)
+
+    resultado = await guardrail_entrada("compro PETR4 ou VALE3 amanhã?")
+
+    assert resultado["bloqueado"] is True
+    assert resultado["motivo"] == "indicacao_investimento"
+
+
+async def test_guardrail_entrada_jev_falhando_cai_no_llm(monkeypatch):
+    async def _escolher(*_args):
+        raise ValueError("403 customer_verification_required")
+
+    class _LLMFake:
+        async def ainvoke(self, prompt, *_args, **_kwargs):
+            assert "INDICACAO_INVEST - " in prompt  # lista vem do DESCRICAO_CATEGORIA
+            return AIMessage(content="CATEGORIA: APROVADO\nJUSTIFICATIVA: ok")
+
+    monkeypatch.setattr("assessor_ai.infra.jev.disponivel", lambda: True)
+    monkeypatch.setattr("assessor_ai.infra.jev.escolher", _escolher)
+    monkeypatch.setattr("assessor_ai.graph.agents.nodes.guardrail.entrada.llm_guardrail", _LLMFake())
+
+    resultado = await guardrail_entrada("quanto gastei em mercado esse mês?")
+
+    assert resultado["bloqueado"] is False
+
+
 async def test_no_guardrail_entrada_nao_loga_pii_cru_ao_bloquear(caplog):
     estado = {
         "messages": [

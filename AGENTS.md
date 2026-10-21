@@ -15,8 +15,11 @@ e tools estão no [README.md](README.md) — leia-o antes de mexer em `graph/age
 
 - Python 3.13+, gerenciado com `uv` (`uv venv`, `uv sync`, `uv add <pkg>`)
 - LangChain 1.2 / LangGraph 1.1 para orquestração de agentes
-- LLMs: Gemini (`gemini-2.5-flash`) e Groq (`openai/gpt-oss-120b`), com Claude e Qwen mapeados em
-  `models.py` mas ainda não usados por nenhum agente
+- LLMs: Gemini (`gemini-2.5-flash`) e Groq (`openai/gpt-oss-120b`), com GPT-6 Luna (Vercel AI Gateway,
+  opcional) no fim das cadeias de fallback. Claude e Qwen mapeados em `models.py` mas fora das cadeias.
+  Config por provider em `config.py` (`settings.llm.<provider>`, `LLM__<PROVIDER>__*` no .env)
+- JeV (TypeSafe), pela Decisions API do Vercel AI Gateway (`infra/jev/`): decide sem gerar texto o
+  guardrail de entrada e o roteador; se falhar, o LLM assume. Ver `.agents/skills/jev.md`
 - PostgreSQL para transações, eventos e checkpoint do LangGraph, acessado via SQLAlchemy ORM (`graph/tools/{financeiro,agenda,usuarios}/models.py`) +
   Alembic pra migrations
 - MongoDB para histórico de conversa e perfil de usuário
@@ -244,7 +247,7 @@ Teste novo cobre caminho feliz, borda (lista vazia, valor no limite, data virand
 ## Skills por biblioteca
 
 `.agents/skills/` guarda convenções e pegadinhas específicas de cada lib usada no projeto
-(pydantic, fastapi, mongo, langchain, sqlalchemy, redis — um arquivo por lib, regra + exemplo do que
+(pydantic, fastapi, mongo, langchain, sqlalchemy, redis, jev — um arquivo por lib, regra + exemplo do que
 fazer e do que não fazer). `dependencies.md`, `responses.md`, `streaming.md`, `path-operations.md` e
 `other-tools.md` são material de referência do skill oficial do FastAPI, linkados a partir do
 `fastapi.md`. São achados reais do repo (muitos vêm de bugs já corrigidos, ver TODO.md),

@@ -109,6 +109,14 @@ GUARDRAIL_DECISIONS = Counter(
     labelnames=("decision",),
 )
 
+# `escolha` como label só serve pra opções fixas (categorias, rotas, sim/não); opção dinâmica
+# precisaria de um rótulo genérico, senão a cardinalidade explode.
+JEV_DECISIONS = Counter(
+    "assessor_jev_decisions_total",
+    "Respostas do JeV por uso, pergunta, resposta (ou recusa/invalida) e modelo que respondeu.",
+    labelnames=("uso", "pergunta", "escolha", "modelo"),
+)
+
 RATE_LIMIT_REJECTIONS = Counter(
     "assessor_rate_limit_rejections_total",
     "Requisições rejeitadas por rate limiting.",

@@ -11,8 +11,8 @@ jobs:
     env:
       # Settings exige todas as vars, mas os testes hoje só cobrem funções puras
       # (sem I/O real) — valores dummy bastam pra `Settings()` não quebrar na coleta.
-      GEMINI_API_KEY: dummy
-      GROQ_API_KEY: dummy
+      LLM__GEMINI__API_KEY: dummy
+      LLM__GROQ__API_KEY: dummy
       POSTGRES_URL: postgresql://user:pass@localhost:5432/db
       MONGO_URL: mongodb://localhost:27017/
       MONGO_COLLECTION_NAME: assessor

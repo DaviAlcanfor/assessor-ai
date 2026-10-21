@@ -3,21 +3,25 @@
 from redis import Redis as RedisClient
 
 from assessor_ai.config import settings
+from assessor_ai.infra.base import Conector
 
 
-class RedisConn:
+class RedisConn(Conector[RedisClient]):
     def __init__(self) -> None:
         self._client: RedisClient | None = None
 
-    @property
-    def client(self) -> RedisClient:
-        # decode_responses=True: o retorno vem como str, não bytes
+    def conectar(self) -> RedisClient:
         if self._client is None:
             self._client = RedisClient.from_url(
-                settings.REDIS_URL.get_secret_value(), decode_responses=True
+                settings.REDIS_URL.get_secret_value(), 
+                decode_responses=True
             )
 
         return self._client
+
+    @property
+    def client(self) -> RedisClient:
+        return self.conectar()
 
 
 redis = RedisConn()

@@ -119,7 +119,7 @@ assessor-ai/
 │   │       └── interface.py         # AssessorAgentExecutor — ponte pro services/chat_service.py
 │   │
 │   ├── config.py                    # Env vars via pydantic-settings; credenciais em SecretStr
-│   ├── models.py                    # PROVIDER_MAP, BUILDERS, Model Enum
+│   ├── models.py                    # Model Enum, PROVIDER_MAP, BUILDERS (config por provider em config.py)
 │   ├── logging.py                   # ColorFormatter, get_logger e o decorator log_tool
 │   ├── privacy.py                   # Regex de PII + anonimizar_entrada
 │   ├── identifiers.py               # UserID, ChatID, APIKey, APIKeyHash e geradores de IDs
@@ -215,10 +215,10 @@ Usuário
 
 | Agente | Modelo | Responsabilidade |
 |---|---|---|
-| **Guardrail Entrada** | `gemini-2.5-flash` (temp 0.0) | Bloqueia mensagens indevidas e anonimiza PII |
-| **Router** | `openai/gpt-oss-120b` (temp 0.0) | Classifica a intenção e emite `ROUTE=financeiro\|agenda\|faq`, ou responde diretamente |
-| **Financeiro** | `gemini-2.5-flash` + fallback `openai/gpt-oss-120b` | Interpreta a pergunta financeira e chama as tools do banco |
-| **Agenda** | `gemini-2.5-flash` + fallback `openai/gpt-oss-120b` | Interpreta perguntas de agenda e chama as tools de eventos |
+| **Guardrail Entrada** | JeV (com gateway) → `gemini-2.5-flash` (temp 0.0) | Bloqueia mensagens indevidas e anonimiza PII |
+| **Router** | JeV (com gateway) → `openai/gpt-oss-120b` (temp 0.0) | JeV escolhe `financeiro\|agenda\|faq`; se escolher `nenhum`, o LLM emite `ROUTE=` ou responde diretamente |
+| **Financeiro** | `gemini-2.5-flash` → `openai/gpt-oss-120b` → GPT-6 Luna | Interpreta a pergunta financeira e chama as tools do banco |
+| **Agenda** | `gemini-2.5-flash` → `openai/gpt-oss-120b` → GPT-6 Luna | Interpreta perguntas de agenda e chama as tools de eventos |
 | **FAQ** | `openai/gpt-oss-120b` (temp 0.0) | Consulta o PDF via RAG e responde dúvidas sobre o sistema |
 | **Orquestrador** | `openai/gpt-oss-120b` (temp 0.0) | Formata a resposta do especialista em linguagem natural |
 | **Guardrail Saída** | `openai/gpt-oss-120b` (temp 0.0) | Revisa compliance e redige PII na resposta final |
@@ -302,8 +302,9 @@ O RAG do FAQ roda sobre o Qdrant (`graph/tools/faq/`) — substituiu o índice F
 ### Variáveis de ambiente
 
 ```env
-GEMINI_API_KEY=...
-GROQ_API_KEY=...
+LLM__GEMINI__API_KEY=...
+LLM__GROQ__API_KEY=...
+LLM__GATEWAY__API_KEY=...      # opcional — Vercel AI Gateway: GPT-6 Luna nas cadeias; JeV no guardrail e roteador
 POSTGRES_URL=postgresql://usuario:senha@host:5432/banco
 MONGO_URL=mongodb://usuario:senha@host:27017/
 MONGO_COLLECTION_NAME=assessor

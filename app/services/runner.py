@@ -13,6 +13,7 @@ from app.graph.names import GUARDRAIL_SAIDA, ROTEADOR, NodeName
 from app.graph.state import Estado, Route, SaidaGrafo
 from app.infra.context import session_context
 from app.infra.logging import Logging
+from app.infra.postgres import transacao_do_turno
 from app.schemas.execution import (
     AnswerReady,
     ExecutionEvent,
@@ -84,8 +85,10 @@ async def executar(
         # contextvar da task atual — por isso o escopo aberto aqui continua valendo lá dentro.
         with session_context(user_id):
             grafo = await fluxo_agentes.get()
-            # ainvoke() devolve tipo fraco no stub do langgraph mesmo com output_schema declarado.
-            estado_final = cast(SaidaGrafo, await grafo.ainvoke(estado_inicial, config=config))
+            # As escritas do turno só são confirmadas ao sair deste bloco, e só se o juiz aprovou.
+            async with transacao_do_turno():
+                # ainvoke() devolve tipo fraco no stub do langgraph mesmo com output_schema declarado.
+                estado_final = cast(SaidaGrafo, await grafo.ainvoke(estado_inicial, config=config))
         outcome = "success"
     finally:
         duracao = time.perf_counter() - inicio
@@ -127,37 +130,38 @@ async def executar_stream(
             grafo = await fluxo_agentes.get()
             resposta_final: str | None = None
 
-            async for event in grafo.astream_events(estado_inicial, config=config, version="v2"):
-                nome = event.get("name")
+            async with transacao_do_turno():
+                async for event in grafo.astream_events(estado_inicial, config=config, version="v2"):
+                    nome = event.get("name")
 
-                if nome not in _NOMES_DE_NODE:
-                    continue
+                    if nome not in _NOMES_DE_NODE:
+                        continue
 
-                tipo = event.get("event")
+                    tipo = event.get("event")
 
-                if tipo == "on_chain_start":
-                    yield NodeStarted(node=cast(NodeName, nome))
-                    continue
+                    if tipo == "on_chain_start":
+                        yield NodeStarted(node=cast(NodeName, nome))
+                        continue
 
-                if tipo != "on_chain_end":
-                    continue
+                    if tipo != "on_chain_end":
+                        continue
 
-                output = event.get("data", {}).get("output")
+                    output = event.get("data", {}).get("output")
 
-                if isinstance(output, dict):
-                    if nome == ROTEADOR:
-                        rota = output.get("rota")
+                    if isinstance(output, dict):
+                        if nome == ROTEADOR:
+                            rota = output.get("rota")
 
-                        if isinstance(rota, Route):
-                            yield RouteSelected(route=rota)
+                            if isinstance(rota, Route):
+                                yield RouteSelected(route=rota)
 
-                        if rota is Route.FIM:
+                            if rota is Route.FIM:
+                                resposta_final = _ultima_resposta_ia(output.get("messages", []))
+
+                        if nome == GUARDRAIL_SAIDA:
                             resposta_final = _ultima_resposta_ia(output.get("messages", []))
 
-                    if nome == GUARDRAIL_SAIDA:
-                        resposta_final = _ultima_resposta_ia(output.get("messages", []))
-
-                yield NodeFinished(node=cast(NodeName, nome))
+                    yield NodeFinished(node=cast(NodeName, nome))
 
             outcome = "success"
 

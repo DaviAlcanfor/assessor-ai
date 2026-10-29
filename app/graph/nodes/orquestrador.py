@@ -1,4 +1,4 @@
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 
 from app.graph.agents import orquestrador_app
 from app.graph.names import ORQUESTRADOR
@@ -15,9 +15,10 @@ async def no_orquestrador(estado: Estado) -> OrquestradorUpdate:
 
     resposta = await responder(orquestrador_app, mensagens)
 
+    # A frase só vira mensagem do chat depois do juiz: publicar aqui deixaria no histórico do
+    # checkpoint uma resposta que o juiz ainda pode recusar.
     return OrquestradorUpdate(
         agentes_chamados=[ORQUESTRADOR],
-        messages=[AIMessage(content=resposta)],
         resposta_especialista=resposta,
     )
 

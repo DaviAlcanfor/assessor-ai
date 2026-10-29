@@ -38,6 +38,10 @@ class PromptSections(TypedDict, total=False):
     instrucao_jev: str
     rota_jev: str
     compliance: str
+    template: str
+    grounding: str
+    relevancia: str
+    fidelidade: str
     resumo: str
     perfil: str
 

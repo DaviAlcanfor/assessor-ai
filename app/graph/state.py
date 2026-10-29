@@ -27,6 +27,8 @@ class EntradaGrafo(MessagesState):
 
 class Estado(MessagesState):
     resposta_especialista: NotRequired[str]
+    # O que as tools receberam e devolveram no turno: é contra isto (e a fala do usuário) que o juiz confere a resposta.
+    dados_especialista: NotRequired[str]
     agentes_chamados: NotRequired[Annotated[list[NodeName], operator.add]]
     rota: NotRequired[Route]
     pergunta_original: NotRequired[str]
@@ -49,6 +51,7 @@ class RouterUpdate(TypedDict):
 class EspecialistaUpdate(TypedDict):
     agentes_chamados: list[NodeName]
     resposta_especialista: str
+    dados_especialista: str
 
 
 class FaqUpdate(TypedDict):
@@ -58,8 +61,13 @@ class FaqUpdate(TypedDict):
 
 
 class OrquestradorUpdate(TypedDict):
+    # Sem `messages`: a frase só vira mensagem do chat depois do juiz, no guardrail de saída.
     agentes_chamados: list[NodeName]
-    messages: list[AnyMessage]
+    resposta_especialista: str
+
+
+class JuizUpdate(TypedDict):
+    agentes_chamados: list[NodeName]
     resposta_especialista: str
 
 

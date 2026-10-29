@@ -50,6 +50,11 @@ def _redigir_pii(texto: str, pii_list: list[PIIPattern] = PII) -> str:
 
 
 
+FRASE_SEGURA = (
+    "Não tenho evidência suficiente para afirmar isso, e nenhuma alteração deste pedido foi mantida "
+    "no seu financeiro ou na sua agenda."
+)
+
 _FALLBACK_COMPLIANCE = (
     "Não posso confirmar esses detalhes com segurança agora — recomendo conferir com seu "
     "assessor antes de decidir. Investimentos envolvem risco e resultados passados não "
@@ -98,6 +103,14 @@ async def guardrail_saida(
 @medir_node(GUARDRAIL_SAIDA)
 async def no_guardrail_saida(estado: Estado) -> GuardrailSaidaUpdate:
 
+    # Frase que o juiz já trocou: é fixa e não tem dado pessoal, então não gasta uma revisão de LLM
+    # (que ainda poderia reescrevê-la). Comparar o texto evita um campo de estado que sobraria no checkpoint.
+    if estado["resposta_especialista"] == FRASE_SEGURA:
+        return GuardrailSaidaUpdate(
+            agentes_chamados=[GUARDRAIL_SAIDA],
+            messages=[AIMessage(content=FRASE_SEGURA)],
+        )
+
     logger.info("Revisando resposta do especialista com guardrail de saída...")
     resultado = await guardrail_saida(
         estado["resposta_especialista"],
@@ -110,4 +123,4 @@ async def no_guardrail_saida(estado: Estado) -> GuardrailSaidaUpdate:
     )
 
 
-__all__ = ["no_guardrail_saida"]
+__all__ = ["FRASE_SEGURA", "no_guardrail_saida"]

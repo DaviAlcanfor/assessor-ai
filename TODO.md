@@ -6,6 +6,19 @@ Próximos passos planejados. Contexto do projeto em [AGENTS.md](AGENTS.md).
 > referência antiga aparece dentro de um relato histórico, ela descreve o caminho que existia na
 > época; as instruções atuais ficam em `AGENTS.md` e `CODE_STYLE.md`.
 
+## Juiz e escrita transacional — implementado, falta validar com o gateway real
+
+Decisão e alternativas em [decisao_tecnica.md](decisao_tecnica.md).
+
+- [x] **Juiz (JeV) entre o orquestrador e o guardrail de saída**, com a escrita presa à transação do turno
+      (`infra/postgres/transacao_do_turno.py`): recusa, juiz fora do ar ou exceção desfazem as escritas.
+- [ ] **Validar o juiz contra o gateway real.** Os testes usam JeV simulado; nenhuma chamada real foi feita.
+      Medir com casos reais se o corte de 0,5 dos predicados aprova o que deve, e anotar em `.agents/skills/jev.md`.
+- [ ] **Mostrar o `juiz_node` no frontend web** (`web/src/types.ts`, `lib/graph-layout.ts`,
+      `lib/use-execution-graph.ts`, `components/chat/node-icon.tsx`). O stream já emite o nó; a tela só não o desenha.
+- [ ] **Medir no monitor da Etapa 6** a latência do turno com escrita e o tempo da conexão presa até o veredito
+      (pool de 10 conexões, ver `PostgresConn.conectar`).
+
 ## Refatoração: padrão limpo e injeção de dependência — a fazer
 
 Regra transversal: classe é pra segurar dependência injetada. Classe sem estado com um método é

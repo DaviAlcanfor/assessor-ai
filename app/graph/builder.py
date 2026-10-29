@@ -11,6 +11,7 @@ from app.graph.names import (
     FINANCEIRO,
     GUARDRAIL_ENTRADA,
     GUARDRAIL_SAIDA,
+    JUIZ,
     ORQUESTRADOR,
     ROTEADOR,
 )
@@ -18,6 +19,7 @@ from app.graph.nodes import (
     no_agenda,
     no_faq,
     no_financeiro,
+    no_juiz,
     no_orquestrador,
     no_roteador,
 )
@@ -29,6 +31,7 @@ from app.graph.state import (
     FaqUpdate,
     GuardrailEntradaUpdate,
     GuardrailSaidaUpdate,
+    JuizUpdate,
     OrquestradorUpdate,
     Route,
     RouterUpdate,
@@ -57,6 +60,7 @@ def _construir_grafo() -> StateGraph:
     agenda: AsyncNode[EspecialistaUpdate] = no_agenda
     faq: AsyncNode[FaqUpdate] = no_faq
     orquestrador: AsyncNode[OrquestradorUpdate] = no_orquestrador
+    juiz: AsyncNode[JuizUpdate] = no_juiz
     guardrail_saida: AsyncNode[GuardrailSaidaUpdate] = no_guardrail_saida
 
     grafo = StateGraph(Estado, input_schema=EntradaGrafo, output_schema=SaidaGrafo)
@@ -67,6 +71,7 @@ def _construir_grafo() -> StateGraph:
     grafo.add_node(AGENDA,             agenda)
     grafo.add_node(FAQ,               faq)
     grafo.add_node(ORQUESTRADOR,       orquestrador)
+    grafo.add_node(JUIZ,               juiz)
     grafo.add_node(GUARDRAIL_SAIDA,    guardrail_saida)
 
     grafo.set_entry_point(GUARDRAIL_ENTRADA)
@@ -93,7 +98,8 @@ def _construir_grafo() -> StateGraph:
 
     grafo.add_edge(FINANCEIRO,      ORQUESTRADOR)
     grafo.add_edge(AGENDA,          ORQUESTRADOR)
-    grafo.add_edge(ORQUESTRADOR,    GUARDRAIL_SAIDA)
+    grafo.add_edge(ORQUESTRADOR,    JUIZ)
+    grafo.add_edge(JUIZ,            GUARDRAIL_SAIDA)
     grafo.add_edge(FAQ,             GUARDRAIL_SAIDA)
     grafo.add_edge(GUARDRAIL_SAIDA, END)
 

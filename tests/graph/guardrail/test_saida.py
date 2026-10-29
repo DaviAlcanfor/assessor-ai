@@ -3,9 +3,11 @@ from langchain_core.messages import AIMessage
 from app.domain.privacy import PII_USUARIO
 from app.graph.guardrail.saida import (
     _FALLBACK_COMPLIANCE,
+    FRASE_SEGURA,
     _redigir_pii,
     desanonimizar_saida,
     guardrail_saida,
+    no_guardrail_saida,
 )
 
 
@@ -84,3 +86,15 @@ async def test_guardrail_saida_usa_resposta_revisada_quando_formato_ok(monkeypat
     resultado = await guardrail_saida("resposta original", mapa_pii={})
 
     assert resultado["conteudo"] == "texto revisado e seguro"
+
+
+async def test_no_guardrail_saida_nao_revisa_a_frase_segura_do_juiz(monkeypatch):
+    class _LLMQueNaoDeveSerChamado:
+        async def ainvoke(self, *_args, **_kwargs):
+            raise AssertionError("a frase segura já é fixa: não passa por revisão de LLM")
+
+    monkeypatch.setattr("app.graph.guardrail.saida.llm_rapido", _LLMQueNaoDeveSerChamado())
+
+    update = await no_guardrail_saida({"resposta_especialista": FRASE_SEGURA})
+
+    assert update["messages"][0].content == FRASE_SEGURA

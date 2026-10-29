@@ -4,6 +4,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from app.domain.errors import UsuarioDaSessaoNaoDefinido
 from app.domain.models.chat import ChatMessage, Role
 from app.infra.context import current_user_id
+from app.infra.postgres import transacao_atual
 from app.services import runner
 
 
@@ -84,3 +85,21 @@ async def test_executar_sem_ai_message_retorna_none(monkeypatch):
     )
 
     assert resposta is None
+
+
+async def test_executar_abre_a_transacao_do_turno_so_durante_o_invoke(monkeypatch):
+    visto = {}
+
+    class _FluxoQueOlhaATransacao:
+        async def ainvoke(self, *_args, **_kwargs):
+            visto["durante"] = transacao_atual()
+            return {"messages": [AIMessage(content="ok")]}
+
+    _patch_fluxo(monkeypatch, _FluxoQueOlhaATransacao())
+
+    await runner.executar(
+        ChatMessage(role=Role.HUMAN, content="oi"), "sess-1", "perfil", "55555555-5555-5555-5555-555555555555"
+    )
+
+    assert visto["durante"] is not None
+    assert transacao_atual() is None

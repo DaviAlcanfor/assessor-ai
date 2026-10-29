@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 
-from app.graph.nodes.contexto import mensagens_com_contexto
+from langchain_core.messages import AIMessage, ToolMessage
+
+from app.graph.nodes.contexto import mensagens_com_contexto, responder_com_evidencias
 from app.graph.prompts import loader
 from app.graph.prompts.loader import contexto_do_turno, contexto_temporal
 
@@ -74,3 +76,28 @@ def test_estado_sem_perfil_nao_quebra():
 
     assert mensagens[0].type == "system"
     assert "CONTEXTO TEMPORAL" in mensagens[0].content
+
+
+async def test_responder_com_evidencias_junta_tool_args_e_retorno():
+    class _AgenteFake:
+        async def ainvoke(self, _entrada):
+            return {"messages": [
+                AIMessage(content="", tool_calls=[{"id": "c1", "name": "add_transaction", "args": {"amount": 2}}]),
+                ToolMessage(content="{'status': 'ok', 'id': 7}", name="add_transaction", tool_call_id="c1"),
+                AIMessage(content="Registrei."),
+            ]}
+
+    resposta, evidencias = await responder_com_evidencias(_AgenteFake(), [])
+
+    assert resposta == "Registrei."
+    assert evidencias == "add_transaction({'amount': 2}) -> {'status': 'ok', 'id': 7}"
+
+
+async def test_responder_com_evidencias_sem_tool_usa_a_propria_resposta():
+    class _AgenteFake:
+        async def ainvoke(self, _entrada):
+            return {"messages": [AIMessage(content="Não sei.")]}
+
+    resposta, evidencias = await responder_com_evidencias(_AgenteFake(), [])
+
+    assert (resposta, evidencias) == ("Não sei.", "Não sei.")

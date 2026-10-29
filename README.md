@@ -113,7 +113,7 @@ assessor-ai/
 │   │   └── user_, auth_, categoria_, memoria_, health_service.py
 │   │
 │   ├── graph/                       # O que o `runner` executa
-│   │   ├── nodes/                   # no_roteador, no_financeiro, no_agenda, no_faq, no_orquestrador
+│   │   ├── nodes/                   # no_roteador, no_financeiro, no_agenda, no_faq, no_orquestrador, no_juiz
 │   │   ├── guardrail/               # entrada.py, saida.py, schemas.py (categorias, respostas de bloqueio)
 │   │   ├── prompts/                 # Prompts .md + loader.py (load_prompt/load_sections)
 │   │   ├── tools/                   # Uma pasta por domínio: schemas.py + tools.py (ToolSet fina)
@@ -170,6 +170,10 @@ Usuário
 │  recebe o JSON do especialista + histórico da conversa
 │  formata a resposta em linguagem natural
 ▼
+[Juiz]  (apenas Financeiro e Agenda)
+│  confere a frase contra a fala do usuário e o que as tools receberam e devolveram
+│  aprovou: a transação do turno pode ser confirmada · recusou: a frase vira a segura e as escritas do turno são desfeitas
+▼
 [Guardrail Saída]
 │  redige PII remanescente
 │  revisa compliance (CVM/ANBIMA): remove garantias de rentabilidade e recomendações de ativos sem disclaimer
@@ -187,6 +191,7 @@ Usuário
 | **Agenda** | `gemini-2.5-flash` → `openai/gpt-oss-120b` → GPT-6 Luna | Interpreta perguntas de agenda e chama as tools de eventos |
 | **FAQ** | `openai/gpt-oss-120b` (temp 0.0) | Consulta o PDF via RAG e responde dúvidas sobre o sistema |
 | **Orquestrador** | `openai/gpt-oss-120b` (temp 0.0) | Formata a resposta do especialista em linguagem natural |
+| **Juiz** | JeV (sem LLM de reserva) | Aprova ou recusa o turno; só com aprovação as escritas no Postgres são confirmadas |
 | **Guardrail Saída** | `openai/gpt-oss-120b` (temp 0.0) | Revisa compliance e redige PII na resposta final |
 
 ---
@@ -209,6 +214,16 @@ O guardrail de saída nunca bloqueia — apenas revisa:
 
 1. **Redação de PII** — remove dados pessoais remanescentes da resposta (CPF, CNPJ, número de conta e cartão)
 2. **Compliance CVM/ANBIMA** — corrige afirmações que garantam rentabilidade futura ou recomendem ativos sem disclaimer de risco
+
+---
+
+### Juiz e escritas no Postgres
+
+As tools que gravam (`add_transaction`, `update_transaction`, `add_event`, `update_event`) não confirmam
+nada sozinhas durante o chat: o runner abre uma transação por turno (`infra/postgres/transacao_do_turno.py`),
+as tools gravam dentro dela, e o commit só acontece no fim do grafo, se o juiz aprovou. Recusa, juiz fora do ar,
+exceção ou queda do processo desfazem o turno. Fora do chat (MCP) o commit continua imediato. A decisão e as
+alternativas descartadas estão no [decisao_tecnica.md](decisao_tecnica.md).
 
 ---
 

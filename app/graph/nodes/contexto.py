@@ -12,7 +12,7 @@ isso o especialista nunca enxerga nem o perfil nem a pergunta que o roteador enc
 from collections.abc import Sequence
 from typing import Any
 
-from langchain_core.messages import AnyMessage, SystemMessage
+from langchain_core.messages import AIMessage, AnyMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import Runnable
 
 from app.graph.prompts.loader import contexto_do_turno
@@ -39,16 +39,45 @@ def mensagens_com_contexto(
     return [SystemMessage(content=contexto), *estado["messages"]]
 
 
-async def responder(app: Runnable[Any, Any], mensagens: Sequence[AnyMessage]) -> str:
-    """Roda o agente com `mensagens` e devolve o texto da última mensagem que ele produziu."""
+async def responder_com_evidencias(
+    app: Runnable[Any, Any], mensagens: Sequence[AnyMessage]
+) -> tuple[str, str]:
+    """
+    Roda o agente e devolve o texto da última mensagem dele e as evidências do turno: cada tool chamada,
+    com os argumentos que recebeu e o que devolveu. É contra isso que o juiz confere a resposta.
+    Sem nenhuma tool chamada, a própria resposta é a evidência.
+
+    Os argumentos entram porque o retorno de uma escrita não repete o que foi gravado (o `add_transaction`
+    devolve só `id` e `occurred_at`). `messages` do estado só tem Human/AI, então todo `ToolMessage` da
+    saída é desta execução.
+    """
 
     saida = await app.ainvoke({"messages": list(mensagens)})
-    conteudo = saida["messages"][-1].content
+    mensagens_saida = saida["messages"]
+    conteudo = mensagens_saida[-1].content
 
     if not isinstance(conteudo, str):
         raise RespostaAgenteInvalida("O agente não retornou conteúdo textual.")
 
-    return conteudo
+    args_por_chamada = {
+        chamada["id"]: chamada["args"]
+        for m in mensagens_saida if isinstance(m, AIMessage)
+        for chamada in m.tool_calls
+    }
+    evidencias = "\n\n".join(
+        f"{m.name}({args_por_chamada.get(m.tool_call_id, {})}) -> {m.content}"
+        for m in mensagens_saida if isinstance(m, ToolMessage)
+    )
+
+    return conteudo, evidencias or conteudo
 
 
-__all__ = ["RespostaAgenteInvalida", "mensagens_com_contexto", "responder"]
+async def responder(app: Runnable[Any, Any], mensagens: Sequence[AnyMessage]) -> str:
+    """Roda o agente com `mensagens` e devolve o texto da última mensagem que ele produziu."""
+
+    resposta, _ = await responder_com_evidencias(app, mensagens)
+
+    return resposta
+
+
+__all__ = ["RespostaAgenteInvalida", "mensagens_com_contexto", "responder", "responder_com_evidencias"]

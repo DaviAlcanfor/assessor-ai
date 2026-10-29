@@ -6,6 +6,7 @@ type NodeName = Literal[
     "agenda_node",
     "faq_node",
     "orquestrador_node",
+    "juiz_node",
     "guardrail_entrada_node",
     "guardrail_saida_node",
 ]
@@ -16,6 +17,7 @@ FINANCEIRO: NodeName = "financeiro_node"
 AGENDA: NodeName = "agenda_node"
 FAQ: NodeName = "faq_node"
 ORQUESTRADOR: NodeName = "orquestrador_node"
+JUIZ: NodeName = "juiz_node"
 GUARDRAIL_ENTRADA: NodeName = "guardrail_entrada_node"
 GUARDRAIL_SAIDA: NodeName = "guardrail_saida_node"
 
@@ -26,6 +28,7 @@ __all__ = [
     "FINANCEIRO",
     "GUARDRAIL_ENTRADA",
     "GUARDRAIL_SAIDA",
+    "JUIZ",
     "ORQUESTRADOR",
     "ROTEADOR",
 ]

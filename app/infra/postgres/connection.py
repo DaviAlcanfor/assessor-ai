@@ -25,6 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.infra.base import Conector
+from app.infra.postgres.transacao_do_turno import transacao_atual
 from app.settings import settings
 
 
@@ -68,7 +69,13 @@ class PostgresConn(Conector[Engine]):
 
     @contextmanager
     def session(self) -> Iterator[Session]:
-        """Commit no sucesso, rollback na exceção, close sempre."""
+        """Commit no sucesso, rollback na exceção, close sempre. Dentro da transação de um turno do chat,
+        usa a sessão dela e não confirma nada: quem decide é o juiz, via runner."""
+
+        if (turno := transacao_atual()) is not None:
+            with turno.usar(self._factory) as session:
+                yield session
+            return
 
         session = self._factory()
         try:

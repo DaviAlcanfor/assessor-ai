@@ -25,7 +25,6 @@
 | 3. O efeito nas métricas do SRE, e como | 3 |
 | 4. As outras decisões: `add_google_event`, `salvar_mensagem`, juiz sem resposta, queda do processo, repetição do pedido, evidência com marcador único | 4 |
 | 5. Arquivos criados e arquivos modificados | 5 |
-| O primeiro rascunho, como foi escrito | Apêndice |
 
 ---
 
@@ -85,7 +84,7 @@ Vale para `add_transaction`, `update_transaction`, `add_event` e `update_event`.
 
 ### Como cheguei nisso
 
-Comecei com um rascunho solto (no apêndice, do jeito que escrevi) e fui debatendo com uma IA, passando pelo código do projeto e pelo juiz do Frigus, até chegar nesta solução. A ideia central do rascunho era viável: é o Transacionar, com um objeto de aprovação que confirma ou desfaz. O resto não era:
+Comecei com um rascunho solto, antes de olhar o código, e viajei bastante nele. Depois fui debatendo com uma IA, passando pelo código do projeto e pelo juiz do Frigus, até chegar nesta solução. A ideia central do rascunho era viável: é o Transacionar, com um objeto de aprovação que confirma ou desfaz. O resto não era:
 
 - **Thread paralela e `yield`:** o fluxo já é sequencial e a sessão do SQLAlchemy não aceita uso por duas threads ao mesmo tempo. Bastou deixar a transação aberta durante o turno.
 - **`@retry` até aprovar:** cada volta custa uma chamada de LLM e uma de JeV, dentro do SLO de 8 s, e só conserta a frase, não uma escrita errada. Recusado, o turno agora desfaz e devolve uma frase segura.
@@ -277,38 +276,3 @@ Ficaram no banco as linhas aprovadas e as pré-existentes criadas para os testes
 - `README.md`, `TODO.md`: o juiz no fluxo e o que falta validar.
 
 Rotas, API, services, repositories, tools e o servidor MCP não foram alterados.
-
----
-
-## Apêndice: o primeiro rascunho
-
-Escrevi isto antes de olhar o código, do jeito que veio. Viajei bastante nesse primeiro rascunho. Depois fui debatendo ele com uma IA, passando pelo código do projeto e pelo juiz do Frigus, até chegar na solução acima.
-
-```text
-tem que ver oq da pra fazer 
-
-resumindo tem que adicionar o juiz já com safety de mudanças nas coisas
-primeiro temos que mapear as classes pra isso:
-- em quais objetos os dados vao circular
-- em qual tipo de classe isso se encaixa
-
-pensei numa solução mas ela tem que ser alinhada com as opções ditas pelo enunciado, então precisa ver se ela se encaixa com alguma:
-- Interceptar: Algo julga a ação antes de a tool que escreve ser chamada.
-- Adiar: A tool prepara a mudança. A confirmação permanente espera o veredito.
-- Transacionar: O turno compartilha uma unidade de trabalho. Aprovar confirma. Recusar desfaz.
-- Compensar: O efeito acontece e, na recusa, uma ação inversa desfaz o que ficou.
-
-### O que eu pensei
-
-jogar numa thread paralela as mudanças uncommited, de acordo com o veredito, ele pega isso e executa
-
-- um objeto de aprovação
-- ele joga num yield da vida esperando
-- joga uma dependência com dishka/wireup
-- aceitando ele commita
-
-recusado ele desfaz tudo e reescreve a msg pro usuário?
-da pra usar @retry no recusado ate ser aprovado e não der mais pra fazer
-
- *depois precisa ver qual se encaixa melhor nas 4 opções
-```

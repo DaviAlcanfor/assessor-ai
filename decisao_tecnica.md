@@ -75,13 +75,13 @@ wireup. Eu queria usar: o escopo por turno dele é parecido com o que a transaç
 
 ## 3. Efeito nas métricas do SRE
 
-Nada abaixo foi medido; é o mecanismo, lido do código.
+Os números vêm de um teste na nuvem, com LLMs, JeV e Postgres reais, alternando 4 turnos com o juiz e 4 sem ele, com o mesmo pedido (alterar o valor de um lançamento). A amostra é pequena e a rede varia muito, então vale como ordem de grandeza. O mecanismo vem do código.
 
 Transação do turno (escolhida):
-- Latência e p95 (SLO 8 s): sobe pelo tempo de uma chamada ao JeV nos turnos de financeiro e agenda (o FAQ não passa pelo juiz). O teto dela é timeout_curto_s = 15 s, maior que o SLO. Não há chamada extra de LLM de texto.
-- Conexão presa: antes por milissegundos; agora da primeira operação no banco até o fim do grafo (orquestrador, juiz e guardrail de saída, que pode chamar o LLM até duas vezes). O pool tem pool_size=10, então muitos turnos com escrita simultâneos podem esperar conexão. Um UPDATE também segura o lock da linha até o fim do turno.
+- Latência e p95 (SLO 8 s): sobe pelo tempo de uma chamada ao JeV nos turnos de financeiro e agenda (o FAQ não passa pelo juiz). Medido: o nó do juiz leva de 0,31 s a 0,47 s por turno. O turno inteiro variou de 12 s a 57 s nas duas versões (mediana de 32 s sem o juiz e 40 s com), muito acima do SLO nos dois casos, provavelmente porque a cota do Gemini estava esgotada e as chamadas caíam para a reserva. A diferença entre as medianas é ruído de LLM, não custo do juiz. O teto da chamada ao JeV é timeout_curto_s = 15 s, maior que o SLO. Não há chamada extra de LLM de texto.
+- Conexão presa: antes por milissegundos; agora da primeira operação no banco até o fim do grafo (orquestrador, juiz e guardrail de saída, que pode chamar o LLM até duas vezes). Medido: de 10,9 s a 37,7 s por turno (mediana de 20,8 s) nesses turnos lentos; com LLMs rápidos seria bem menos, mas cresce junto com o tempo do turno. O pool tem pool_size=10, então muitos turnos com escrita simultâneos podem esperar conexão. Um UPDATE também segura o lock da linha até o fim do turno.
 - Taxa de erro (SLO 5%): turno recusado termina em frase segura, sem exceção, e conta como sucesso. Juiz fora do ar também não levanta exceção. Só conta erro se o grafo ou o commit levantar. Bloqueio do guardrail de entrada continua não sendo erro.
-- Tokens e custo: o JeV soma os tokens de entrada em LLM_TOKENS. O turno recusado gasta um pouco menos, porque a frase segura não passa pela revisão do guardrail de saída.
+- Tokens e custo: o JeV soma os tokens de entrada em LLM_TOKENS. Medido: o juiz acrescenta cerca de 850 tokens de entrada no gateway por turno (média de 2067 com o juiz contra 1205 sem). O turno recusado gasta um pouco menos, porque a frase segura não passa pela revisão do guardrail de saída.
 - Segundo efeito: nenhum. Cada tool roda uma vez e o commit acontece uma vez.
 
 Compensar (descartada): não prende conexão nem lock, mas a recusa custa mais uma ida ao banco. Se o passo de desfazer falhar, a linha errada fica e o usuário vê uma frase segura, um erro que a métrica de erro não enxerga.

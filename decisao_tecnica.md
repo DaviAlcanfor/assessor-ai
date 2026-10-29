@@ -45,6 +45,8 @@ Viajei bastante nesse primeiro rascunho. Depois fui debatendo ele com uma IA, pa
 
 Por que cabe neste grafo: todo acesso ao Postgres passa por PostgresConn.session(). Alterando só ele, as quatro escritas ficam cobertas, sem mexer em tool, service ou repository: add_transaction, update_transaction, add_event e update_event (esta existe no projeto, mas o enunciado não lista). A transação chega às tools por um ContextVar, o mesmo mecanismo do session_context, que já leva o usuário do turno.
 
+Por que Transacionar e não as outras: a regra exige que o dado recusado nunca fique visível nem permanente. Só a transação garante isso sem exceção: enquanto o veredito não chega, a linha nem existe para outras consultas, e se o processo cair ela some sozinha. Interceptar julgaria a ação em vez da frase, e Adiar e Compensar deixam uma linha no banco durante o turno. O custo que aceitei foi a conexão presa até o fim do turno (medido na seção 3).
+
 Antes:
 modelo → tool grava e dá commit → orquestrador → guardrail de saída → chat
 

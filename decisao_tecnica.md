@@ -82,14 +82,6 @@ A terceira cobre o caso dos "2 dólares", em que a frase está coerente e o dado
 
 Vale para `add_transaction`, `update_transaction`, `add_event` e `update_event`.
 
-### Como cheguei nisso
-
-Comecei com um rascunho solto, antes de olhar o código, e viajei bastante nele. Depois fui debatendo com uma IA, passando pelo código do projeto e pelo juiz do Frigus, até chegar nesta solução. A ideia central do rascunho era viável: é o Transacionar, com um objeto de aprovação que confirma ou desfaz. O resto não era:
-
-- **Thread paralela e `yield`:** o fluxo já é sequencial e a sessão do SQLAlchemy não aceita uso por duas threads ao mesmo tempo. Bastou deixar a transação aberta durante o turno.
-- **`@retry` até aprovar:** cada volta custa uma chamada de LLM e uma de JeV, dentro do SLO de 8 s, e só conserta a frase, não uma escrita errada. Recusado, o turno agora desfaz e devolve uma frase segura.
-- **`wireup`:** eu queria muito usar, mas o ganho seria pequeno (seção 2).
-
 ---
 
 ## 2. As decisões que o grupo não tomou, e por quê

@@ -117,13 +117,17 @@ Evidência no Postgres real (nuvem), com LLMs, JeV (gateway), grafo e runner rea
 - add_event (prova65df9b): [juiz] APROVADO, 0 → 1 linha.
 - update_event (prova2e4cda): [juiz] APROVADO, local Sala 1 → Sala 2.
 
-Recusa nas outras três tools: o juiz real só recusou o caso dos dólares, então para mostrar a recusa em update_transaction (provaadd60a), add_event (provad22238, prova34f3fd) e update_event (prova97a70c) o veredito foi forçado, com o resto real (LLMs, grafo, runner, banco). Resultado: valor 10 → 10, 0 → 0 linhas e local Sala 1 → Sala 1.
+Recusa natural nas outras três tools: usei pedidos que as tools não conseguem gravar de fato, sem forçar nada, e o juiz real recusou com a escrita já feita e desfeita (log "escrita pendente: True"):
+- update_transaction: "99 dólares" (prova6ea3bf), "99 euros" (provac66845) e "envie o comprovante por e-mail" (prova9a3cdf): valor 10 → 10 nos três.
+- add_event: "convide o João, a Maria e o Pedro, confirmando a presença de todos" (prova511624): 0 → 0 linhas.
+- update_event: "envie atualização por e-mail aos participantes" (prova9ab239) e "transforme em evento recorrente" (prova8fcb9d): local Sala 1 → Sala 1 nos dois.
+Nos 13 pedidos dessa bateria o banco bateu com o veredito (reprovado: igual a antes; aprovado: escrita presente). Em 5 pedidos reprovados não havia escrita pendente porque o modelo nem chamou a tool; esses não contam como prova.
 
 Sem a chave do gateway, o JeV real fica indisponível: add_transaction (prova0ce81e) → 0 linhas e frase segura, como decidido.
 
 Ficaram no banco as linhas aprovadas e as pré-existentes criadas para os testes de alteração, todas com marcador "prova...".
 
-Limites: o corte do juiz (0,5 nos predicados) não foi calibrado e a amostra real é pequena (5 turnos). Nos testes automáticos o banco é SQLite (o SAVEPOINT exigiu um ajuste de driver só neles). O frontend ainda não desenha o juiz_node. Achado fora do escopo: no Postgres real, update_transaction por texto e data falha com "operator does not exist: date = character varying" (o SQLite aceita); por isso a prova de alteração usou o id.
+Limites: o corte do juiz (0,5 nos predicados) não foi calibrado e a amostra real é pequena (18 turnos). O juiz confere a frase contra os dados gravados, não o que a tool consegue fazer: aprovou "marcada com notificação 1 hora antes" porque o modelo escreveu esse lembrete nas notas do evento, embora nenhuma notificação seja programada. Nos testes automáticos o banco é SQLite (o SAVEPOINT exigiu um ajuste de driver só neles). O frontend ainda não desenha o juiz_node. Achado fora do escopo: no Postgres real, update_transaction por texto e data falha com "operator does not exist: date = character varying" (o SQLite aceita); por isso a prova de alteração usou o id.
 
 ## 5. Arquivos
 

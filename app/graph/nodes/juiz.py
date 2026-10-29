@@ -55,7 +55,7 @@ async def _avaliar(estado: Estado) -> Veredito:
             PerguntaPredicado(name="fidelidade", instructions=_PROMPTS["fidelidade"]),
         ])
     except Exception as e:
-        logger.warning("Juiz JeV falhou (%s): %s", type(e).__name__, e)
+        logger.warning("[juiz] JeV falhou (%s): %s", type(e).__name__, e)
         return Veredito.INDISPONIVEL
 
     aprovou = (
@@ -84,10 +84,10 @@ async def no_juiz(estado: Estado) -> JuizUpdate:
         transacao.aprovada = veredito is Veredito.APROVADO
 
     if veredito is Veredito.REPROVADO or (veredito is Veredito.INDISPONIVEL and escreveu):
-        logger.warning("Juiz %s (escrita pendente: %s): turno desfeito, resposta trocada pela segura", veredito, escreveu)
+        logger.warning("[juiz] %s (escrita pendente: %s): turno desfeito, resposta trocada pela segura", veredito, escreveu)
         resposta = FRASE_SEGURA
     else:
-        logger.info("Juiz %s", veredito)
+        logger.info("[juiz] %s (escrita pendente: %s)", veredito, escreveu)
         resposta = estado["resposta_especialista"]
 
     return JuizUpdate(agentes_chamados=[JUIZ], resposta_especialista=resposta)

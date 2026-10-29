@@ -108,7 +108,16 @@ Testes de recusa (nada fica) e de aprovação (grava uma vez), por tool:
 - add_event: test_add_event_recusado_nao_deixa_evento / test_add_event_aprovado_grava_uma_vez
 - update_event: test_update_event_recusado_mantem_o_titulo_antigo / test_update_event_aprovado_aplica_a_mudanca
 
-Limites da evidência: os testes rodam em SQLite com o JeV simulado (o SAVEPOINT exigiu um ajuste de driver só nos testes). Falta a prova no chat real, contra o Postgres e o gateway de verdade; o corte do juiz (0,5 nos predicados) não foi calibrado; o frontend ainda não desenha o juiz_node.
+Evidência no Postgres real (nuvem), com LLMs, grafo e runner reais. Só o veredito do juiz foi forçado, porque este ambiente não tem a chave do gateway do JeV. O log do juiz sai com o rótulo [juiz]. Cada tentativa usa um marcador único:
+- add_transaction: recusado (prova594740) 0 → 0 linhas; aprovado (provab96302) 0 → 1 linha.
+- update_transaction: recusado (provaadd60a) valor 10 → 10; aprovado (provab7065d) valor 10 → 99.
+- add_event: recusado (provad22238) 0 → 0 linhas; aprovado (provaaa41ef) 0 → 1 linha.
+- update_event: recusado (provaed9912) local Sala 1 → Sala 1; aprovado (prova959c1c) local Sala 1 → Sala 2.
+- Sem a chave do gateway, o JeV real fica indisponível: add_transaction (prova0ce81e) → 0 linhas e frase segura, como decidido.
+
+O add_event aprovado e os dois update_event foram feitos chamando a tool real, no Postgres real, dentro da transação do turno e com o nó do juiz real, sem o LLM, porque a cota do Gemini acabou. Os demais passaram pelo grafo inteiro. Ficaram no banco as linhas aprovadas e as pré-existentes criadas para os testes de alteração, todas com marcador "prova...".
+
+Limites: o JeV real nunca foi chamado e o corte do juiz (0,5 nos predicados) não foi calibrado. Nos testes automáticos o banco é SQLite (o SAVEPOINT exigiu um ajuste de driver só neles). O frontend ainda não desenha o juiz_node. Achado fora do escopo: no Postgres real, update_transaction por texto e data falha com "operator does not exist: date = character varying" (o SQLite aceita); por isso a prova de alteração usou o id.
 
 ## 5. Arquivos
 

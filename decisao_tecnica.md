@@ -107,7 +107,7 @@ Vale para `add_transaction`, `update_transaction`, `add_event` e `update_event`.
 - **Custo real:** a linha fica confirmada e visível até a correção, e uma queda nessa janela a deixa para sempre. O `UPDATE` ainda exigiria guardar o valor antigo de cada campo.
 - **Por que ficou de fora:** quebra a regra, porque o dado errado chega a ser permanente.
 
-### Reescrever a frase até o juiz aprovar (o `@retry` do rascunho)
+### Reescrever a frase até o juiz aprovar (`@retry`)
 
 - **Como funcionaria aqui:** o juiz recusa, o orquestrador reescreve com um feedback e o juiz olha de novo, até um limite (é o que o juiz do Frigus faz).
 - **Vantagem real:** as tools não rodam de novo, então não duplica escrita.

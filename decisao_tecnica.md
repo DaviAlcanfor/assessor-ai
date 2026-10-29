@@ -108,16 +108,20 @@ Testes de recusa (nada fica) e de aprovação (grava uma vez), por tool:
 - add_event: test_add_event_recusado_nao_deixa_evento / test_add_event_aprovado_grava_uma_vez
 - update_event: test_update_event_recusado_mantem_o_titulo_antigo / test_update_event_aprovado_aplica_a_mudanca
 
-Evidência no Postgres real (nuvem), com LLMs, grafo e runner reais. Só o veredito do juiz foi forçado, porque este ambiente não tem a chave do gateway do JeV. O log do juiz sai com o rótulo [juiz]. Cada tentativa usa um marcador único:
-- add_transaction: recusado (prova594740) 0 → 0 linhas; aprovado (provab96302) 0 → 1 linha.
-- update_transaction: recusado (provaadd60a) valor 10 → 10; aprovado (provab7065d) valor 10 → 99.
-- add_event: recusado (provad22238) 0 → 0 linhas; aprovado (provaaa41ef) 0 → 1 linha.
-- update_event: recusado (provaed9912) local Sala 1 → Sala 1; aprovado (prova959c1c) local Sala 1 → Sala 2.
-- Sem a chave do gateway, o JeV real fica indisponível: add_transaction (prova0ce81e) → 0 linhas e frase segura, como decidido.
+Evidência no Postgres real (nuvem), com LLMs, JeV (gateway), grafo e runner reais, sem forçar nenhum veredito. O log do juiz sai com o rótulo [juiz]. Cada tentativa usa um marcador único:
+- add_transaction, pedido normal (prova7790d2): [juiz] APROVADO, 0 → 1 linha.
+- add_transaction, "2 dólares" (provae2d24a): [juiz] REPROVADO, 0 → 0 linhas, o usuário recebe a frase segura. É o caso da prática: o modelo gravou e o juiz recusou, e nada ficou.
+- update_transaction (prova11b263): [juiz] APROVADO, valor 10 → 99.
+- add_event (prova65df9b): [juiz] APROVADO, 0 → 1 linha.
+- update_event (prova2e4cda): [juiz] APROVADO, local Sala 1 → Sala 2.
 
-O add_event aprovado e os dois update_event foram feitos chamando a tool real, no Postgres real, dentro da transação do turno e com o nó do juiz real, sem o LLM, porque a cota do Gemini acabou. Os demais passaram pelo grafo inteiro. Ficaram no banco as linhas aprovadas e as pré-existentes criadas para os testes de alteração, todas com marcador "prova...".
+Recusa nas outras três tools: o juiz real só recusou o caso dos dólares, então para mostrar a recusa em update_transaction (provaadd60a), add_event (provad22238, prova34f3fd) e update_event (prova97a70c) o veredito foi forçado, com o resto real (LLMs, grafo, runner, banco). Resultado: valor 10 → 10, 0 → 0 linhas e local Sala 1 → Sala 1.
 
-Limites: o JeV real nunca foi chamado e o corte do juiz (0,5 nos predicados) não foi calibrado. Nos testes automáticos o banco é SQLite (o SAVEPOINT exigiu um ajuste de driver só neles). O frontend ainda não desenha o juiz_node. Achado fora do escopo: no Postgres real, update_transaction por texto e data falha com "operator does not exist: date = character varying" (o SQLite aceita); por isso a prova de alteração usou o id.
+Sem a chave do gateway, o JeV real fica indisponível: add_transaction (prova0ce81e) → 0 linhas e frase segura, como decidido.
+
+Ficaram no banco as linhas aprovadas e as pré-existentes criadas para os testes de alteração, todas com marcador "prova...".
+
+Limites: o corte do juiz (0,5 nos predicados) não foi calibrado e a amostra real é pequena (5 turnos). Nos testes automáticos o banco é SQLite (o SAVEPOINT exigiu um ajuste de driver só neles). O frontend ainda não desenha o juiz_node. Achado fora do escopo: no Postgres real, update_transaction por texto e data falha com "operator does not exist: date = character varying" (o SQLite aceita); por isso a prova de alteração usou o id.
 
 ## 5. Arquivos
 
